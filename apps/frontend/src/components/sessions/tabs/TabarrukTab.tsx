@@ -1,0 +1,182 @@
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, Trash2, Gift, X, Save, Edit2 } from "lucide-react";
+import { Session, TabarrukItem } from "../../../lib/sessionsData";
+
+const INPUT = "w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
+const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
+const EMPTY: Partial<TabarrukItem> = { item: "", quantity: "", occasion: "", date: "", note: "" };
+
+interface TabarrukModalProps {
+  entry: TabarrukItem | null;
+  onClose: () => void;
+  onSave: (entry: TabarrukItem) => void;
+}
+
+function TabarrukModal({ entry, onClose, onSave }: TabarrukModalProps) {
+  const [data, setData] = useState<Partial<TabarrukItem>>(entry ? { ...entry } : { ...EMPTY });
+  const upd = (f: keyof TabarrukItem, v: string) => setData((d) => ({ ...d, [f]: v }));
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="tabarruk-modal-title">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <motion.form
+        onSubmit={(e) => { e.preventDefault(); onSave({ ...data, id: entry?.id || `tb${Date.now()}` } as TabarrukItem); }}
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative bg-card rounded-2xl border border-border shadow-2xl w-full max-w-sm z-10"
+      >
+        <header className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 id="tabarruk-modal-title" className="text-sm font-bold text-foreground m-0">{entry ? "Edit Tabarruk" : "Add Tabarruk"}</h3>
+          <button type="button" onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="w-4 h-4" aria-hidden="true" /></button>
+        </header>
+        <fieldset className="px-5 py-4 space-y-4 border-none m-0">
+          <div>
+            <label className={LABEL} htmlFor="tabarruk-item">Item *</label>
+            <input id="tabarruk-item" className={INPUT} value={data.item || ""} onChange={(e) => upd("item", e.target.value)} placeholder="e.g. Dates (Ajwa)" required />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={LABEL} htmlFor="tabarruk-quantity">Quantity</label>
+              <input id="tabarruk-quantity" className={INPUT} value={data.quantity || ""} onChange={(e) => upd("quantity", e.target.value)} placeholder="e.g. 5 kg" />
+            </div>
+            <div>
+              <label className={LABEL} htmlFor="tabarruk-date">Date</label>
+              <input id="tabarruk-date" type="date" className={INPUT} value={data.date || ""} onChange={(e) => upd("date", e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className={LABEL} htmlFor="tabarruk-occasion">Occasion</label>
+            <input id="tabarruk-occasion" className={INPUT} value={data.occasion || ""} onChange={(e) => upd("occasion", e.target.value)} placeholder="e.g. Opening Ceremony" />
+          </div>
+          <div>
+            <label className={LABEL} htmlFor="tabarruk-note">Note</label>
+            <textarea id="tabarruk-note" className={INPUT + " min-h-[60px] resize-none"} value={data.note || ""} onChange={(e) => upd("note", e.target.value)} placeholder="Any additional notes…" />
+          </div>
+        </fieldset>
+        <footer className="px-5 py-4 border-t border-border flex justify-end gap-2.5">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
+          <button
+            type="submit"
+            disabled={!data.item}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60"
+          >
+            <Save className="w-3.5 h-3.5" aria-hidden="true" /> Save
+          </button>
+        </footer>
+      </motion.form>
+    </div>
+  );
+}
+
+interface TabarrukTabProps {
+  session: Session;
+  onUpdate: (session: Session) => void;
+}
+
+/**
+ * TabarrukTab Component
+ *
+ * Renders the session management tab for Tabarruk (blessed items/gifts distributed
+ * to students or attendees during events). Supports viewing the list of distributed items,
+ * quantities, occasions, and dates, with options to add, edit, or delete items.
+ *
+ * @param props - Component properties.
+ * @returns React element representing the Tabarruk tracking tab UI.
+ */
+export default function TabarrukTab({ session, onUpdate }: TabarrukTabProps) {
+  const [showModal, setShowModal] = useState(false);
+  const [editEntry, setEditEntry] = useState<TabarrukItem | null>(null);
+  const items = session.tabarruk || [];
+
+  const handleSave = (entry: TabarrukItem) => {
+    const existing = items.find((x) => x.id === entry.id);
+    onUpdate({ ...session, tabarruk: existing ? items.map((x) => x.id === entry.id ? entry : x) : [...items, entry] });
+    setShowModal(false); setEditEntry(null);
+  };
+
+  const handleDelete = (id: string) => onUpdate({ ...session, tabarruk: items.filter((x) => x.id !== id) });
+
+  return (
+    <section aria-label="Session Tabarruk" className="space-y-4">
+      {/* Info banner */}
+      <article className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-100">
+        <Gift className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+        <p className="text-[12px] text-amber-800 leading-relaxed m-0">
+          <strong>Tabarruk</strong> refers to blessed items distributed to students and attendees during events — such as dates, Zam Zam water, or sweets — as a means of seeking blessings.
+        </p>
+      </article>
+
+      <header className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-foreground m-0">{items.length} item{items.length !== 1 ? "s" : ""} recorded</p>
+        <button
+          onClick={() => { setEditEntry(null); setShowModal(true); }}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" aria-hidden="true" /> Add Tabarruk
+        </button>
+      </header>
+
+      {items.length === 0 ? (
+        <div className="py-12 text-center rounded-xl border-2 border-dashed border-border">
+          <Gift className="w-8 h-8 text-muted-foreground mx-auto mb-2" aria-hidden="true" />
+          <p className="text-sm font-medium text-foreground m-0">No tabarruk recorded yet</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border overflow-hidden bg-card">
+          <table className="w-full text-sm">
+            <caption className="sr-only">List of Tabarruk items</caption>
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th scope="col" className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Item</th>
+                <th scope="col" className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Quantity</th>
+                <th scope="col" className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Occasion</th>
+                <th scope="col" className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Date</th>
+                <th scope="col" className="px-4 py-2.5 w-16"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/50">
+              {items.map((item, i) => (
+                <motion.tr
+                  key={item.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="hover:bg-muted/20 transition-colors group"
+                >
+                  <td className="px-4 py-3">
+                    <p className="text-[13px] font-semibold text-foreground m-0">{item.item}</p>
+                    {item.note && <p className="text-[11px] text-muted-foreground m-0">{item.note}</p>}
+                  </td>
+                  <td className="px-4 py-3 hidden sm:table-cell">
+                    <span className="text-[13px] text-foreground">{item.quantity || "—"}</span>
+                  </td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    <span className="text-[13px] text-muted-foreground">{item.occasion || "—"}</span>
+                  </td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    <span className="text-[12px] text-muted-foreground">{item.date || "—"}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1 justify-end">
+                      <button aria-label={`Edit ${item.item}`} onClick={() => { setEditEntry(item); setShowModal(true); }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100">
+                        <Edit2 className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                      <button aria-label={`Delete ${item.item}`} onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100">
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {showModal && <TabarrukModal entry={editEntry} onClose={() => { setShowModal(false); setEditEntry(null); }} onSave={handleSave} />}
+      </AnimatePresence>
+    </section>
+  );
+}

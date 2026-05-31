@@ -1,0 +1,304 @@
+import React, { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, Search, X, Star, User, Users2, Filter, ChevronDown, Eye } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Distribution, Denomination, StockBatch } from "../../lib/hasanatData";
+
+const STATUS_CFG: Record<string, { label: string, cls: string }> = {
+  active:   { label: "Active",   cls: "bg-blue-50 text-blue-700 border-blue-100" },
+  redeemed: { label: "Redeemed", cls: "bg-violet-50 text-violet-700 border-violet-100" },
+  returned: { label: "Returned", cls: "bg-muted text-muted-foreground border-border" },
+};
+
+const INPUT = "w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
+const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
+
+interface DistributeModalProps {
+  denoms: Denomination[];
+  batches: StockBatch[];
+  onClose: () => void;
+  onSave: (dist: Distribution) => void;
+}
+
+function DistributeModal({ denoms, batches, onClose, onSave }: DistributeModalProps) {
+  const [data, setData] = useState<Partial<Distribution>>({ 
+    denominationId: denoms[0]?.id || "", 
+    recipientType: "student", 
+    recipientName: "", 
+    recipientClass: "", 
+    quantity: 1, 
+    reason: "", 
+    issuedDate: new Date().toISOString().split("T")[0], 
+    issuedBy: "" 
+  });
+
+  const upd = <K extends keyof Distribution>(f: K, v: Distribution[K]) => setData((d: Partial<Distribution>) => ({ ...d, [f]: v }));
+
+  const selectedDen = denoms.find((d) => d.id === data.denominationId);
+  const availableBatches = batches.filter((b) => b.denominationId === data.denominationId && b.remaining > 0);
+  const totalAvailable = availableBatches.reduce((s: number, b: StockBatch) => s + b.remaining, 0);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <motion.div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="distribute-modal-title"
+        initial={{ opacity: 0, scale: 0.96 }} 
+        animate={{ opacity: 1, scale: 1 }} 
+        className="relative bg-card rounded-2xl border border-border shadow-2xl w-full max-w-md z-10 max-h-[90vh] flex flex-col"
+      >
+        <header className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+          <h3 id="distribute-modal-title" className="text-sm font-bold text-foreground m-0">Distribute Cards</h3>
+          <button type="button" aria-label="Close modal" onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="w-4 h-4" aria-hidden="true" /></button>
+        </header>
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <div>
+            <label htmlFor="denom" className={LABEL}>Denomination *</label>
+            <select id="denom" className={INPUT + " cursor-pointer"} value={data.denominationId} onChange={(e) => upd("denominationId", e.target.value)}>
+              {denoms.filter((d) => d.active).map((d) => <option key={d.id} value={d.id}>{d.icon} {d.name} ({d.points} pts)</option>)}
+            </select>
+            {selectedDen && (
+              <div className="mt-2 flex items-center gap-2">
+                <div className="h-8 flex-1 rounded-lg flex items-center gap-2 px-3 text-white text-xs font-semibold" style={{ background: selectedDen.color }}>
+                  <span>{selectedDen.icon}</span><span>{selectedDen.name}</span>
+                </div>
+                <span className={`text-[11px] font-semibold ${totalAvailable === 0 ? "text-red-600" : "text-emerald-600"}`}>
+                  {totalAvailable} available
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Recipient type */}
+          <fieldset>
+            <legend className={LABEL}>Recipient Type</legend>
+            <div className="flex gap-2">
+              {([
+                { id: "student" as const, label: "Student", icon: User },
+                { id: "faculty" as const, label: "Faculty", icon: Users2 }
+              ]).map((rt) => {
+                const Icon = rt.icon;
+                return (
+                  <button
+                    key={rt.id}
+                    type="button"
+                    aria-pressed={data.recipientType === rt.id}
+                    onClick={() => upd("recipientType", rt.id)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-sm font-medium transition-colors ${data.recipientType === rt.id ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted text-muted-foreground"}`}
+                  >
+                    <Icon className="w-3.5 h-3.5" aria-hidden="true" /> {rt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="recp-name" className={LABEL}>Recipient Name *</label>
+              <input id="recp-name" className={INPUT} value={data.recipientName} onChange={(e) => upd("recipientName", e.target.value)} placeholder="Full name" />
+            </div>
+            <div>
+              <label htmlFor="recp-class" className={LABEL}>{data.recipientType === "student" ? "Class" : "Department"}</label>
+              <input id="recp-class" className={INPUT} value={data.recipientClass} onChange={(e) => upd("recipientClass", e.target.value)} placeholder="e.g. Hifz A" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="qty" className={LABEL}>Quantity *</label>
+              <input id="qty" type="number" className={INPUT} value={data.quantity} onChange={(e) => upd("quantity", Math.min(+e.target.value, totalAvailable))} min={1} max={totalAvailable} />
+            </div>
+            <div>
+              <label htmlFor="issue-date" className={LABEL}>Issued Date</label>
+              <input id="issue-date" type="date" className={INPUT} value={data.issuedDate} onChange={(e) => upd("issuedDate", e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="reason" className={LABEL}>Reason / Achievement *</label>
+            <input id="reason" className={INPUT} value={data.reason} onChange={(e) => upd("reason", e.target.value)} placeholder="e.g. Completed Juz 5" />
+          </div>
+
+          <div>
+            <label htmlFor="issued-by" className={LABEL}>Issued By</label>
+            <input id="issued-by" className={INPUT} value={data.issuedBy} onChange={(e) => upd("issuedBy", e.target.value)} placeholder="Teacher / Admin name" />
+          </div>
+        </div>
+        <footer className="px-5 py-4 border-t border-border flex justify-end gap-2.5 flex-shrink-0">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted">Cancel</button>
+          <button
+            type="button"
+            onClick={() => {
+              const den = denoms.find((d) => d.id === data.denominationId);
+              const batch = batches.find((b) => b.denominationId === data.denominationId && b.remaining > 0);
+              onSave({ ...data, id: `dist${Date.now()}`, denominationName: den?.name || "", batchId: batch?.id || "", status: "active" } as Distribution);
+            }}
+            disabled={!data.recipientName || !data.reason || !data.quantity || totalAvailable === 0}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60"
+          >
+            <Star className="w-3.5 h-3.5" aria-hidden="true" /> Distribute
+          </button>
+        </footer>
+      </motion.div>
+    </div>
+  );
+}
+
+export interface DistributionManagerProps {
+  distributions: Distribution[];
+  denoms: Denomination[];
+  batches: StockBatch[];
+  onUpdate: (dists: Distribution[]) => void;
+}
+
+/**
+ * DistributionManager Component
+ *
+ * Renders the ledger interface for tracking physical reward cards distributed to students or faculty.
+ * Enables searching and filtering distributions by keyword or status (e.g., active, redeemed, returned),
+ * updating distribution statuses, and launching a modal to issue new cards to recipients.
+ *
+ * @param props - Component properties.
+ * @returns React element representing the card distribution manager UI.
+ */
+export default function DistributionManager({ distributions, denoms, batches, onUpdate }: DistributionManagerProps) {
+  const [showModal, setShowModal] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
+
+  const filtered = useMemo(() => {
+    return distributions.filter((d) => {
+      const q = search.toLowerCase();
+      const matchSearch = !q || d.recipientName.toLowerCase().includes(q) || d.denominationName.toLowerCase().includes(q) || d.reason?.toLowerCase().includes(q);
+      const matchStatus = filterStatus.length === 0 || filterStatus.includes(d.status);
+      return matchSearch && matchStatus;
+    });
+  }, [distributions, search, filterStatus]);
+
+  const toggleStatus = (s: string) => setFilterStatus((l) => l.includes(s) ? l.filter((x) => x !== s) : [...l, s]);
+
+  const handleDistribute = (dist: Distribution) => {
+    onUpdate([...distributions, dist]);
+    setShowModal(false);
+  };
+
+  const changeStatus = (id: string, status: "active" | "redeemed" | "returned") => onUpdate(distributions.map((d) => d.id === id ? { ...d, status } : d));
+
+  const getDen = (id: string) => denoms.find((d) => d.id === id);
+
+  return (
+    <section aria-label="Distribution Manager" className="space-y-4">
+      <header className="flex gap-3 flex-col sm:flex-row">
+        <div className="relative flex-1">
+          <label htmlFor="search-dist" className="sr-only">Search distributions</label>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+          <input id="search-dist" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search distributions…" className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          {search && <button type="button" aria-label="Clear search" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"><X className="w-3.5 h-3.5" aria-hidden="true" /></button>}
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-medium ${filterStatus.length > 0 ? "border-primary/30 bg-primary/5 text-primary" : "border-border bg-card hover:bg-muted"}`}>
+              <Filter className="w-3.5 h-3.5" aria-hidden="true" /> Status <ChevronDown className="w-3 h-3" aria-hidden="true" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuLabel className="text-xs">Status</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {Object.entries(STATUS_CFG).map(([k, v]) => (
+              <DropdownMenuCheckboxItem key={k} checked={filterStatus.includes(k)} onCheckedChange={() => toggleStatus(k)}>{v.label}</DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <button type="button" onClick={() => setShowModal(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap">
+          <Plus className="w-3.5 h-3.5" aria-hidden="true" /> Distribute Cards
+        </button>
+      </header>
+
+      <div className="rounded-xl border border-border overflow-hidden bg-card">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <caption className="sr-only">Distributions</caption>
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                {["Card", "Recipient", "Class", "Qty", "Reason", "Issued", "By", "Status", ""].map((h) => (
+                  <th scope="col" key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+                    {h === "" ? <span className="sr-only">Actions</span> : h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/50">
+              {filtered.length === 0 ? (
+                <tr><td colSpan={9} className="py-10 text-center text-sm text-muted-foreground">No distributions found</td></tr>
+              ) : (
+                filtered.map((d, i) => {
+                  const den = getDen(d.denominationId);
+                  const sCfg = STATUS_CFG[d.status] || STATUS_CFG.active;
+                  return (
+                    <motion.tr key={d.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="hover:bg-muted/20 transition-colors group">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base" aria-hidden="true">{den?.icon || "⭐"}</span>
+                          <div>
+                            <p className="text-[12px] font-semibold text-foreground whitespace-nowrap m-0">{d.denominationName}</p>
+                            {den && <p className="text-[10px] font-bold m-0" style={{ color: den.color }}>{den.points} pts</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          {d.recipientType === "faculty" ? <Users2 className="w-3 h-3 text-muted-foreground" aria-hidden="true" /> : <User className="w-3 h-3 text-muted-foreground" aria-hidden="true" />}
+                          <span className="text-[13px] font-semibold text-foreground whitespace-nowrap">{d.recipientName}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-[12px] text-muted-foreground">{d.recipientClass || "—"}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-[13px] font-bold text-foreground">{d.quantity}</span>
+                      </td>
+                      <td className="px-4 py-3 max-w-[160px]">
+                        <p className="text-[12px] text-muted-foreground truncate m-0">{d.reason}</p>
+                      </td>
+                      <td className="px-4 py-3 text-[11px] text-muted-foreground whitespace-nowrap">{d.issuedDate}</td>
+                      <td className="px-4 py-3 text-[12px] text-muted-foreground whitespace-nowrap">{d.issuedBy || "—"}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${sCfg.cls}`}>{sCfg.label}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button type="button" aria-label="Change status" className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground text-xs font-medium flex items-center gap-1">
+                                <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-36">
+                              <DropdownMenuLabel className="text-xs">Change Status</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              {Object.entries(STATUS_CFG).map(([k, v]) => (
+                                <DropdownMenuCheckboxItem key={k} checked={d.status === k} onCheckedChange={() => changeStatus(d.id, k as "active" | "redeemed" | "returned")}>{v.label}</DropdownMenuCheckboxItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {showModal && <DistributeModal denoms={denoms} batches={batches} onClose={() => setShowModal(false)} onSave={handleDistribute} />}
+      </AnimatePresence>
+    </section>
+  );
+}

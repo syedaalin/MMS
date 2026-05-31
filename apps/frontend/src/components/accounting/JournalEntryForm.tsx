@@ -1,0 +1,302 @@
+import React, { useState } from "react";
+import { Plus, Trash2, X, AlertCircle, CheckCircle2, Tag } from "lucide-react";
+import { motion } from "framer-motion";
+import { ACCOUNT_TYPE_META, JOURNAL_TAGS, generateJERef, Account, JournalEntry, FiscalYear, JournalLine, AccountType } from "../../lib/accountingData";
+
+interface DraftLine extends Omit<JournalLine, "debit" | "credit"> {
+  debit: string | number;
+  credit: string | number;
+}
+
+interface DraftForm extends Omit<JournalEntry, "lines"> {
+  lines: DraftLine[];
+}
+
+const EMPTY_LINE = (): DraftLine => ({ id: `l${Date.now()}_${Math.random()}`, account_id: "", debit: "", credit: "", description: "" });
+
+interface JournalEntryFormProps {
+  accounts: Account[];
+  entries: JournalEntry[];
+  onSave: (entry: JournalEntry) => void;
+  onClose: () => void;
+  initial?: JournalEntry | null;
+  fiscalYears: FiscalYear[];
+}
+
+/**
+ * JournalEntryForm component.
+ * 
+ * Form for creating or editing a journal entry.
+ * 
+ * @param {JournalEntryFormProps} props - The component props.
+ * @returns {React.ReactElement}
+ */
+export default function JournalEntryForm({ accounts, entries, onSave, onClose, initial, fiscalYears }: JournalEntryFormProps) {
+  const isEdit = !!initial?.id;
+  const activeFY = (fiscalYears || []).find((f) => f.status === "active")?.label || "";
+
+  const [form, setForm] = useState<DraftForm>(
+    initial
+      ? {
+          ...initial,
+          lines: initial.lines.map((l) => ({ ...l, debit: l.debit || "", credit: l.credit || "" }))
+        }
+      : {
+          id: "",
+          ref: "",
+          date: new Date().toISOString().slice(0, 10),
+          description: "",
+          status: "draft",
+          tags: [],
+          attachments: [],
+          fiscal_year: activeFY,
+          lines: [EMPTY_LINE(), EMPTY_LINE()],
+          created_by: "Admin"
+        }
+  );
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const totalDebit  = form.lines.reduce((s, l) => s + (typeof l.debit === "string" ? parseFloat(l.debit) || 0 : l.debit), 0);
+  const totalCredit = form.lines.reduce((s, l) => s + (typeof l.credit === "string" ? parseFloat(l.credit) || 0 : l.credit), 0);
+  const isBalanced  = Math.abs(totalDebit - totalCredit) < 0.01 && totalDebit > 0;
+
+  const updateLine = (idx: number, field: keyof DraftLine, val: string | number) => {
+    const lines = [...form.lines];
+    lines[idx] = { ...lines[idx], [field]: val };
+    if (field === "debit"  && val) lines[idx].credit = "";
+    if (field === "credit" && val) lines[idx].debit  = "";
+    setForm({ ...form, lines });
+  };
+
+  const addLine    = () => setForm({ ...form, lines: [...form.lines, EMPTY_LINE()] });
+  const removeLine = (idx: number) => { if (form.lines.length <= 2) return; setForm({ ...form, lines: form.lines.filter((_, i) => i !== idx) }); };
+
+  const toggleTag = (t: string) => {
+    const tags = form.tags?.includes(t) ? form.tags.filter((x) => x !== t) : [...(form.tags || []), t];
+    setForm({ ...form, tags });
+  };
+
+  const validate = (): Record<string, string> => {
+    const e: Record<string, string> = {};
+    if (!form.date) e.date = "Date is required";
+    if (!form.description.trim()) e.description = "Narration is required";
+    const filled = form.lines.filter((l) => l.account_id);
+    if (filled.length < 2) e.lines = "At least 2 account lines are required";
+    if (!isBalanced) e.balance = "Debits must equal Credits";
+    form.lines.forEach((l, i) => { if (!l.account_id) e[`line${i}`] = "Account required"; });
+    return e;
+  };
+
+  const handleSubmit = (ev: React.MouseEvent, saveAs?: "draft" | "posted") => {
+    ev.preventDefault();
+    const e = validate();
+    if (Object.keys(e).length) { setErrors(e); return; }
+    const ref = isEdit ? form.ref : generateJERef(entries);
+    onSave({
+      ...form,
+      id: isEdit ? form.id : `je${Date.now()}`,
+      ref,
+      status: saveAs || form.status,
+      created_by: "Admin",
+      lines: form.lines.map((l) => ({
+        ...l,
+        debit: typeof l.debit === "string" ? parseFloat(l.debit) || 0 : l.debit,
+        credit: typeof l.credit === "string" ? parseFloat(l.credit) || 0 : l.credit,
+      })),
+    } as JournalEntry);
+  };
+
+  const inp = "mt-1 w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20";
+  const sortedAccounts = [...accounts].filter(a => a.isActive !== false).sort((a, b) => a.code.localeCompare(b.code));
+
+  // Group accounts for optgroup
+  const accountGroups: Record<string, Account[]> = {};
+  sortedAccounts.forEach((a) => {
+    if (!accountGroups[a.type]) accountGroups[a.type] = [];
+    accountGroups[a.type].push(a);
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+        role="dialog" aria-modal="true" aria-labelledby="form-title"
+        className="relative bg-card rounded-2xl border border-border shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col">
+
+        <header className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
+          <div>
+            <h2 id="form-title" className="text-base font-bold text-foreground m-0">{isEdit ? "Edit Journal Entry" : "New Journal Entry"}</h2>
+            {activeFY && <p className="text-xs text-muted-foreground m-0">{activeFY}</p>}
+          </div>
+          <button type="button" aria-label="Close form" onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"><X className="w-4 h-4" aria-hidden="true" /></button>
+        </header>
+
+        <form className="px-6 py-5 overflow-y-auto flex-1 space-y-5">
+          {/* Header fields */}
+          <fieldset className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-0 p-0 m-0">
+            <div>
+              <label htmlFor="je-date" className="text-xs font-semibold text-muted-foreground uppercase">Date *</label>
+              <input id="je-date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={inp} aria-invalid={!!errors.date} />
+              {errors.date && <p className="text-xs text-red-500 mt-1" role="alert">{errors.date}</p>}
+            </div>
+            <div>
+              <label htmlFor="je-fy" className="text-xs font-semibold text-muted-foreground uppercase">Financial Year</label>
+              <select id="je-fy" value={form.fiscal_year} onChange={(e) => setForm({ ...form, fiscal_year: e.target.value })} className={inp}>
+                <option value="">— None —</option>
+                {(fiscalYears || []).map((fy) => <option key={fy.id} value={fy.label}>{fy.label}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="je-desc" className="text-xs font-semibold text-muted-foreground uppercase">Narration / Description *</label>
+              <input id="je-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="e.g. Student fee collection for Spring 2026…" className={inp} aria-invalid={!!errors.description} />
+              {errors.description && <p className="text-xs text-red-500 mt-1" role="alert">{errors.description}</p>}
+            </div>
+          </fieldset>
+
+          {/* Tags */}
+          <fieldset className="border-0 p-0 m-0">
+            <legend className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1"><Tag className="w-3 h-3" aria-hidden="true" /> Tags</legend>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {JOURNAL_TAGS.map((t) => (
+                <button key={t} type="button" onClick={() => toggleTag(t)}
+                  aria-pressed={form.tags?.includes(t)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                    form.tags?.includes(t)
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-border hover:border-primary/40"
+                  }`}>{t}</button>
+              ))}
+            </div>
+          </fieldset>
+
+          {/* Lines */}
+          <fieldset className="border-0 p-0 m-0">
+            <div className="flex items-center justify-between mb-2">
+              <legend className="text-xs font-semibold text-muted-foreground uppercase">Journal Lines *</legend>
+              <button type="button" onClick={addLine}
+                className="flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+                <Plus className="w-3.5 h-3.5" aria-hidden="true" /> Add Line
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-border overflow-hidden">
+              <table className="w-full text-sm">
+                <caption className="sr-only">Journal Entry Lines</caption>
+                <thead className="bg-muted/60 border-b border-border">
+                  <tr>
+                    <th scope="col" className="px-3 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase">Account</th>
+                    <th scope="col" className="px-3 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase hidden md:table-cell">Line Note</th>
+                    <th scope="col" className="px-3 py-2 text-right text-[11px] font-semibold text-muted-foreground uppercase w-28">Debit</th>
+                    <th scope="col" className="px-3 py-2 text-right text-[11px] font-semibold text-muted-foreground uppercase w-28">Credit</th>
+                    <th scope="col" className="px-3 py-2 w-8"><span className="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {form.lines.map((line, idx) => {
+                    const acc = accounts.find((a) => a.id === line.account_id);
+                    return (
+                      <tr key={line.id} className="hover:bg-muted/10">
+                        <td className="px-3 py-2">
+                          <select 
+                            aria-label={`Account for line ${idx + 1}`}
+                            value={line.account_id} 
+                            onChange={(e) => updateLine(idx, "account_id", e.target.value)}
+                            className="w-full px-2 py-1.5 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            aria-invalid={!!errors[`line${idx}`]}
+                          >
+                            <option value="">Select account…</option>
+                            {Object.entries(accountGroups).map(([type, accs]) => (
+                              <optgroup key={type} label={type}>
+                                {accs.map((a) => <option key={a.id} value={a.id}>{a.code} – {a.name}</option>)}
+                              </optgroup>
+                            ))}
+                          </select>
+                          {acc && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 inline-block ${ACCOUNT_TYPE_META[acc.type]?.color}`}>
+                              {acc.type} · {ACCOUNT_TYPE_META[acc.type]?.normalBalance === "debit" ? "Dr normal" : "Cr normal"}
+                            </span>
+                          )}
+                          {errors[`line${idx}`] && <p className="text-[10px] text-red-500 m-0" role="alert">{errors[`line${idx}`]}</p>}
+                        </td>
+                        <td className="px-3 py-2 hidden md:table-cell">
+                          <input 
+                            aria-label={`Description for line ${idx + 1}`}
+                            value={line.description || ""} 
+                            onChange={(e) => updateLine(idx, "description", e.target.value)}
+                            placeholder="Note…" 
+                            className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" 
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input 
+                            type="number" 
+                            min="0" 
+                            step="0.01" 
+                            aria-label={`Debit amount for line ${idx + 1}`}
+                            value={line.debit} 
+                            placeholder="0.00"
+                            onChange={(e) => updateLine(idx, "debit", e.target.value)}
+                            className="w-full px-2 py-1.5 text-sm text-right rounded-lg border border-border bg-blue-50/50 focus:outline-none focus:ring-2 focus:ring-blue-200 font-mono" 
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input 
+                            type="number" 
+                            min="0" 
+                            step="0.01" 
+                            aria-label={`Credit amount for line ${idx + 1}`}
+                            value={line.credit} 
+                            placeholder="0.00"
+                            onChange={(e) => updateLine(idx, "credit", e.target.value)}
+                            className="w-full px-2 py-1.5 text-sm text-right rounded-lg border border-border bg-emerald-50/50 focus:outline-none focus:ring-2 focus:ring-emerald-200 font-mono" 
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <button 
+                            type="button" 
+                            aria-label={`Remove line ${idx + 1}`}
+                            onClick={() => removeLine(idx)} 
+                            disabled={form.lines.length <= 2}
+                            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-30"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot className="border-t-2 border-border bg-muted/30">
+                  <tr>
+                    <td colSpan={2} className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase">Totals</td>
+                    <td className="px-3 py-2 text-right font-mono font-bold text-blue-700">{totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td className="px-3 py-2 text-right font-mono font-bold text-emerald-700">{totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div className={`mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold ${isBalanced ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`} role="status">
+              {isBalanced ? <CheckCircle2 className="w-4 h-4" aria-hidden="true" /> : <AlertCircle className="w-4 h-4" aria-hidden="true" />}
+              {isBalanced ? "Entry is balanced — Debits equal Credits" : `Out of balance — Difference: ${Math.abs(totalDebit - totalCredit).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+            </div>
+            {errors.lines   && <p className="text-xs text-red-500 mt-1" role="alert">{errors.lines}</p>}
+            {errors.balance && <p className="text-xs text-red-500 mt-1" role="alert">{errors.balance}</p>}
+          </fieldset>
+
+          {/* Actions */}
+          <footer className="flex justify-end gap-2 pt-2 border-t border-border mt-4">
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 rounded-lg border border-border text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors">Cancel</button>
+            <button type="button" onClick={(e) => handleSubmit(e, "draft")}
+              className="px-4 py-2 rounded-lg border border-border bg-muted text-sm font-semibold text-foreground hover:bg-border transition-colors">Save as Draft</button>
+            <button type="button" onClick={(e) => handleSubmit(e, "posted")}
+              className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">Post Entry</button>
+          </footer>
+        </form>
+      </motion.div>
+    </div>
+  );
+}

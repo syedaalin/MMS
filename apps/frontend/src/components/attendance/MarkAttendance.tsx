@@ -1,0 +1,687 @@
+import React, { useState, useMemo, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  CheckCircle2, XCircle, Save, Send, Users, Search,
+  WifiOff, Wifi, MapPin, Lock, Scan, UploadCloud,
+} from "lucide-react";
+import { CLASS_STUDENTS, ClassStudent, ATTENDANCE_STATUSES, STATUS_MAP, AttendanceRecord, AttendanceStatus } from "../../lib/attendanceData";
+import { SESSIONS_DATA } from "../../lib/sessionsData";
+import { getCollection } from "../../lib/db";
+import StatusToggle from "./StatusToggle";
+import { AttendanceFilterState } from "./AttendanceFilters";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface GeoData {
+  lat: number;
+  lng: number;
+}
+
+export interface AttendanceRow {
+  studentId: string;
+  name: string;
+  rollNo: string;
+  status: AttendanceRecord["status"];
+  timeIn: string;
+  timeOut: string;
+  notes: string;
+}
+
+export interface OfflinePayload {
+  classId: string;
+  date: string;
+  rows: AttendanceRow[];
+  geo: GeoData | null;
+  submittedBy: string;
+  ts: string;
+}
+
+interface MarkAttendanceProps {
+  filters: AttendanceFilterState;
+  role: string;
+  records: AttendanceRecord[];
+  setRecords: React.Dispatch<React.SetStateAction<AttendanceRecord[]>>;
+}
+
+interface ClassInfo {
+  id: string;
+  name: string;
+  sessionId?: string;
+  sessionName?: string;
+  teacherName?: string;
+}
+
+interface Session {
+  id: string;
+  name: string;
+  classes?: ClassInfo[];
+}
+
+interface AuditEntry {
+  action: string;
+  ts?: string;
+  studentId?: string;
+  studentName?: string;
+  field?: string;
+  from?: string;
+  to?: string;
+  by?: string;
+  status?: string;
+  count?: number;
+  geo?: GeoData | null;
+}
+
+// ── Offline queue (localStorage-backed) ─────────────────────────────────────
+function loadQueue(): OfflinePayload[] {
+  try { 
+    return JSON.parse(localStorage.getItem("att_offline_queue") || "[]"); 
+  } catch (err) { 
+    console.warn("Failed to load offline queue:", err);
+    return []; 
+  }
+}
+
+function saveQueue(q: OfflinePayload[]) {
+  try {
+    localStorage.setItem("att_offline_queue", JSON.stringify(q));
+  } catch (err) {
+    console.error("Failed to save offline queue:", err);
+  }
+}
+
+// ── Lock store (per classId+date) ────────────────────────────────────────────
+function isLocked(classId: string, date: string): boolean {
+  try {
+    const key = `att_lock_${classId}_${date}`;
+    return localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setLocked(classId: string, date: string) {
+  try {
+    localStorage.setItem(`att_lock_${classId}_${date}`, "1");
+  } catch (err) {
+    console.error("Failed to set lock:", err);
+  }
+}
+
+// ── Audit log ─────────────────────────────────────────────────────────────────
+function addAuditEntry(classId: string, date: string, entry: AuditEntry) {
+  try {
+    const key = `att_audit_${classId}_${date}`;
+    const existing: AuditEntry[] = JSON.parse(localStorage.getItem(key) || "[]");
+    existing.unshift({ ...entry, ts: new Date().toISOString() });
+    localStorage.setItem(key, JSON.stringify(existing.slice(0, 50)));
+  } catch (err) {
+    console.error("Failed to save audit entry:", err);
+  }
+}
+
+/**
+ * Retrieves the audit log of attendance changes for a specific class and date.
+ *
+ * @param classId - The unique identifier of the class.
+ * @param date - The date of the attendance record (format: YYYY-MM-DD).
+ * @returns An array of audit entry objects retrieved from local storage.
+ */
+export function getAuditLog(classId: string, date: string): AuditEntry[] {
+  try {
+    const key = `att_audit_${classId}_${date}`;
+    return JSON.parse(localStorage.getItem(key) || "[]");
+  } catch (err) {
+    console.error("Failed to read audit log:", err);
+    return [];
+  }
+}
+
+// ── Default rows ──────────────────────────────────────────────────────────────
+function buildDefaultRows(students: ClassStudent[]): AttendanceRow[] {
+  return students.map((st) => ({
+    studentId: st.id,
+    name: st.name,
+    rollNo: st.rollNo,
+    status: "present",
+    timeIn: "07:00",
+    timeOut: "08:30",
+    notes: "",
+  }));
+}
+
+// ── Offline Banner ────────────────────────────────────────────────────────────
+function OfflineBanner({ offline, queue, onSync }: { offline: boolean; queue: OfflinePayload[]; onSync: () => void }) {
+  return (
+    <AnimatePresence>
+      {offline && (
+        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+          className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <WifiOff className="w-4 h-4" aria-hidden="true" />
+            Offline Mode — changes will sync when reconnected
+            {queue.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-amber-200 text-[10px] font-bold">{queue.length} pending</span>}
+          </div>
+          <button onClick={onSync} className="text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 transition-colors flex items-center gap-1">
+            <UploadCloud className="w-3 h-3" aria-hidden="true" /> Sync Now
+          </button>
+        </motion.div>
+      )}
+      {!offline && queue.length > 0 && (
+        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+          className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Wifi className="w-4 h-4" aria-hidden="true" />
+            Back online — {queue.length} record{queue.length > 1 ? "s" : ""} ready to sync
+          </div>
+          <button onClick={onSync} className="text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-200 hover:bg-emerald-300 transition-colors flex items-center gap-1">
+            <UploadCloud className="w-3 h-3" aria-hidden="true" /> Sync Now
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ── Geo tag pill ──────────────────────────────────────────────────────────────
+function GeoTag({ geo, onRequest }: { geo: GeoData | "loading" | null; onRequest: () => void }) {
+  if (geo === "loading") return (
+    <span className="flex items-center gap-1 text-[11px] text-muted-foreground font-medium px-2 py-1 rounded-lg bg-muted animate-pulse">
+      <MapPin className="w-3 h-3" aria-hidden="true" /> Getting location…
+    </span>
+  );
+  if (geo) return (
+    <span className="flex items-center gap-1 text-[11px] text-emerald-700 font-medium px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200">
+      <MapPin className="w-3 h-3" aria-hidden="true" /> {geo.lat.toFixed(4)}, {geo.lng.toFixed(4)}
+    </span>
+  );
+  return (
+    <button onClick={onRequest}
+      className="flex items-center gap-1 text-[11px] text-muted-foreground font-medium px-2 py-1 rounded-lg border border-dashed border-border hover:bg-muted transition-colors">
+      <MapPin className="w-3 h-3" aria-hidden="true" /> Tag Location
+    </button>
+  );
+}
+
+// ── Facial Recognition Placeholder ───────────────────────────────────────────
+function FaceRecognitionPlaceholder({ onClose }: { onClose: () => void }) {
+  return (
+    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+      className="rounded-xl border border-border bg-card p-6 text-center space-y-4">
+      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+        <Scan className="w-8 h-8 text-primary" aria-hidden="true" />
+      </div>
+      <div>
+        <h3 className="text-sm font-bold text-foreground m-0">Facial Recognition</h3>
+        <p className="text-xs text-muted-foreground mt-1">AI-powered face scan for auto-attendance marking.</p>
+        <span className="inline-block mt-2 px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold">Coming Soon</span>
+      </div>
+      <div className="rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center" style={{ height: 160 }}>
+        <div className="text-center space-y-2">
+          <div className="w-16 h-20 border-2 border-primary/30 rounded-lg mx-auto flex items-center justify-center">
+            <div className="w-8 h-10 border border-primary/20 rounded-sm" />
+          </div>
+          <p className="text-[11px] text-muted-foreground">Camera preview will appear here</p>
+        </div>
+      </div>
+      <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Dismiss</button>
+    </motion.div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+
+/**
+ * MarkAttendance
+ * 
+ * Provides the interface for marking attendance for a specific class and date.
+ * Features include offline mode, geo-tagging, bulk status updates, and audit logging.
+ * 
+ * @param {MarkAttendanceProps} props - The component props.
+ * @returns {React.ReactElement} The rendered component.
+ */
+export default function MarkAttendance({ filters, role, records, setRecords }: MarkAttendanceProps) {
+  let fetchedSessions: Session[] = [];
+  try {
+    fetchedSessions = getCollection("sessions", SESSIONS_DATA) || [];
+  } catch (error) {
+    console.error("Failed to fetch sessions for MarkAttendance:", error);
+  }
+
+  const sessions = useMemo(() => fetchedSessions, [fetchedSessions]);
+  
+  const allClasses = useMemo(() => {
+    return sessions.flatMap((s) =>
+      (s.classes || []).map((c) => ({ ...c, sessionId: s.id, sessionName: s.name }))
+    );
+  }, [sessions]);
+
+  const classInfo  = useMemo(() => allClasses.find((c) => c.id === filters.classId), [allClasses, filters.classId]);
+  const sessionInfo = useMemo(() => classInfo ? sessions.find((s) => s.id === classInfo.sessionId) : null, [sessions, classInfo]);
+  const students: ClassStudent[] = filters.classId ? (CLASS_STUDENTS[filters.classId] ?? []) : [];
+
+  const [rows, setRows] = useState<AttendanceRow[]>(() => {
+    if (!filters.classId || !filters.date) return [];
+    const existing = records.filter((r) => r.classId === filters.classId && r.date === filters.date);
+    if (existing.length > 0) {
+      return existing.map((r) => ({
+        studentId: r.studentId || "",
+        name: r.studentName || "",
+        rollNo: (r as AttendanceRecord & { rollNo?: string }).rollNo ?? "",
+        status: r.status,
+        timeIn: r.timeIn || "07:00",
+        timeOut: r.timeOut || "08:30",
+        notes: r.notes || "",
+      }));
+    }
+    return buildDefaultRows(students);
+  });
+  const [search, setSearch]       = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [isDraft, setIsDraft]     = useState(false);
+  const [locked, setLockedState]  = useState(false);
+  const [geo, setGeo]             = useState<GeoData | "loading" | null>(null);
+  const [offlineQueue, setOfflineQueue] = useState<OfflinePayload[]>(loadQueue);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [showFaceAI, setShowFaceAI] = useState(false);
+  const [syncedMsg, setSyncedMsg] = useState(false);
+
+  // Watch online/offline
+  useEffect(() => {
+    const onOn  = () => setIsOffline(false);
+    const onOff = () => setIsOffline(true);
+    window.addEventListener("online", onOn);
+    window.addEventListener("offline", onOff);
+    return () => { window.removeEventListener("online", onOn); window.removeEventListener("offline", onOff); };
+  }, []);
+
+  // Rebuild rows when class/date changes
+  const stableKey = filters.classId + filters.date;
+  const [lastKey, setLastKey] = useState(stableKey);
+  if (lastKey !== stableKey) {
+    setLastKey(stableKey);
+    const existing = records.filter((r) => r.classId === filters.classId && r.date === filters.date);
+    let newRows: AttendanceRow[] = [];
+    if (existing.length > 0) {
+      newRows = existing.map((r) => ({
+        studentId: r.studentId || "",
+        name: r.studentName || "",
+        rollNo: (r as AttendanceRecord & { rollNo?: string }).rollNo ?? "",
+        status: r.status,
+        timeIn: r.timeIn || "07:00",
+        timeOut: r.timeOut || "08:30",
+        notes: r.notes || "",
+      }));
+    } else {
+      newRows = buildDefaultRows(CLASS_STUDENTS[filters.classId] ?? []);
+    }
+    setRows(newRows);
+    setSubmitted(isLocked(filters.classId, filters.date));
+    setIsDraft(false);
+    setLockedState(isLocked(filters.classId, filters.date));
+    setGeo(null);
+    setShowFaceAI(false);
+  }
+
+  // Load lock state on mount
+  useEffect(() => {
+    if (filters.classId && filters.date) {
+      setLockedState(isLocked(filters.classId, filters.date));
+    }
+  }, [filters.classId, filters.date]);
+
+  const filteredRows = useMemo(() =>
+    rows.filter((r) => r.name.toLowerCase().includes(search.toLowerCase())),
+    [rows, search]
+  );
+
+  const stats = useMemo(() => ({
+    present: rows.filter((r) => r.status === "present").length,
+    absent:  rows.filter((r) => r.status === "absent").length,
+    late:    rows.filter((r) => r.status === "late").length,
+    excused: rows.filter((r) => r.status === "excused").length,
+  }), [rows]);
+
+  const setRow = <K extends keyof AttendanceRow>(studentId: string, key: K, value: AttendanceRow[K]) => {
+    if (locked) return;
+    const before = rows.find((r) => r.studentId === studentId);
+    setRows((prev) => prev.map((r) => r.studentId === studentId ? { ...r, [key]: value } : r));
+    // Audit
+    if (filters.classId && filters.date && before) {
+      addAuditEntry(filters.classId, filters.date, {
+        action: "edit",
+        studentId,
+        studentName: before.name,
+        field: key,
+        from: String(before[key]),
+        to: String(value),
+        by: role,
+      });
+    }
+  };
+
+  const markAll = (status: AttendanceRecord["status"]) => {
+    if (locked) return;
+    setRows((prev) => prev.map((r) => ({ ...r, status })));
+    addAuditEntry(filters.classId, filters.date, { action: "bulk_mark", status, count: rows.length, by: role });
+  };
+
+  const requestGeo = () => {
+    setGeo("loading");
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => setGeo(null)
+      );
+    } else {
+      setGeo(null);
+    }
+  };
+
+  const handleSaveDraft = () => {
+    const newRecords: AttendanceRecord[] = rows.map((row) => ({
+      id: `${filters.classId}-${filters.date}-${row.studentId}`,
+      classId: filters.classId,
+      date: filters.date,
+      studentId: row.studentId,
+      studentName: row.name,
+      rollNo: row.rollNo,
+      status: row.status,
+      timeIn: row.status !== "absent" ? row.timeIn : "",
+      timeOut: row.status !== "absent" ? row.timeOut : "",
+      notes: row.notes || "",
+    }));
+
+    setRecords((prev) => {
+      const filtered = prev.filter((r) => !(r.classId === filters.classId && r.date === filters.date));
+      return [...filtered, ...newRecords];
+    });
+
+    setIsDraft(true);
+    addAuditEntry(filters.classId, filters.date, { action: "draft_saved", by: role });
+  };
+
+  const handleSubmit = () => {
+    const newRecords: AttendanceRecord[] = rows.map((row) => ({
+      id: `${filters.classId}-${filters.date}-${row.studentId}`,
+      classId: filters.classId,
+      date: filters.date,
+      studentId: row.studentId,
+      studentName: row.name,
+      rollNo: row.rollNo,
+      status: row.status,
+      timeIn: row.status !== "absent" ? row.timeIn : "",
+      timeOut: row.status !== "absent" ? row.timeOut : "",
+      notes: row.notes || "",
+    }));
+
+    setRecords((prev) => {
+      const filtered = prev.filter((r) => !(r.classId === filters.classId && r.date === filters.date));
+      return [...filtered, ...newRecords];
+    });
+
+    const finalGeo = typeof geo === "object" ? geo : null;
+    const payload: OfflinePayload = { classId: filters.classId, date: filters.date, rows, geo: finalGeo, submittedBy: role, ts: new Date().toISOString() };
+    addAuditEntry(filters.classId, filters.date, { action: "submitted", count: rows.length, by: role, geo: finalGeo });
+    
+    if (isOffline) {
+      const q = [...offlineQueue, payload];
+      saveQueue(q);
+      setOfflineQueue(q);
+      setSubmitted(true);
+      setLockedState(false); // draft-like when offline
+    } else {
+      setLocked(filters.classId, filters.date);
+      setLockedState(true);
+      setSubmitted(true);
+    }
+  };
+
+  const handleSync = () => {
+    if (isOffline) return;
+
+    let updatedRecords = [...records];
+    offlineQueue.forEach((payload) => {
+      const newRecs: AttendanceRecord[] = payload.rows.map((row) => ({
+        id: `${payload.classId}-${payload.date}-${row.studentId}`,
+        classId: payload.classId,
+        date: payload.date,
+        studentId: row.studentId,
+        studentName: row.name,
+        rollNo: row.rollNo,
+        status: row.status,
+        timeIn: row.status !== "absent" ? row.timeIn : "",
+        timeOut: row.status !== "absent" ? row.timeOut : "",
+        notes: row.notes || "",
+      }));
+      updatedRecords = updatedRecords.filter(
+        (r) => !(r.classId === payload.classId && r.date === payload.date)
+      );
+      updatedRecords.push(...newRecs);
+      setLocked(payload.classId, payload.date);
+    });
+    setRecords(updatedRecords);
+
+    saveQueue([]);
+    setOfflineQueue([]);
+    setSyncedMsg(true);
+    setTimeout(() => setSyncedMsg(false), 3000);
+  };
+
+  if (!filters.classId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <Users className="w-12 h-12 text-muted-foreground/40 mb-3" aria-hidden="true" />
+        <h2 className="text-base font-semibold text-foreground m-0">Select a Class to Mark Attendance</h2>
+        <p className="text-sm text-muted-foreground mt-1">Use the filters above to choose a session and class.</p>
+      </div>
+    );
+  }
+
+  if (submitted && !isOffline) {
+    return (
+      <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+        className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+          <CheckCircle2 className="w-8 h-8 text-emerald-600" aria-hidden="true" />
+        </div>
+        <h2 className="text-lg font-bold text-foreground m-0">Attendance Submitted & Locked</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          {classInfo?.name} · {filters.date} · {students.length} students recorded
+        </p>
+        {typeof geo === "object" && geo !== null && (
+          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1 justify-center">
+            <MapPin className="w-3 h-3" aria-hidden="true" /> Geo-tagged: {geo.lat.toFixed(5)}, {geo.lng.toFixed(5)}
+          </p>
+        )}
+        <div className="flex gap-3 mt-5 flex-wrap justify-center">
+          {ATTENDANCE_STATUSES.map((s: AttendanceStatus) => (
+            <div key={s.id} className={`px-3 py-1.5 rounded-xl ${s.bg} ${s.text} text-xs font-bold`}>
+              {s.label}: {stats[s.id as keyof typeof stats] || 0}
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
+          <Lock className="w-3 h-3" aria-hidden="true" /> This session is locked for today.
+        </div>
+        <button onClick={() => { setSubmitted(false); setRows(buildDefaultRows(students)); setLockedState(false); }}
+          className="mt-5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
+          Mark Another Day
+        </button>
+      </motion.div>
+    );
+  }
+
+  return (
+    <section className="space-y-4">
+      {/* Offline Banner */}
+      <OfflineBanner offline={isOffline} queue={offlineQueue} onSync={handleSync} />
+      {syncedMsg && <div className="px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold">✓ Offline records synced successfully.</div>}
+
+      {/* Facial Recognition Placeholder */}
+      <AnimatePresence>
+        {showFaceAI && <FaceRecognitionPlaceholder onClose={() => setShowFaceAI(false)} />}
+      </AnimatePresence>
+
+      {/* Class Info Bar */}
+      <header className="flex items-center justify-between flex-wrap gap-3 px-4 py-3 rounded-xl bg-primary/5 border border-primary/20">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-foreground m-0">{classInfo?.name}</h2>
+            {locked && (
+              <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold">
+                <Lock className="w-2.5 h-2.5" aria-hidden="true" /> Locked
+              </span>
+            )}
+            {isOffline && (
+              <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">
+                <WifiOff className="w-2.5 h-2.5" aria-hidden="true" /> Offline
+              </span>
+            )}
+          </div>
+          <p className="text-[12px] text-muted-foreground">
+            {sessionInfo?.name} · {classInfo?.teacherName} · {filters.date}
+          </p>
+          <div className="flex items-center gap-2 mt-1.5">
+            <GeoTag geo={geo} onRequest={requestGeo} />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {isDraft && <span className="px-2 py-1 rounded-lg bg-amber-100 text-amber-700 text-[11px] font-bold">Draft Saved</span>}
+          <button onClick={() => setShowFaceAI((o) => !o)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <Scan className="w-3 h-3" aria-hidden="true" /> Face AI
+          </button>
+          {!locked && (
+            <div className="flex rounded-lg border border-border overflow-hidden text-xs font-semibold" role="group" aria-label="Bulk actions">
+              <button onClick={() => markAll("present")} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" aria-hidden="true" /> All Present
+              </button>
+              <button onClick={() => markAll("absent")} className="px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 transition-colors flex items-center gap-1">
+                <XCircle className="w-3 h-3" aria-hidden="true" /> All Absent
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Locked notice */}
+      {locked && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm font-semibold">
+          <Lock className="w-4 h-4" aria-hidden="true" />
+          This attendance session is locked. Contact an admin to unlock.
+        </div>
+      )}
+
+      {/* Stats Strip */}
+      <div className="grid grid-cols-4 gap-2">
+        {ATTENDANCE_STATUSES.map((s: AttendanceStatus) => (
+          <div key={s.id} className={`rounded-xl ${s.bg} ${s.text} border ${s.border} px-3 py-2 text-center`}>
+            <p className="text-lg font-bold">{stats[s.id as keyof typeof stats] || 0}</p>
+            <p className="text-[11px] font-semibold">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+        <label htmlFor="search-mark" className="sr-only">Search student</label>
+        <input 
+          id="search-mark"
+          value={search} 
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search student…"
+          className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" 
+        />
+      </div>
+
+      {/* Attendance Grid */}
+      <div className={`rounded-xl border border-border overflow-hidden ${locked ? "opacity-70 pointer-events-none" : ""}`}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/60 border-b border-border">
+              <tr>
+                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase w-8">#</th>
+                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase">Student</th>
+                <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-muted-foreground uppercase">Status</th>
+                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase w-24">Time In</th>
+                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase w-24">Time Out</th>
+                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase">Notes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filteredRows.length === 0 ? (
+                <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground text-sm">No students found</td></tr>
+              ) : filteredRows.map((row) => {
+                const s = STATUS_MAP[row.status as keyof typeof STATUS_MAP];
+                return (
+                  <motion.tr key={row.studentId} layout className={`transition-colors hover:bg-muted/20 ${s?.bg || ""}`}>
+                    <td className="px-3 py-2.5 text-[11px] text-muted-foreground font-mono">{row.rollNo}</td>
+                    <td className="px-3 py-2.5 font-semibold text-foreground whitespace-nowrap">{row.name}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex justify-center">
+                        <StatusToggle value={row.status} onChange={(v) => setRow(row.studentId, "status", v as AttendanceRecord["status"])} />
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <label htmlFor={`time-in-${row.studentId}`} className="sr-only">Time In</label>
+                      <input 
+                        id={`time-in-${row.studentId}`}
+                        type="time" 
+                        value={row.timeIn}
+                        onChange={(e) => setRow(row.studentId, "timeIn", e.target.value)}
+                        disabled={row.status === "absent"}
+                        className="text-xs rounded-lg border border-border bg-background px-2 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-40" 
+                      />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <label htmlFor={`time-out-${row.studentId}`} className="sr-only">Time Out</label>
+                      <input 
+                        id={`time-out-${row.studentId}`}
+                        type="time" 
+                        value={row.timeOut}
+                        onChange={(e) => setRow(row.studentId, "timeOut", e.target.value)}
+                        disabled={row.status === "absent"}
+                        className="text-xs rounded-lg border border-border bg-background px-2 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-40" 
+                      />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <label htmlFor={`notes-${row.studentId}`} className="sr-only">Notes</label>
+                      <input 
+                        id={`notes-${row.studentId}`}
+                        type="text" 
+                        value={row.notes} 
+                        placeholder="Add note…"
+                        onChange={(e) => setRow(row.studentId, "notes", e.target.value)}
+                        className="text-xs rounded-lg border border-border bg-background px-2 py-1 w-full focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground" 
+                      />
+                    </td>
+                  </motion.tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Actions */}
+      {!locked && (
+        <footer className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-xs text-muted-foreground">{rows.length} students · {filteredRows.length} shown</p>
+          <div className="flex gap-2">
+            <button onClick={handleSaveDraft}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+              <Save className="w-3.5 h-3.5" aria-hidden="true" /> Save Draft
+            </button>
+            <button onClick={handleSubmit}
+              disabled={role === "accountant"}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
+              <Send className="w-3.5 h-3.5" aria-hidden="true" />
+              {isOffline ? "Save Offline" : "Submit & Lock"}
+            </button>
+          </div>
+        </footer>
+      )}
+    </section>
+  );
+}

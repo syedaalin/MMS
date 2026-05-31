@@ -1,0 +1,153 @@
+/**
+ * InvoicePrintPreview
+ * Pure render of the invoice/receipt on a page canvas.
+ * Used both in the editor (live preview) and in the print/PDF modal.
+ */
+import React from "react";
+import { PAGE_SIZES, resolveField, InvoiceTemplate, TemplateElement, FieldLookupInfo } from "../../../lib/invoiceTemplateStore";
+import { getObject } from "../../../lib/db";
+import { ObligationCollection } from "../../../lib/obligationsData";
+
+interface Branding {
+  madrasaName: string;
+  logoUrl: string;
+  primaryColor: string;
+}
+
+function getBranding(): Branding {
+  const b = getObject<Branding | null>("branding", null);
+  if (b) return b;
+  try {
+    const raw = localStorage.getItem("madrasa_branding");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      localStorage.setItem("darul_quran_branding", raw);
+      try {
+        localStorage.removeItem("madrasa_branding");
+      } catch (err) {}
+      return parsed;
+    }
+  } catch {}
+  return { madrasaName: "Dar ul Quran", logoUrl: "https://media.base44.com/images/public/69e092979d7a1ef05dd05cfc/4d2d7305a_canva_logo.png", primaryColor: "#047857" };
+}
+
+export interface InvoicePrintPreviewProps {
+  template: InvoiceTemplate;
+  collection?: ObligationCollection | null;
+  lookups?: FieldLookupInfo;
+  selectedId?: string | null;
+  onSelect?: ((id: string) => void) | null;
+  scale?: number;
+  showBoundary?: boolean;
+}
+
+/**
+ * InvoicePrintPreview component.
+ * @param {InvoicePrintPreviewProps} props
+ */
+export default function InvoicePrintPreview({
+  template,
+  collection = null,
+  lookups = {},
+  selectedId = null,
+  onSelect = null,
+  scale = 1,
+  showBoundary = true,
+}: InvoicePrintPreviewProps) {
+  const branding = getBranding();
+  const size = PAGE_SIZES[template.pageSize] || PAGE_SIZES.A6;
+
+  const renderElement = (el: TemplateElement) => {
+    const isSelected = selectedId === el.id;
+    const s = el.style || {};
+
+    const baseStyle: React.CSSProperties = {
+      position: "absolute",
+      left: el.x,
+      top: el.y,
+      width: el.w,
+      height: el.h,
+      fontSize: s.fontSize || 10,
+      fontWeight: s.fontWeight || "normal",
+      fontFamily: s.fontFamily || "inherit",
+      fontStyle: s.fontStyle || "normal",
+      textAlign: s.textAlign || "left",
+      color: s.color || "#222",
+      direction: s.direction || "ltr",
+      overflow: "hidden",
+      cursor: onSelect ? "pointer" : "default",
+      boxSizing: "border-box",
+      userSelect: "none",
+      outline: isSelected ? "2px solid #047857" : "none",
+      outlineOffset: "1px",
+    };
+
+    const handleClick = onSelect
+      ? (e: React.MouseEvent) => { e.stopPropagation(); onSelect(el.id); }
+      : undefined;
+
+    if (el.type === "logo") {
+      return (
+        <div key={el.id} style={baseStyle} onClick={handleClick}>
+          {branding.logoUrl ? (
+            <img src={branding.logoUrl} alt="logo" style={{ width: "100%", height: "100%", objectFit: s.objectFit || "contain" }} />
+          ) : (
+            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#f0fdf4", borderRadius: 8, border: "2px dashed #d1fae5" }}>
+              <span style={{ fontSize: 28, fontWeight: "bold", color: "#047857" }}>م</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (el.type === "divider") {
+      return (
+        <div key={el.id} style={{ ...baseStyle, borderTop: `${el.h || 1}px solid ${s.color || "#e5e7eb"}`, height: undefined }} onClick={handleClick} />
+      );
+    }
+
+    if (el.type === "field" && collection) {
+      const val = resolveField(el.field!, collection as unknown as Record<string, unknown>, lookups);
+      return (
+        <div key={el.id} style={baseStyle} onClick={handleClick}>
+          {val || <span style={{ color: "#ccc", fontStyle: "italic" }}>—</span>}
+        </div>
+      );
+    }
+
+    if (el.type === "field" && !collection) {
+      // In editor without collection — show placeholder
+      return (
+        <div key={el.id} style={{ ...baseStyle, background: "rgba(4,120,87,0.04)", border: "1px dashed rgba(4,120,87,0.25)", borderRadius: 2 }} onClick={handleClick}>
+          <span style={{ color: "#047857", fontSize: Math.min(s.fontSize || 10, 11), fontStyle: "italic" }}>{el.label}</span>
+        </div>
+      );
+    }
+
+    // type === "static"
+    return (
+      <div key={el.id} style={baseStyle} onClick={handleClick}>
+        {el.label}
+      </div>
+    );
+  };
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: size.width,
+        height: size.height,
+        background: "#fff",
+        boxShadow: showBoundary ? "0 2px 20px rgba(0,0,0,0.15)" : "none",
+        border: showBoundary ? "1px solid #e5e7eb" : "none",
+        transform: `scale(${scale})`,
+        transformOrigin: "top left",
+        overflow: "hidden",
+        fontFamily: "Inter, Arial, sans-serif",
+      }}
+    >
+      {template.elements.map(renderElement)}
+    </div>
+  );
+}

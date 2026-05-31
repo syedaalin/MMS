@@ -1,0 +1,153 @@
+import React, { useMemo, useState } from "react";
+import { CheckCircle2, AlertCircle, Download } from "lucide-react";
+import { ACCOUNT_TYPE_META, ACCOUNT_TYPES, computeTrialBalance, Account, JournalEntry, FiscalYear } from "../../lib/accountingData";
+
+interface TrialBalanceProps {
+  accounts: Account[];
+  entries: JournalEntry[];
+  fiscalYears?: FiscalYear[];
+  fmt?: (n: number) => string;
+}
+
+/**
+ * TrialBalance component.
+ * 
+ * Displays the trial balance of accounts over a specified period.
+ * 
+ * @param {TrialBalanceProps} props - The component props.
+ * @returns {React.ReactElement}
+ */
+export default function TrialBalance({ accounts, entries, fiscalYears, fmt }: TrialBalanceProps) {
+  const activeFY   = (fiscalYears || []).find((f) => f.status === "active");
+  const [dateFrom, setDateFrom] = useState(activeFY?.startDate || "");
+  const [dateTo,   setDateTo]   = useState(activeFY?.endDate   || "");
+
+  const rows = useMemo(
+    () => computeTrialBalance(accounts, entries, dateFrom || undefined, dateTo || undefined),
+    [accounts, entries, dateFrom, dateTo]
+  );
+
+  const grandDebit  = rows.reduce((s, r) => s + r.totalDebit,  0);
+  const grandCredit = rows.reduce((s, r) => s + r.totalCredit, 0);
+  const isBalanced  = Math.abs(grandDebit - grandCredit) < 0.01;
+
+  const fmtN = (n: number) => n > 0 ? n.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "—";
+
+  const exportCSV = () => {
+    const r = [["Code", "Account Name", "Type", "Debit", "Credit"]];
+    rows.forEach((row) => r.push([row.code, row.name, row.type, row.totalDebit.toString(), row.totalCredit.toString()]));
+    r.push(["", "Grand Total", "", grandDebit.toString(), grandCredit.toString()]);
+    const csv = r.map((x) => x.join(",")).join("\n");
+    const a = document.createElement("a"); 
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = "trial_balance.csv"; 
+    a.click();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Controls */}
+      <section aria-label="Trial Balance Controls" className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 text-sm">
+          <label htmlFor="tb-from" className="text-xs font-semibold text-muted-foreground uppercase">From</label>
+          <input id="tb-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <label htmlFor="tb-to" className="text-xs font-semibold text-muted-foreground uppercase">To</label>
+          <input id="tb-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+        </div>
+        {activeFY && (
+          <button type="button" onClick={() => { setDateFrom(activeFY.startDate); setDateTo(activeFY.endDate); }}
+            className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+            Use Active FY ({activeFY.label})
+          </button>
+        )}
+        <button type="button" onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors ml-auto">
+          <Download className="w-3.5 h-3.5" aria-hidden="true" /> Export CSV
+        </button>
+      </section>
+
+      {/* Balance status banner */}
+      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border ${isBalanced ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"}`} role="status">
+        {isBalanced ? <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> : <AlertCircle className="w-5 h-5" aria-hidden="true" />}
+        {isBalanced
+          ? `Trial Balance is balanced — Total: ${grandDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+          : `OUT OF BALANCE — Difference: ${Math.abs(grandDebit - grandCredit).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="py-16 text-center rounded-xl border border-border text-sm text-muted-foreground">No posted transactions in selected period.</div>
+      ) : (
+        <>
+          {/* Grouped by type */}
+          {ACCOUNT_TYPES.map((type) => {
+            const group       = rows.filter((r) => r.type === type);
+            if (group.length === 0) return null;
+            const groupDebit  = group.reduce((s, r) => s + r.totalDebit,  0);
+            const groupCredit = group.reduce((s, r) => s + r.totalCredit, 0);
+            return (
+              <section key={type} aria-label={`${type} Accounts`} className="rounded-xl border border-border overflow-hidden">
+                <header className={`px-4 py-2 border-b border-border ${ACCOUNT_TYPE_META[type]?.color} flex items-center justify-between`}>
+                  <h3 className="text-xs font-bold uppercase tracking-wide m-0">
+                    {ACCOUNT_TYPE_META[type]?.icon} {type} — {ACCOUNT_TYPE_META[type]?.group}
+                  </h3>
+                  <span className="text-[10px] font-semibold text-muted-foreground">{group.length} accounts</span>
+                </header>
+                <table className="w-full text-sm">
+                  <caption className="sr-only">{type} Accounts Details</caption>
+                  <thead className="bg-muted/40 border-b border-border">
+                    <tr>
+                      <th scope="col" className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase w-20">Code</th>
+                      <th scope="col" className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase">Account Name</th>
+                      <th scope="col" className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase hidden md:table-cell">Subtype</th>
+                      <th scope="col" className="px-4 py-2 text-right text-[11px] font-semibold text-muted-foreground uppercase">Debit</th>
+                      <th scope="col" className="px-4 py-2 text-right text-[11px] font-semibold text-muted-foreground uppercase">Credit</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {group.sort((a, b) => a.code.localeCompare(b.code)).map((r) => (
+                      <tr key={r.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="px-4 py-2.5 font-mono text-xs font-bold text-muted-foreground">{r.code}</td>
+                        <td className="px-4 py-2.5 font-medium text-foreground">{r.name}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground hidden md:table-cell">{r.subtype || "—"}</td>
+                        <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-blue-700">{fmtN(r.totalDebit)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-emerald-700">{fmtN(r.totalCredit)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t border-border bg-muted/20">
+                    <tr>
+                      <td colSpan={3} className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase">Sub-total</td>
+                      <td className="px-4 py-2 text-right font-mono font-bold text-blue-700">{fmtN(groupDebit)}</td>
+                      <td className="px-4 py-2 text-right font-mono font-bold text-emerald-700">{fmtN(groupCredit)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </section>
+            );
+          })}
+
+          {/* Grand total */}
+          <div className="rounded-xl border-2 border-foreground/20 overflow-hidden bg-muted/30">
+            <table className="w-full text-sm">
+              <caption className="sr-only">Grand Total</caption>
+              <tfoot>
+                <tr>
+                  <td colSpan={3} className="px-4 py-3 text-sm font-bold text-foreground uppercase tracking-wide">Grand Total</td>
+                  <td className="px-4 py-3 text-right font-mono font-bold text-blue-700 text-base">
+                    {grandDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700 text-base">
+                    {grandCredit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

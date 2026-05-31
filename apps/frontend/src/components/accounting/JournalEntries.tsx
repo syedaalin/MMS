@@ -1,0 +1,529 @@
+import React, { useState, useMemo } from "react";
+import {
+  Plus, Eye, Pencil, Trash2, Search, CheckCircle2,
+  Clock, RotateCcw, Filter, Download, BookOpen,
+  DollarSign, Heart, Zap, UserCheck, Layers,
+  Sparkles, ListFilter,
+  TrendingUp
+} from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import JournalEntryForm from "./JournalEntryForm";
+import JournalEntryDetail from "./JournalEntryDetail";
+import SimpleTransactionWizard from "./SimpleTransactionWizard";
+import CashbookView from "./CashbookView";
+import { createReversalEntry, JOURNAL_TAGS, Account, JournalEntry, FiscalYear, AccountingSettings } from "../../lib/accountingData";
+
+interface QuickActionType {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  debitAcc: string;
+  creditAcc: string;
+  tag: string;
+  description: string;
+  group: string;
+  color: string;
+}
+
+// ── Quick Action buttons ─────────────────────────────────────────────────────
+const QUICK_ACTIONS: { label: string; icon: React.ElementType; type: QuickActionType }[] = [
+  { label: "Collect Fee",      icon: BookOpen,   type: { id: "fee_collection", label: "Student Fee Collection", icon: BookOpen,  debitAcc: "a1000", creditAcc: "a4000", tag: "Fees",     description: "Fee received from student", group: "Money In",  color: "emerald" } },
+  { label: "Pay Salary",       icon: UserCheck,  type: { id: "salary",         label: "Salary Payment",          icon: UserCheck, debitAcc: "a5000", creditAcc: "a1010", tag: "Payroll",   description: "Staff salary paid",         group: "Money Out", color: "red"     } },
+  { label: "Record Donation",  icon: Heart,      type: { id: "donation",        label: "Donation Received",       icon: Heart,     debitAcc: "a1000", creditAcc: "a4100", tag: "Donation", description: "Donation received",          group: "Money In",  color: "emerald" } },
+  { label: "Pay Utility Bill", icon: Zap,        type: { id: "utilities",       label: "Utilities",               icon: Zap,       debitAcc: "a5200", creditAcc: "a1000", tag: "Utilities", description: "Utility bill paid",         group: "Money Out", color: "red"     } },
+  { label: "Add Expense",      icon: TrendingUp, type: { id: "other_expense",   label: "Other Expense",           icon: TrendingUp,debitAcc: "a5700", creditAcc: "a1000", tag: "Capital",  description: "Other expense paid",         group: "Money Out", color: "red"     } },
+];
+
+// NL parsing: very simple keyword → transaction type mapper
+function parseNaturalLanguage(text: string): QuickActionType | null {
+  const t = text.toLowerCase();
+  if (t.includes("fee") || t.includes("collect"))    return QUICK_ACTIONS[0].type;
+  if (t.includes("salary") || t.includes("pay staff"))return QUICK_ACTIONS[1].type;
+  if (t.includes("donat"))                            return QUICK_ACTIONS[2].type;
+  if (t.includes("electric") || t.includes("util") || t.includes("gas") || t.includes("water")) return QUICK_ACTIONS[3].type;
+  if (t.includes("expense") || t.includes("paid") || t.includes("purchase")) return QUICK_ACTIONS[4].type;
+  return null;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return status === "posted"
+    ? <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-100 text-emerald-700 border-emerald-200"><CheckCircle2 className="w-2.5 h-2.5" aria-hidden="true" />Posted</span>
+    : <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-700 border-amber-200"><Clock className="w-2.5 h-2.5" aria-hidden="true" />Draft</span>;
+}
+
+interface JournalEntriesProps {
+  entries: JournalEntry[];
+  accounts: Account[];
+  settings: AccountingSettings;
+  fiscalYears: FiscalYear[];
+  onChange: (entries: JournalEntry[]) => void;
+  fmt: (n: number) => string;
+}
+
+// ── Main Component ───────────────────────────────────────────────────────────
+/**
+ * JournalEntries Component
+ *
+ * Renders the main dashboard for accounting entries. Supports a simple mode
+ * with quick actions and guided templates, as well as an advanced mode for double-entry bookkeeping.
+ *
+ * @param {JournalEntriesProps} props - The component props.
+ * @returns {React.ReactElement}
+ */
+export default function JournalEntries({ entries, accounts, settings, fiscalYears, onChange, fmt }: JournalEntriesProps) {
+  // Mode: "simple" | "advanced"
+  const [mode, setMode] = useState<"simple" | "advanced">("simple");
+  // Active tab: "transactions" | "cashbook"
+  const [tab, setTab]   = useState<"transactions" | "cashbook">("transactions");
+
+  // Simple mode state
+  const [simpleModal,   setSimpleModal]   = useState<{ prefillType: QuickActionType | null } | null>(null);
+  const [nlInput,       setNlInput]       = useState("");
+  const [nlSuggestion,  setNlSuggestion]  = useState<QuickActionType | null>(null);
+
+  // Advanced mode state
+  const [search,       setSearch]       = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [tagFilter,    setTagFilter]    = useState("all");
+  const [dateFrom,     setDateFrom]     = useState("");
+  const [dateTo,       setDateTo]       = useState("");
+  const [showFilters,  setShowFilters]  = useState(false);
+  const [modal,        setModal]        = useState<"new" | "edit" | "view" | null>(null);
+  const [selected,     setSelected]     = useState<JournalEntry | null>(null);
+
+  const filtered = useMemo(() => entries
+    .filter((e) => statusFilter === "all" || e.status === statusFilter)
+    .filter((e) => tagFilter === "all" || (e.tags || []).includes(tagFilter))
+    .filter((e) => !dateFrom || e.date >= dateFrom)
+    .filter((e) => !dateTo   || e.date <= dateTo)
+    .filter((e) => !search   || e.description.toLowerCase().includes(search.toLowerCase()) || e.ref.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => b.date.localeCompare(a.date)),
+  [entries, search, statusFilter, tagFilter, dateFrom, dateTo]);
+
+  const handleSave = (entry: JournalEntry) => {
+    if (entries.find((e) => e.id === entry.id)) onChange(entries.map((e) => e.id === entry.id ? entry : e));
+    else onChange([...entries, entry]);
+    setModal(null); setSelected(null); setSimpleModal(null);
+  };
+
+  const handleDelete = (id: string) => {
+    const entry = entries.find((e) => e.id === id);
+    if (entry?.status === "posted") { alert("Cannot delete a posted entry. Use Reverse instead."); return; }
+    if (confirm("Delete this draft entry?")) onChange(entries.filter((e) => e.id !== id));
+  };
+
+  const handlePost    = (entry: JournalEntry) => onChange(entries.map((e) => e.id === entry.id ? { ...e, status: "posted" } : e));
+  const handleReverse = (entry: JournalEntry) => {
+    if (!confirm(`Create a reversal entry for ${entry.ref}?`)) return;
+    onChange([...entries, createReversalEntry(entry, entries)]);
+  };
+
+  const exportCSV = () => {
+    const rows = [["Ref", "Date", "Description", "Tags", "Status", "Debit", "Credit"]];
+    filtered.forEach((e) => {
+      const d = e.lines.reduce((s, l) => s + l.debit, 0);
+      const c = e.lines.reduce((s, l) => s + l.credit, 0);
+      rows.push([e.ref, e.date, e.description, (e.tags || []).join(";"), e.status, String(d), String(c)]);
+    });
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = "journal_entries.csv"; a.click();
+  };
+
+  const handleNlSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const type = parseNaturalLanguage(nlInput);
+    if (type) {
+      setSimpleModal({ prefillType: type });
+      setNlInput("");
+      setNlSuggestion(null);
+    } else {
+      setSimpleModal({ prefillType: null });
+    }
+  };
+
+  const handleNlChange = (val: string) => {
+    setNlInput(val);
+    setNlSuggestion(val.length > 3 ? parseNaturalLanguage(val) : null);
+  };
+
+  const grandDebit  = filtered.reduce((s, e) => s + e.lines.reduce((a, l) => a + l.debit, 0), 0);
+  const grandCredit = filtered.reduce((s, e) => s + e.lines.reduce((a, l) => a + l.credit, 0), 0);
+
+  // ── Mode toggle bar ────────────────────────────────────────────────────────
+  const ModeToggle = () => (
+    <nav aria-label="View Mode" className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border bg-muted/30">
+      <button 
+        type="button"
+        aria-pressed={mode === "simple"}
+        onClick={() => setMode("simple")}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${mode === "simple" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+        <Sparkles className="w-3.5 h-3.5" aria-hidden="true" /> Simple
+      </button>
+      <button 
+        type="button"
+        aria-pressed={mode === "advanced"}
+        onClick={() => setMode("advanced")}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${mode === "advanced" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+        <Layers className="w-3.5 h-3.5" aria-hidden="true" /> Advanced
+      </button>
+    </nav>
+  );
+
+  // ── SIMPLE MODE ────────────────────────────────────────────────────────────
+  if (mode === "simple") {
+    return (
+      <section aria-label="Simple Transactions" className="space-y-5">
+        {/* Header row */}
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-foreground m-0">Record Transaction</h2>
+            <p className="text-xs text-muted-foreground m-0">Money In / Money Out — easy guided entry</p>
+          </div>
+          <ModeToggle />
+        </header>
+
+        {/* Tabs: Transactions | Cashbook */}
+        <nav aria-label="Simple Mode Views" className="flex border-b border-border gap-0">
+          {[
+            { id: "transactions", label: "Transactions",     icon: DollarSign },
+            { id: "cashbook",     label: "Cashbook Register", icon: ListFilter },
+          ].map((t) => {
+            const Icon = t.icon;
+            return (
+              <button key={t.id} type="button" aria-current={tab === t.id ? "page" : undefined} onClick={() => setTab(t.id as "transactions" | "cashbook")}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${tab === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                <Icon className="w-4 h-4" aria-hidden="true" /> {t.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {tab === "cashbook" ? (
+          <CashbookView entries={entries} accounts={accounts} fmt={fmt} />
+        ) : (
+          <>
+            {/* Natural language entry */}
+            <article className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+              <header className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-4 h-4 text-primary" aria-hidden="true" />
+                <h3 className="text-sm font-bold text-foreground m-0">What happened?</h3>
+                <span className="text-xs text-muted-foreground">Type in plain language</span>
+              </header>
+              <form onSubmit={handleNlSubmit} className="flex gap-2">
+                <div className="relative flex-1">
+                  <label htmlFor="nl-input" className="sr-only">Natural Language Transaction Entry</label>
+                  <input id="nl-input" value={nlInput} onChange={(e) => handleNlChange(e.target.value)}
+                    placeholder="e.g. Paid electricity bill 12000 · Received donation 50000 · Collected Ahmad fee"
+                    className="w-full px-4 py-3 text-sm rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  {nlSuggestion && (
+                    <div className="absolute top-full left-0 mt-1 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold shadow-lg z-10 flex items-center gap-1.5" role="status">
+                      <CheckCircle2 className="w-3 h-3" aria-hidden="true" /> Auto-detected: {nlSuggestion.label} — press Enter
+                    </div>
+                  )}
+                </div>
+                <button type="submit" className="px-4 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap">
+                  Record
+                </button>
+              </form>
+            </article>
+
+            {/* Quick action buttons */}
+            <section aria-label="Quick Actions">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2.5 m-0">Quick Actions</h3>
+              <nav className="flex flex-wrap gap-2">
+                {QUICK_ACTIONS.map((qa) => {
+                  const Icon = qa.icon;
+                  return (
+                    <button key={qa.label} type="button" onClick={() => setSimpleModal({ prefillType: qa.type })}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-muted hover:border-primary/30 transition-all shadow-sm">
+                      <Icon className="w-4 h-4 text-primary" aria-hidden="true" /> {qa.label}
+                    </button>
+                  );
+                })}
+                <button type="button" onClick={() => setSimpleModal({ prefillType: null })}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-primary/40 bg-primary/5 text-sm font-semibold text-primary hover:bg-primary/10 transition-all">
+                  <Plus className="w-4 h-4" aria-hidden="true" /> Other Transaction
+                </button>
+              </nav>
+            </section>
+
+            {/* Recent transactions list */}
+            <section aria-label="Recent Transactions">
+              <header className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide m-0">Recent Transactions</h3>
+                <button type="button" onClick={exportCSV} className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                  <Download className="w-3.5 h-3.5" aria-hidden="true" /> Export
+                </button>
+              </header>
+
+              {entries.length === 0 ? (
+                <div className="py-16 text-center rounded-2xl border-2 border-dashed border-border" role="status">
+                  <DollarSign className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" aria-hidden="true" />
+                  <p className="text-sm font-semibold text-muted-foreground m-0">No transactions yet</p>
+                  <p className="text-xs text-muted-foreground mt-1 m-0">Use Quick Actions above to record your first transaction</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {[...entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20).map((entry) => {
+                    const amount = entry.lines.reduce((s, l) => s + l.debit, 0);
+                    const isIn = (entry.tags || []).some((t) => ["Fees","Donation","Capital"].includes(t)) || ["fee_collection","donation","rent_income","other_income"].includes(entry.transaction_type || "");
+                    return (
+                      <article key={entry.id} className="flex items-center gap-4 px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted/20 transition-colors">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isIn ? "bg-emerald-100" : "bg-red-100"}`} aria-hidden="true">
+                          {isIn ? <TrendingUp className="w-4 h-4 text-emerald-600" /> : <TrendingUp className="w-4 h-4 text-red-500 rotate-180" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-semibold text-foreground truncate m-0">{entry.description}</h4>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[11px] text-muted-foreground">{new Date(entry.date).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" })}</span>
+                            <span className="text-[11px] font-mono text-muted-foreground">{entry.ref}</span>
+                            {(entry.tags || []).map((t) => (
+                              <span key={t} className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">{t}</span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <div className="text-right">
+                            <p className={`text-sm font-bold font-mono m-0 ${isIn ? "text-emerald-700" : "text-red-600"}`}>
+                              {isIn ? "+" : "−"}{fmt(amount)}
+                            </p>
+                          </div>
+                          <StatusBadge status={entry.status} />
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+
+        <AnimatePresence>
+          {simpleModal !== null && (
+            <SimpleTransactionWizard
+              accounts={accounts}
+              entries={entries}
+              fiscalYears={fiscalYears}
+              prefillType={simpleModal.prefillType}
+              onSave={handleSave}
+              onClose={() => setSimpleModal(null)}
+            />
+          )}
+        </AnimatePresence>
+      </section>
+    );
+  }
+
+  // ── ADVANCED MODE ──────────────────────────────────────────────────────────
+  return (
+    <section aria-label="Advanced Journal Entries" className="space-y-4">
+      {/* Mode toggle + header */}
+      <nav aria-label="Journal controls" className="flex flex-wrap gap-2 items-center">
+        <ModeToggle />
+        <div className="flex-1" />
+        <div className="relative min-w-[180px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+          <input 
+            type="search"
+            aria-label="Search entries"
+            value={search} 
+            onChange={(e) => setSearch(e.target.value)} 
+            placeholder="Search by ref or description…"
+            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" 
+          />
+        </div>
+        <select 
+          aria-label="Filter by status"
+          value={statusFilter} 
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="text-sm rounded-xl border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
+        >
+          <option value="all">All Status</option>
+          <option value="posted">Posted</option>
+          <option value="draft">Draft</option>
+        </select>
+        <button 
+          type="button"
+          aria-pressed={showFilters}
+          onClick={() => setShowFilters(!showFilters)}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-semibold transition-colors ${showFilters ? "bg-primary/10 border-primary/20 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+        >
+          <Filter className="w-3.5 h-3.5" aria-hidden="true" /> Filters
+        </button>
+        <button 
+          type="button"
+          onClick={exportCSV}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors"
+        >
+          <Download className="w-3.5 h-3.5" aria-hidden="true" /> Export
+        </button>
+        <button 
+          type="button"
+          onClick={() => { setSelected(null); setModal("new"); }}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" aria-hidden="true" /> New Entry
+        </button>
+      </nav>
+
+      {showFilters && (
+        <div className="flex flex-wrap gap-3 p-4 rounded-xl border border-border bg-muted/30">
+          <div>
+            <label htmlFor="filter-from" className="text-[10px] font-semibold text-muted-foreground uppercase">From Date</label>
+            <input id="filter-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+              className="mt-1 block text-sm px-3 py-1.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" />
+          </div>
+          <div>
+            <label htmlFor="filter-to" className="text-[10px] font-semibold text-muted-foreground uppercase">To Date</label>
+            <input id="filter-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+              className="mt-1 block text-sm px-3 py-1.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" />
+          </div>
+          <div>
+            <label htmlFor="filter-tag" className="text-[10px] font-semibold text-muted-foreground uppercase">Tag</label>
+            <select id="filter-tag" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}
+              className="mt-1 block text-sm px-3 py-1.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20">
+              <option value="all">All Tags</option>
+              {JOURNAL_TAGS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); setTagFilter("all"); }}
+            className="self-end text-xs font-semibold text-muted-foreground hover:text-foreground px-2 py-1.5 transition-colors">Clear</button>
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <div className="py-16 text-center text-sm text-muted-foreground rounded-xl border border-border" role="status">
+          No journal entries match your filters.
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <caption className="sr-only">Journal Entries</caption>
+              <thead className="bg-muted/60 border-b border-border">
+                <tr>
+                  <th scope="col" className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase">Ref</th>
+                  <th scope="col" className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase">Date</th>
+                  <th scope="col" className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase">Description</th>
+                  <th scope="col" className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase hidden lg:table-cell">Tags</th>
+                  <th scope="col" className="px-3 py-2.5 text-right text-[11px] font-semibold text-muted-foreground uppercase">Debit</th>
+                  <th scope="col" className="px-3 py-2.5 text-right text-[11px] font-semibold text-muted-foreground uppercase">Credit</th>
+                  <th scope="col" className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase">Status</th>
+                  <th scope="col" className="px-3 py-2.5 text-right text-[11px] font-semibold text-muted-foreground uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filtered.map((entry) => {
+                  const totalD = entry.lines.reduce((s, l) => s + l.debit, 0);
+                  const totalC = entry.lines.reduce((s, l) => s + l.credit, 0);
+                  return (
+                    <tr key={entry.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-3 py-2.5">
+                        <span className="font-mono text-xs font-bold text-primary">{entry.ref}</span>
+                        {entry.reversed_ref && <p className="text-[10px] text-amber-600 font-semibold m-0">↩ Rev. of {entry.reversed_ref}</p>}
+                        {entry.simple_mode && <span className="text-[10px] text-primary/60 font-semibold m-0">Simple</span>}
+                      </td>
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(entry.date).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" })}
+                      </td>
+                      <td className="px-3 py-2.5 text-foreground max-w-[200px] truncate">{entry.description}</td>
+                      <td className="px-3 py-2.5 hidden lg:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {(entry.tags || []).slice(0, 2).map((t) => (
+                            <span key={t} className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">{t}</span>
+                          ))}
+                          {(entry.tags || []).length > 2 && <span className="text-[10px] text-muted-foreground">+{entry.tags.length - 2}</span>}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold text-blue-700">
+                        {totalD.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold text-emerald-700">
+                        {totalC.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-3 py-2.5"><StatusBadge status={entry.status} /></td>
+                      <td className="px-3 py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button type="button" aria-label={`View entry ${entry.ref}`} onClick={() => { setSelected(entry); setModal("view"); }}
+                            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+                            <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                          </button>
+                          {entry.status === "draft" && (
+                            <>
+                              <button type="button" aria-label={`Edit entry ${entry.ref}`} onClick={() => { setSelected(entry); setModal("edit"); }}
+                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                                <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                              </button>
+                              <button type="button" aria-label={`Post entry ${entry.ref}`} onClick={() => handlePost(entry)}
+                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-emerald-600 transition-colors">
+                                <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+                              </button>
+                              <button type="button" aria-label={`Delete entry ${entry.ref}`} onClick={() => handleDelete(entry.id)}
+                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors">
+                                <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                              </button>
+                            </>
+                          )}
+                          {entry.status === "posted" && (
+                            <button type="button" aria-label={`Reverse entry ${entry.ref}`} onClick={() => handleReverse(entry)}
+                              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-amber-600 transition-colors">
+                              <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="border-t-2 border-border bg-muted/30">
+                <tr>
+                  <td colSpan={4} className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase">
+                    {filtered.length} {filtered.length !== 1 ? "entries" : "entry"}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono font-bold text-blue-700 text-xs">
+                    {grandDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono font-bold text-emerald-700 text-xs">
+                    {grandCredit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                  <td colSpan={2} className="px-3 py-2 text-right text-[11px] font-semibold text-muted-foreground">
+                    {Math.abs(grandDebit - grandCredit) < 0.01
+                      ? <span className="text-emerald-600">✓ Balanced</span>
+                      : <span className="text-red-500">Diff: {fmt(Math.abs(grandDebit - grandCredit))}</span>
+                    }
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {(modal === "new" || modal === "edit") && (
+          <JournalEntryForm
+            accounts={accounts}
+            entries={entries}
+            initial={modal === "edit" ? selected : null}
+            fiscalYears={fiscalYears}
+            onSave={handleSave}
+            onClose={() => { setModal(null); setSelected(null); }}
+          />
+        )}
+        {modal === "view" && selected && (
+          <JournalEntryDetail
+            entry={selected}
+            accounts={accounts}
+            fmt={fmt}
+            onClose={() => { setModal(null); setSelected(null); }}
+            onEdit={() => setModal("edit")}
+            onReverse={() => { handleReverse(selected); setModal(null); setSelected(null); }}
+          />
+        )}
+      </AnimatePresence>
+    </section>
+  );
+}

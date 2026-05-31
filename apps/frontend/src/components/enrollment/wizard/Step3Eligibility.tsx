@@ -1,0 +1,109 @@
+import React, { useMemo } from "react";
+import { CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { runFullEligibility, CheckResult } from "../../../lib/enrollmentData";
+import { Student } from "../../../lib/studentsData";
+import { Session, Class } from "../../../lib/sessionsData";
+
+const ICONS: Record<string, React.ReactElement> = {
+  pass: <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" aria-hidden="true" />,
+  fail: <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" aria-hidden="true" />,
+  warn: <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" aria-hidden="true" />,
+};
+
+const ROW_COLORS: Record<string, string> = {
+  pass: "bg-emerald-50 border-emerald-200",
+  fail: "bg-red-50 border-red-200",
+  warn: "bg-amber-50 border-amber-200",
+};
+
+const LABEL_COLORS: Record<string, string> = {
+  pass: "text-emerald-700",
+  fail: "text-red-600",
+  warn: "text-amber-700",
+};
+
+interface Step3EligibilityProps {
+  student: Student;
+  session: Session;
+  suggestedClass: Class | null;
+  students?: Student[];
+}
+
+/**
+ * Step 3 component for verifying enrollment eligibility checks.
+ *
+ * @param props - Component props.
+ * @param props.student - Selected student object.
+ * @param props.session - Selected session object.
+ * @param props.suggestedClass - Suggested class for the student.
+ * @param props.students - Dynamic list of registered students.
+ * @returns The Step3Eligibility component.
+ */
+export default function Step3Eligibility({ student, session, suggestedClass, students = [] }: Step3EligibilityProps): React.ReactElement {
+  const checks = useMemo<CheckResult[]>(() =>
+    runFullEligibility(student, session, suggestedClass, students),
+    [student, session, suggestedClass, students]
+  );
+
+  const passCount = checks.filter((c) => c.status === "pass").length;
+  const failCount = checks.filter((c) => c.status === "fail").length;
+  const warnCount = checks.filter((c) => c.status === "warn").length;
+  const canProceed = failCount === 0;
+
+  return (
+    <section className="space-y-4" aria-labelledby="step3-title">
+      <div>
+        <h3 id="step3-title" className="text-base font-bold text-foreground">Eligibility Check</h3>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Checking <strong>{student.name}</strong> for <strong>{session.name}</strong>
+        </p>
+      </div>
+
+      {/* Summary bar */}
+      <div className="flex items-center gap-3 flex-wrap" role="status" aria-label="Eligibility summary">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+          <span className="text-xs font-bold text-emerald-700">{passCount} Passed</span>
+        </div>
+        {failCount > 0 && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 border border-red-200">
+            <XCircle className="w-3.5 h-3.5 text-red-500" aria-hidden="true" />
+            <span className="text-xs font-bold text-red-600">{failCount} Failed</span>
+          </div>
+        )}
+        {warnCount > 0 && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
+            <span className="text-xs font-bold text-amber-700">{warnCount} Warning{warnCount > 1 ? "s" : ""}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Check rows */}
+      <div className="space-y-2" role="list" aria-label="Eligibility check details">
+        {checks.map((c) => (
+          <div key={c.id} className={`flex items-start gap-3 p-3 rounded-xl border ${ROW_COLORS[c.status]}`} role="listitem">
+            <div className="mt-0.5">{ICONS[c.status]}</div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-xs font-bold ${LABEL_COLORS[c.status]}`}>{c.label}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{c.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Result banner */}
+      {canProceed ? (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-semibold" role="status">
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+          Student is eligible — you may proceed to class assignment.
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-semibold" role="alert">
+          <XCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+          {failCount} eligibility check{failCount > 1 ? "s" : ""} failed. Review issues above before proceeding.
+        </div>
+      )}
+    </section>
+  );
+}

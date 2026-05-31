@@ -1,0 +1,144 @@
+import React from "react";
+import { motion } from "framer-motion";
+import { AlertCircle, Phone, Send } from "lucide-react";
+import { getCollection } from "../../lib/db";
+import { INVOICES, Invoice } from "../../lib/financeData";
+import { STUDENTS, Student } from "../../lib/studentsData";
+
+/**
+ * OutstandingFeesTable Component
+ *
+ * Displays a list of recent overdue payments and outstanding fees.
+ * Includes quick actions for sending reminders or calling the contacts.
+ *
+ * @returns {React.ReactElement} The outstanding fees table widget.
+ */
+export default function OutstandingFeesTable({ title }: { title?: string }) {
+  let invoices: Invoice[] = [];
+  let students: Student[] = [];
+
+  try {
+    invoices = getCollection("finance_invoices", INVOICES);
+    students = getCollection("students", STUDENTS);
+  } catch (error) {
+    console.error("Failed to load outstanding fees data:", error);
+    invoices = INVOICES;
+    students = STUDENTS;
+  }
+
+  const list = invoices
+    .filter((inv) => inv.status !== "paid" && inv.status !== "cancelled")
+    .map((inv) => {
+      const student = students.find((s) => s.id === inv.studentId);
+      const contact = student?.phone || "+92 300 1234567";
+      const amount = inv.status === "partial" ? (inv.finalAmt - (inv.paidAmt || 0)) : inv.finalAmt;
+
+      const due = new Date(inv.dueDate);
+      const now = new Date();
+      const diffMonths = Math.max(1, (now.getFullYear() - due.getFullYear()) * 12 + now.getMonth() - due.getMonth());
+
+      return {
+        id: inv.id,
+        student: inv.studentName,
+        class: inv.class,
+        amount,
+        months: diffMonths,
+        contact,
+      };
+    })
+    .slice(0, 5);
+    
+  const totalUnpaid = invoices.filter((inv) => inv.status !== "paid" && inv.status !== "cancelled").length;
+
+  return (
+    <section aria-labelledby="outstanding-fees-heading" className="bg-card rounded-xl border border-border">
+      <header className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <AlertCircle className="w-4 h-4 text-destructive" aria-hidden="true" />
+          <h3 id="outstanding-fees-heading" className="text-sm font-semibold text-foreground m-0">
+            {title || "Outstanding Payments"}
+          </h3>
+          <span className="text-[11px] font-semibold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full" aria-label={`${totalUnpaid} students with unpaid fees`}>
+            {totalUnpaid} students
+          </span>
+        </div>
+        <button className="text-[12px] font-semibold text-primary hover:underline">
+          Send all reminders
+        </button>
+      </header>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-muted/30">
+              <th scope="col" className="text-left px-5 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Student</th>
+              <th scope="col" className="text-left px-3 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Class</th>
+              <th scope="col" className="text-left px-3 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Amount</th>
+              <th scope="col" className="text-left px-3 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Overdue</th>
+              <th scope="col" className="px-3 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/50">
+            {list.map((fee, i) => (
+              <motion.tr
+                key={fee.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: i * 0.05 }}
+                className="hover:bg-muted/20 transition-colors"
+              >
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+                      <span className="text-[10px] font-bold text-primary">
+                        {fee.student.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                      </span>
+                    </div>
+                    <span className="text-[13px] font-medium text-foreground">{fee.student}</span>
+                  </div>
+                </td>
+                <td className="px-3 py-3 text-[12px] text-muted-foreground hidden sm:table-cell">{fee.class}</td>
+                <td className="px-3 py-3">
+                  <span className="text-[13px] font-bold text-destructive">₨ {fee.amount.toLocaleString()}</span>
+                </td>
+                <td className="px-3 py-3 hidden md:table-cell">
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                    fee.months >= 3
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-amber-50 text-amber-700"
+                  }`}>
+                    {fee.months} {fee.months === 1 ? "month" : "months"}
+                  </span>
+                </td>
+                <td className="px-3 py-3 text-right">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      aria-label={`Call ${fee.student}`}
+                      title="Call"
+                      className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Phone className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                    <button
+                      aria-label={`Send reminder to ${fee.student}`}
+                      title="Send reminder"
+                      className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <Send className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
+                </td>
+              </motion.tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <footer className="px-5 py-3 border-t border-border">
+        <button className="text-xs text-primary font-medium hover:underline">
+          View all outstanding payments
+        </button>
+      </footer>
+    </section>
+  );
+}

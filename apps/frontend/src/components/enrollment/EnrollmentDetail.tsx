@@ -1,0 +1,220 @@
+import React from "react";
+import { X, User, BookOpen, Layers, DollarSign, Clock, ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
+import { STATUS_MAP, Enrollment } from "../../lib/enrollmentData";
+import { getCollection } from "../../lib/db";
+import { STUDENTS } from "../../lib/studentsData";
+
+interface SectionProps {
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
+  title: string;
+  children: React.ReactNode;
+}
+
+/**
+ * Section container helper.
+ *
+ * @returns Component layout.
+ */
+function Section({ icon: Icon, title, children }: SectionProps): React.ReactElement {
+  return (
+    <section className="rounded-xl border border-border bg-card overflow-hidden" aria-label={title}>
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/40 border-b border-border">
+        <Icon className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">{title}</h3>
+      </div>
+      <div className="px-4 py-1">{children}</div>
+    </section>
+  );
+}
+
+interface RowProps {
+  label: string;
+  value: React.ReactNode;
+}
+
+/**
+ * Data row helper.
+ *
+ * @returns Component layout.
+ */
+function Row({ label, value }: RowProps): React.ReactElement {
+  return (
+    <div className="flex items-start justify-between gap-4 py-2.5 border-b border-border last:border-0">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs font-semibold text-foreground text-right">{value || "—"}</span>
+    </div>
+  );
+}
+
+const paymentColors: Record<string, string> = {
+  paid:    "bg-emerald-100 text-emerald-700",
+  pending: "bg-amber-100 text-amber-700",
+  overdue: "bg-red-100 text-red-700",
+  partial: "bg-blue-100 text-blue-700",
+};
+
+interface EnrollmentDetailProps {
+  enrollment: Enrollment | null | undefined;
+  onClose: () => void;
+  onStatusChange: (id: string, newStatus: Enrollment["status"]) => void;
+  role: string;
+}
+
+/**
+ * Renders details and action capabilities for a specific enrollment record.
+ *
+ * @param props - Component props.
+ * @param props.enrollment - The enrollment record to display.
+ * @param props.onClose - Action to close the modal.
+ * @param props.onStatusChange - Handler to alter state status.
+ * @param props.role - Logged in user permission role.
+ * @returns The EnrollmentDetail component.
+ */
+export default function EnrollmentDetail({ enrollment, onClose, onStatusChange, role }: EnrollmentDetailProps): React.ReactElement | null {
+  if (!enrollment) return null;
+  const s = STATUS_MAP[enrollment.status] || { label: enrollment.status, color: "bg-muted text-muted-foreground border-border" };
+
+  const TRANSITIONS: Record<Enrollment["status"], Enrollment["status"][]> = {
+    pending:   ["confirmed", "cancelled"],
+    confirmed: ["completed", "cancelled"],
+    cancelled: [],
+    completed: [],
+  };
+  const nextStatuses = TRANSITIONS[enrollment.status] || [];
+
+  const students = React.useMemo(() => getCollection<any>("students", STUDENTS), []);
+  const student = React.useMemo(() => {
+    return students.find((st) => String(st.id) === String(enrollment.studentId));
+  }, [enrollment, students]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-10 overflow-y-auto"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="enrollment-detail-title"
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-background rounded-2xl border border-border shadow-xl w-full max-w-xl space-y-4 p-5 mb-10"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 id="enrollment-detail-title" className="text-base font-bold text-foreground">{enrollment.studentName}</h2>
+              {student?.grNumber && (
+                <span className="bg-primary/5 text-primary text-[10px] px-2 py-0.5 rounded border border-primary/10 font-bold uppercase">
+                  GR: {student.grNumber}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">{enrollment.sessionName} · #{enrollment.id}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${s.color}`}>{s.label}</span>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close details"
+              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        {/* Sections */}
+        <Section icon={User} title="Student Info">
+          <Row label="Name"         value={enrollment.studentName} />
+          {student?.grNumber && <Row label="GR Number" value={student.grNumber} />}
+          <Row label="Student ID"   value={enrollment.studentId} />
+        </Section>
+
+        <Section icon={BookOpen} title="Session Info">
+          <Row label="Session"     value={enrollment.sessionName} />
+          <Row label="Session ID"  value={enrollment.sessionId} />
+          <Row label="Enrolled on" value={enrollment.enrolledDate} />
+        </Section>
+
+        <Section icon={Layers} title="Class Info">
+          <Row label="Class"   value={enrollment.className} />
+          <Row label="Class ID" value={enrollment.classId} />
+        </Section>
+
+        <Section icon={DollarSign} title="Fee Breakdown">
+          <Row label="Base Fee"            value={`PKR ${enrollment.baseFee?.toLocaleString()}`} />
+          <Row label={enrollment.discountLabel || "Discount"} value={enrollment.discountPct > 0 ? `– PKR ${enrollment.discountAmt?.toLocaleString()} (${enrollment.discountPct}%)` : "None"} />
+          <div className="flex items-center justify-between py-2.5">
+            <span className="text-xs font-bold text-foreground">Total Due</span>
+            <span className="text-sm font-bold text-primary">PKR {enrollment.finalFee?.toLocaleString()}</span>
+          </div>
+          <Row label="Payment Status" value={
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${paymentColors[enrollment.paymentStatus] || "bg-muted text-muted-foreground"}`}>
+              {enrollment.paymentStatus || "—"}
+            </span>
+          } />
+        </Section>
+
+        {/* Timeline */}
+        {enrollment.timeline && enrollment.timeline.length > 0 && (
+          <Section icon={Clock} title="Timeline">
+            <div className="py-2 space-y-3" role="list">
+              {enrollment.timeline.map((t, i) => (
+                <div key={i} className="flex gap-3" role="listitem">
+                  <div className="flex flex-col items-center">
+                    <div className="w-2 h-2 rounded-full bg-primary mt-1 flex-shrink-0" aria-hidden="true" />
+                    {enrollment.timeline && i < enrollment.timeline.length - 1 && <div className="w-0.5 flex-1 bg-border mt-1" aria-hidden="true" />}
+                  </div>
+                  <div className="pb-2">
+                    <p className="text-xs font-semibold text-foreground">{t.event}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {new Date(t.ts).toLocaleString()} · {t.by}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* Status actions */}
+        {role !== "accountant" && nextStatuses.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            <p className="text-xs font-semibold text-muted-foreground">Move to:</p>
+            {nextStatuses.map((ns) => {
+              const info = STATUS_MAP[ns];
+              const isCancel = ns === "cancelled";
+              return (
+                <button
+                  key={ns}
+                  type="button"
+                  onClick={() => onStatusChange(enrollment.id, ns)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+                    isCancel
+                      ? "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                      : "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                  }`}
+                >
+                  <ArrowRight className="w-3 h-3" aria-hidden="true" />
+                  {info?.label || ns}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Notes */}
+        {enrollment.notes && (
+          <p className="text-xs text-muted-foreground px-1" role="note">📝 {enrollment.notes}</p>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}

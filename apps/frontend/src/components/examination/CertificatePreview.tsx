@@ -1,0 +1,193 @@
+import React, { useRef } from "react";
+import { motion } from "framer-motion";
+import { X, Printer } from "lucide-react";
+import { getRankSuffix } from "./gradeUtils";
+import { StudentResultItem } from "./StudentResultCard";
+import { Exam } from "../../lib/examinationData";
+import { formatDate } from "../../lib/db";
+
+interface CertificatePreviewProps {
+  result: StudentResultItem;
+  exam: Exam;
+  onClose: () => void;
+}
+
+/**
+ * Preview modal displaying student certificates with print features.
+ *
+ * @param props - Component props.
+ * @param props.result - Computed student result card details.
+ * @param props.exam - Target exam details.
+ * @param props.onClose - Action callback to close modal.
+ * @returns The CertificatePreview component.
+ */
+export default function CertificatePreview({ result, exam, onClose }: CertificatePreviewProps): React.ReactElement {
+  const certRef = useRef<HTMLDivElement | null>(null);
+
+  const handlePrint = () => {
+    if (!certRef.current) return;
+    const content = certRef.current.innerHTML;
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Certificate — ${result.student?.name || "Student"}</title>
+          <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Inter', sans-serif; background: white; }
+            @media print {
+              body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            }
+          </style>
+        </head>
+        <body>${content}</body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+      win.close();
+    }, 500);
+  };
+
+  const rankLabel = getRankSuffix(result.rank);
+  const date = formatDate(exam.date, true);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="cert-modal-title">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.94 }}
+        className="relative z-10 bg-card rounded-2xl border border-border shadow-2xl w-full max-w-2xl flex flex-col"
+      >
+        {/* Modal header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+          <h3 id="cert-modal-title" className="text-sm font-bold text-foreground">Certificate Preview</h3>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-[12px] font-semibold hover:bg-primary/90"
+            >
+              <Printer className="w-3.5 h-3.5" aria-hidden="true" /> Print / Download
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close preview"
+              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        {/* Certificate */}
+        <div className="p-5 overflow-y-auto">
+          <div ref={certRef}>
+            <div style={{
+              width: "100%",
+              background: "white",
+              border: "16px solid #047857",
+              outline: "4px solid #d97706",
+              outlineOffset: "-20px",
+              padding: "40px 48px",
+              textAlign: "center",
+              fontFamily: "'Inter', sans-serif",
+              position: "relative",
+              minHeight: "420px",
+            }}>
+              {/* Corner ornaments */}
+              {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map((pos) => {
+                const styles: React.CSSProperties = {
+                  position: "absolute",
+                  [pos.includes("top") ? "top" : "bottom"]: "8px",
+                  [pos.includes("left") ? "left" : "right"]: "8px",
+                  width: "32px",
+                  height: "32px",
+                  borderTop: pos.includes("top") ? "4px solid #d97706" : "none",
+                  borderBottom: pos.includes("bottom") ? "4px solid #d97706" : "none",
+                  borderLeft: pos.includes("left") ? "4px solid #d97706" : "none",
+                  borderRight: pos.includes("right") ? "4px solid #d97706" : "none",
+                };
+                return <div key={pos} style={styles} />;
+              })}
+
+              {/* Arabic bismillah */}
+              <p style={{ fontFamily: "'Amiri', serif", fontSize: "20px", color: "#047857", marginBottom: "4px" }}>
+                بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيْمِ
+              </p>
+
+              <div style={{ width: "60px", height: "2px", background: "linear-gradient(to right, #d97706, #047857, #d97706)", margin: "12px auto" }} />
+
+              {/* Institution */}
+              <p style={{ fontSize: "11px", fontWeight: "700", letterSpacing: "4px", color: "#6b7280", textTransform: "uppercase", marginBottom: "16px" }}>
+                Madrasa Management System
+              </p>
+
+              {/* Title */}
+              <h1 style={{ fontSize: "32px", fontWeight: "700", color: "#047857", fontFamily: "'Amiri', serif", marginBottom: "4px" }}>
+                Certificate of Achievement
+              </h1>
+              <p style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "24px" }}>This is to certify that</p>
+
+              {/* Student name */}
+              <h2 style={{ fontSize: "28px", fontWeight: "700", color: "#1a1a1a", borderBottom: "2px solid #d97706", display: "inline-block", padding: "0 24px 6px", marginBottom: "20px" }}>
+                {result.student?.name}
+              </h2>
+
+              {/* Body text */}
+              <p style={{ fontSize: "13px", color: "#4b5563", lineHeight: "1.8", maxWidth: "480px", margin: "0 auto 20px" }}>
+                has successfully completed the examination in{" "}
+                <strong style={{ color: "#047857" }}>{exam.subject}</strong> — <em>{exam.name}</em>,
+                achieving a score of{" "}
+                <strong style={{ color: "#047857" }}>{result.marksObtained} out of {exam.totalMarks}</strong>{" "}
+                ({result.pct}%) and securing{" "}
+                <strong style={{ color: "#d97706" }}>{rankLabel} position</strong> in class.
+              </p>
+
+              {/* Grade badge */}
+              <div style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "12px",
+                background: result.grade.bg,
+                border: `2px solid ${result.grade.border}`,
+                borderRadius: "12px",
+                padding: "8px 24px",
+                marginBottom: "24px",
+              }}>
+                <span style={{ fontSize: "24px", fontWeight: "700", color: result.grade.color }}>{result.grade.label}</span>
+                <span style={{ fontSize: "12px", color: "#6b7280" }}>Grade</span>
+                <div style={{ width: "1px", height: "24px", background: result.grade.border }} />
+                <span style={{ fontSize: "16px", fontWeight: "700", color: result.grade.color }}>{result.pct}%</span>
+              </div>
+
+              {/* Date & signatures row */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: "24px", borderTop: "1px solid #e5e7eb", paddingTop: "16px" }}>
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ width: "120px", borderBottom: "1px solid #9ca3af", marginBottom: "4px" }} />
+                  <p style={{ fontSize: "10px", color: "#6b7280" }}>Class Teacher</p>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: "10px", color: "#9ca3af" }}>Date of Examination</p>
+                  <p style={{ fontSize: "12px", fontWeight: "600", color: "#374151" }}>{date}</p>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ width: "120px", borderBottom: "1px solid #9ca3af", marginBottom: "4px", marginLeft: "auto" }} />
+                  <p style={{ fontSize: "10px", color: "#6b7280" }}>Principal / Director</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
