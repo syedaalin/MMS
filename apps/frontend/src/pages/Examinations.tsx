@@ -28,7 +28,8 @@ const PAGE_TABS = [
 ];
 
 const EXAMINATION_SETTINGS_SUB_TABS = [
-  { id: "fields", label: "Fields & Preferences" },
+  { id: "fields", label: "Fields" },
+  { id: "preferences", label: "Preferences" },
 ];
 
 const OPS_SUB_TABS = [
@@ -208,7 +209,7 @@ export default function Examinations() {
                   </button>
                 ))}
               </div>
-              {subTab === "fields" && <ExaminationsSettings />}
+              <ExaminationsSettings mode={subTab as "fields" | "preferences"} />
             </div>
           )}
 

@@ -159,7 +159,7 @@ export default function EmergencyTab({
   customFields
 }: EmergencyTabProps): React.JSX.Element {
   const { relationships } = useContactConfig();
-  const list = data.emergencyContacts || [];
+  const list = data.emergencyContacts && data.emergencyContacts.length > 0 ? data.emergencyContacts : [{ contactId: "", relationship: "" }];
   const upd = (l: EmergencyContact[]): void => {
     onChange({ ...data, emergencyContacts: l });
   };

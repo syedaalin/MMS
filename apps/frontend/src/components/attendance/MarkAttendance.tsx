@@ -6,9 +6,16 @@ import {
 } from "lucide-react";
 import { CLASS_STUDENTS, ClassStudent, ATTENDANCE_STATUSES, STATUS_MAP, AttendanceRecord, AttendanceStatus } from "../../lib/attendanceData";
 import { SESSIONS_DATA } from "../../lib/sessionsData";
-import { getCollection } from "../../lib/db";
+import { getCollection, getObject } from "../../lib/db";
 import StatusToggle from "./StatusToggle";
 import { AttendanceFilterState } from "./AttendanceFilters";
+import {
+  type AttendanceModuleSettings,
+  DEFAULT_ATTENDANCE_SETTINGS,
+  DEFAULT_ATTENDANCE_FIELD_DEFS,
+  getSortedFields,
+  type ModuleCustomField,
+} from "@mms/shared";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -25,6 +32,7 @@ export interface AttendanceRow {
   timeIn: string;
   timeOut: string;
   notes: string;
+  [key: string]: any;
 }
 
 export interface OfflinePayload {
@@ -121,10 +129,6 @@ function addAuditEntry(classId: string, date: string, entry: AuditEntry) {
 
 /**
  * Retrieves the audit log of attendance changes for a specific class and date.
- *
- * @param classId - The unique identifier of the class.
- * @param date - The date of the attendance record (format: YYYY-MM-DD).
- * @returns An array of audit entry objects retrieved from local storage.
  */
 export function getAuditLog(classId: string, date: string): AuditEntry[] {
   try {
@@ -137,16 +141,22 @@ export function getAuditLog(classId: string, date: string): AuditEntry[] {
 }
 
 // ── Default rows ──────────────────────────────────────────────────────────────
-function buildDefaultRows(students: ClassStudent[]): AttendanceRow[] {
-  return students.map((st) => ({
-    studentId: st.id,
-    name: st.name,
-    rollNo: st.rollNo,
-    status: "present",
-    timeIn: "07:00",
-    timeOut: "08:30",
-    notes: "",
-  }));
+function buildDefaultRows(students: ClassStudent[], customFields: ModuleCustomField[] = []): AttendanceRow[] {
+  return students.map((st) => {
+    const row: AttendanceRow = {
+      studentId: st.id,
+      name: st.name,
+      rollNo: st.rollNo,
+      status: "present",
+      timeIn: "07:00",
+      timeOut: "08:30",
+      notes: "",
+    };
+    customFields.forEach((cf) => {
+      row[cf.id] = cf.defaultValue ?? "";
+    });
+    return row;
+  });
 }
 
 // ── Offline Banner ────────────────────────────────────────────────────────────
@@ -232,12 +242,6 @@ function FaceRecognitionPlaceholder({ onClose }: { onClose: () => void }) {
 
 /**
  * MarkAttendance
- * 
- * Provides the interface for marking attendance for a specific class and date.
- * Features include offline mode, geo-tagging, bulk status updates, and audit logging.
- * 
- * @param {MarkAttendanceProps} props - The component props.
- * @returns {React.ReactElement} The rendered component.
  */
 export default function MarkAttendance({ filters, role, records, setRecords }: MarkAttendanceProps) {
   let fetchedSessions: Session[] = [];
@@ -259,6 +263,16 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
   const sessionInfo = useMemo(() => classInfo ? sessions.find((s) => s.id === classInfo.sessionId) : null, [sessions, classInfo]);
   const students: ClassStudent[] = filters.classId ? (CLASS_STUDENTS[filters.classId] ?? []) : [];
 
+  // Read settings
+  const settings = useMemo(() => getObject<AttendanceModuleSettings>("attendance_settings", DEFAULT_ATTENDANCE_SETTINGS), []);
+  const fields = settings.fields || DEFAULT_ATTENDANCE_SETTINGS.fields || {};
+  const customFields = settings.customFields || [];
+  const fieldOrder = settings.fieldOrder || DEFAULT_ATTENDANCE_SETTINGS.fieldOrder || [];
+
+  const orderedFields = useMemo(() => {
+    return getSortedFields(DEFAULT_ATTENDANCE_FIELD_DEFS, fieldOrder, fields, customFields);
+  }, [fieldOrder, fields, customFields]);
+
   const [rows, setRows] = useState<AttendanceRow[]>(() => {
     if (!filters.classId || !filters.date) return [];
     const existing = records.filter((r) => r.classId === filters.classId && r.date === filters.date);
@@ -271,9 +285,10 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
         timeIn: r.timeIn || "07:00",
         timeOut: r.timeOut || "08:30",
         notes: r.notes || "",
+        ...((r as any).customFields || {}),
       }));
     }
-    return buildDefaultRows(students);
+    return buildDefaultRows(students, customFields);
   });
   const [search, setSearch]       = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -310,9 +325,10 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
         timeIn: r.timeIn || "07:00",
         timeOut: r.timeOut || "08:30",
         notes: r.notes || "",
+        ...((r as any).customFields || {}),
       }));
     } else {
-      newRows = buildDefaultRows(CLASS_STUDENTS[filters.classId] ?? []);
+      newRows = buildDefaultRows(CLASS_STUDENTS[filters.classId] ?? [], customFields);
     }
     setRows(newRows);
     setSubmitted(isLocked(filters.classId, filters.date));
@@ -341,7 +357,7 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
     excused: rows.filter((r) => r.status === "excused").length,
   }), [rows]);
 
-  const setRow = <K extends keyof AttendanceRow>(studentId: string, key: K, value: AttendanceRow[K]) => {
+  const setRow = (studentId: string, key: string, value: any) => {
     if (locked) return;
     const before = rows.find((r) => r.studentId === studentId);
     setRows((prev) => prev.map((r) => r.studentId === studentId ? { ...r, [key]: value } : r));
@@ -352,7 +368,7 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
         studentId,
         studentName: before.name,
         field: key,
-        from: String(before[key]),
+        from: String(before[key] ?? ""),
         to: String(value),
         by: role,
       });
@@ -378,18 +394,26 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
   };
 
   const handleSaveDraft = () => {
-    const newRecords: AttendanceRecord[] = rows.map((row) => ({
-      id: `${filters.classId}-${filters.date}-${row.studentId}`,
-      classId: filters.classId,
-      date: filters.date,
-      studentId: row.studentId,
-      studentName: row.name,
-      rollNo: row.rollNo,
-      status: row.status,
-      timeIn: row.status !== "absent" ? row.timeIn : "",
-      timeOut: row.status !== "absent" ? row.timeOut : "",
-      notes: row.notes || "",
-    }));
+    const newRecords: AttendanceRecord[] = rows.map((row) => {
+      const customFieldVals: Record<string, any> = {};
+      customFields.forEach((cf: ModuleCustomField) => {
+        customFieldVals[cf.id] = row[cf.id];
+      });
+
+      return {
+        id: `${filters.classId}-${filters.date}-${row.studentId}`,
+        classId: filters.classId,
+        date: filters.date,
+        studentId: row.studentId,
+        studentName: row.name,
+        rollNo: row.rollNo,
+        status: row.status,
+        timeIn: row.status !== "absent" ? row.timeIn : "",
+        timeOut: row.status !== "absent" ? row.timeOut : "",
+        notes: row.notes || "",
+        customFields: customFieldVals,
+      } as unknown as AttendanceRecord;
+    });
 
     setRecords((prev) => {
       const filtered = prev.filter((r) => !(r.classId === filters.classId && r.date === filters.date));
@@ -401,18 +425,26 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
   };
 
   const handleSubmit = () => {
-    const newRecords: AttendanceRecord[] = rows.map((row) => ({
-      id: `${filters.classId}-${filters.date}-${row.studentId}`,
-      classId: filters.classId,
-      date: filters.date,
-      studentId: row.studentId,
-      studentName: row.name,
-      rollNo: row.rollNo,
-      status: row.status,
-      timeIn: row.status !== "absent" ? row.timeIn : "",
-      timeOut: row.status !== "absent" ? row.timeOut : "",
-      notes: row.notes || "",
-    }));
+    const newRecords: AttendanceRecord[] = rows.map((row) => {
+      const customFieldVals: Record<string, any> = {};
+      customFields.forEach((cf: ModuleCustomField) => {
+        customFieldVals[cf.id] = row[cf.id];
+      });
+
+      return {
+        id: `${filters.classId}-${filters.date}-${row.studentId}`,
+        classId: filters.classId,
+        date: filters.date,
+        studentId: row.studentId,
+        studentName: row.name,
+        rollNo: row.rollNo,
+        status: row.status,
+        timeIn: row.status !== "absent" ? row.timeIn : "",
+        timeOut: row.status !== "absent" ? row.timeOut : "",
+        notes: row.notes || "",
+        customFields: customFieldVals,
+      } as unknown as AttendanceRecord;
+    });
 
     setRecords((prev) => {
       const filtered = prev.filter((r) => !(r.classId === filters.classId && r.date === filters.date));
@@ -441,18 +473,26 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
 
     let updatedRecords = [...records];
     offlineQueue.forEach((payload) => {
-      const newRecs: AttendanceRecord[] = payload.rows.map((row) => ({
-        id: `${payload.classId}-${payload.date}-${row.studentId}`,
-        classId: payload.classId,
-        date: payload.date,
-        studentId: row.studentId,
-        studentName: row.name,
-        rollNo: row.rollNo,
-        status: row.status,
-        timeIn: row.status !== "absent" ? row.timeIn : "",
-        timeOut: row.status !== "absent" ? row.timeOut : "",
-        notes: row.notes || "",
-      }));
+      const newRecs: AttendanceRecord[] = payload.rows.map((row) => {
+        const customFieldVals: Record<string, any> = {};
+        customFields.forEach((cf: ModuleCustomField) => {
+          customFieldVals[cf.id] = row[cf.id];
+        });
+
+        return {
+          id: `${payload.classId}-${payload.date}-${row.studentId}`,
+          classId: payload.classId,
+          date: payload.date,
+          studentId: row.studentId,
+          studentName: row.name,
+          rollNo: row.rollNo,
+          status: row.status,
+          timeIn: row.status !== "absent" ? row.timeIn : "",
+          timeOut: row.status !== "absent" ? row.timeOut : "",
+          notes: row.notes || "",
+          customFields: customFieldVals,
+        } as unknown as AttendanceRecord;
+      });
       updatedRecords = updatedRecords.filter(
         (r) => !(r.classId === payload.classId && r.date === payload.date)
       );
@@ -503,7 +543,7 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
         <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
           <Lock className="w-3 h-3" aria-hidden="true" /> This session is locked for today.
         </div>
-        <button onClick={() => { setSubmitted(false); setRows(buildDefaultRows(students)); setLockedState(false); }}
+        <button onClick={() => { setSubmitted(false); setRows(buildDefaultRows(students, customFields)); setLockedState(false); }}
           className="mt-5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
           Mark Another Day
         </button>
@@ -603,59 +643,131 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
               <tr>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase w-8">#</th>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase">Student</th>
-                <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-muted-foreground uppercase">Status</th>
-                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase w-24">Time In</th>
-                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase w-24">Time Out</th>
-                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase">Notes</th>
+                {orderedFields.map((field) => {
+                  const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled !== false);
+                  if (!isEnabled) return null;
+                  return (
+                    <th
+                      key={field.id}
+                      className={`px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase ${
+                        field.id === "status" ? "text-center" : "text-left"
+                      } ${field.id === "timeIn" || field.id === "timeOut" ? "w-28" : ""}`}
+                    >
+                      {field.label} {field.required ? "*" : ""}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filteredRows.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground text-sm">No students found</td></tr>
+                <tr><td colSpan={orderedFields.filter(f => f.isCustom ? true : (fields[f.id]?.enabled !== false)).length + 2} className="px-4 py-10 text-center text-muted-foreground text-sm">No students found</td></tr>
               ) : filteredRows.map((row) => {
                 const s = STATUS_MAP[row.status as keyof typeof STATUS_MAP];
                 return (
                   <motion.tr key={row.studentId} layout className={`transition-colors hover:bg-muted/20 ${s?.bg || ""}`}>
                     <td className="px-3 py-2.5 text-[11px] text-muted-foreground font-mono">{row.rollNo}</td>
                     <td className="px-3 py-2.5 font-semibold text-foreground whitespace-nowrap">{row.name}</td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex justify-center">
-                        <StatusToggle value={row.status} onChange={(v) => setRow(row.studentId, "status", v as AttendanceRecord["status"])} />
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <label htmlFor={`time-in-${row.studentId}`} className="sr-only">Time In</label>
-                      <input 
-                        id={`time-in-${row.studentId}`}
-                        type="time" 
-                        value={row.timeIn}
-                        onChange={(e) => setRow(row.studentId, "timeIn", e.target.value)}
-                        disabled={row.status === "absent"}
-                        className="text-xs rounded-lg border border-border bg-background px-2 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-40" 
-                      />
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <label htmlFor={`time-out-${row.studentId}`} className="sr-only">Time Out</label>
-                      <input 
-                        id={`time-out-${row.studentId}`}
-                        type="time" 
-                        value={row.timeOut}
-                        onChange={(e) => setRow(row.studentId, "timeOut", e.target.value)}
-                        disabled={row.status === "absent"}
-                        className="text-xs rounded-lg border border-border bg-background px-2 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-40" 
-                      />
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <label htmlFor={`notes-${row.studentId}`} className="sr-only">Notes</label>
-                      <input 
-                        id={`notes-${row.studentId}`}
-                        type="text" 
-                        value={row.notes} 
-                        placeholder="Add note…"
-                        onChange={(e) => setRow(row.studentId, "notes", e.target.value)}
-                        className="text-xs rounded-lg border border-border bg-background px-2 py-1 w-full focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground" 
-                      />
-                    </td>
+                    {orderedFields.map((field) => {
+                      const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled !== false);
+                      if (!isEnabled) return null;
+
+                      if (field.id === "status") {
+                        return (
+                          <td key="status" className="px-3 py-2.5">
+                            <div className="flex justify-center">
+                              <StatusToggle value={row.status} onChange={(v) => setRow(row.studentId, "status", v as AttendanceRecord["status"])} />
+                            </div>
+                          </td>
+                        );
+                      }
+
+                      if (field.id === "timeIn") {
+                        return (
+                          <td key="timeIn" className="px-3 py-2.5">
+                            <label htmlFor={`time-in-${row.studentId}`} className="sr-only">Time In</label>
+                            <input 
+                              id={`time-in-${row.studentId}`}
+                              type="time" 
+                              value={row.timeIn}
+                              onChange={(e) => setRow(row.studentId, "timeIn", e.target.value)}
+                              disabled={row.status === "absent"}
+                              className="text-xs rounded-lg border border-border bg-background px-2 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-40" 
+                            />
+                          </td>
+                        );
+                      }
+
+                      if (field.id === "timeOut") {
+                        return (
+                          <td key="timeOut" className="px-3 py-2.5">
+                            <label htmlFor={`time-out-${row.studentId}`} className="sr-only">Time Out</label>
+                            <input 
+                              id={`time-out-${row.studentId}`}
+                              type="time" 
+                              value={row.timeOut}
+                              onChange={(e) => setRow(row.studentId, "timeOut", e.target.value)}
+                              disabled={row.status === "absent"}
+                              className="text-xs rounded-lg border border-border bg-background px-2 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-40" 
+                            />
+                          </td>
+                        );
+                      }
+
+                      if (field.id === "notes") {
+                        return (
+                          <td key="notes" className="px-3 py-2.5">
+                            <label htmlFor={`notes-${row.studentId}`} className="sr-only">Notes</label>
+                            <input 
+                              id={`notes-${row.studentId}`}
+                              type="text" 
+                              value={row.notes} 
+                              placeholder="Add note…"
+                              onChange={(e) => setRow(row.studentId, "notes", e.target.value)}
+                              className="text-xs rounded-lg border border-border bg-background px-2 py-1 w-full focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground" 
+                            />
+                          </td>
+                        );
+                      }
+
+                      // Custom column field
+                      if (field.isCustom) {
+                        const val = row[field.id] ?? "";
+                        return (
+                          <td key={field.id} className="px-3 py-2.5">
+                            {field.type === "select" ? (
+                              <select
+                                value={val}
+                                onChange={(e) => setRow(row.studentId, field.id, e.target.value)}
+                                className="text-xs rounded-lg border border-border bg-background px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
+                              >
+                                <option value="">Select…</option>
+                                {field.options?.map((opt) => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                            ) : field.type === "boolean" ? (
+                              <input
+                                type="checkbox"
+                                checked={!!val}
+                                onChange={(e) => setRow(row.studentId, field.id, e.target.checked)}
+                                className="w-4 h-4 rounded border border-border accent-primary cursor-pointer animate-none"
+                              />
+                            ) : (
+                              <input
+                                type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+                                value={val}
+                                onChange={(e) => setRow(row.studentId, field.id, e.target.value)}
+                                placeholder={field.placeholder || "Enter…"}
+                                className="text-xs rounded-lg border border-border bg-background px-2 py-1 w-full focus:outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground"
+                              />
+                            )}
+                          </td>
+                        );
+                      }
+
+                      return null;
+                    })}
                   </motion.tr>
                 );
               })}

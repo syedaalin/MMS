@@ -21,7 +21,8 @@ const PAGE_TABS = [
   { id: "configuration", label: "Configuration", icon: Settings },
 ];
 const FINANCE_SETTINGS_SUB_TABS = [
-  { id: "fields", label: "Fields & Preferences" },
+  { id: "fields", label: "Fields" },
+  { id: "preferences", label: "Preferences" },
 ];
 const SUB_TABS = [
   { id: "invoices", label: "Invoices",  icon: ReceiptText },
@@ -69,9 +70,9 @@ export default function Finance() {
         icon={DollarSign}
         title="Finance"
         subtitle="Invoices, payments, reports and hasanat payouts"
-        actions={activeTab === "operations" && activeSubTab === "invoices" && (
+        actions={
           <ActionButton variant="primary" icon={Plus}>New Invoice</ActionButton>
-        )}
+        }
       />
 
       <div className="space-y-4">
@@ -140,7 +141,7 @@ export default function Finance() {
                   </button>
                 ))}
               </div>
-              {subTab === "fields" && <FinanceSettings />}
+              <FinanceSettings mode={subTab as "fields" | "preferences"} />
             </div>
           )}
           

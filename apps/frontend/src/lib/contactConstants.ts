@@ -136,7 +136,9 @@ export function getDisplayName(contact: Partial<Contact>): string {
  * @returns True if WhatsApp enabled, false otherwise.
  */
 export function hasWhatsApp(contact: Partial<Contact>): boolean {
-  return (contact.phones || []).some((p) => p.whatsapp);
+  const verified = contact.whatsappStatus === "REGISTERED";
+  const manualChecked = (contact.phones || []).some((p) => p.whatsapp);
+  return verified || manualChecked;
 }
 
 /**

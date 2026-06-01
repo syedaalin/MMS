@@ -522,7 +522,7 @@ export default function DynamicChartVisualizer({
 
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(18);
-      doc.text("Darul Quran Academy - Analytics Report", 14, 20);
+      doc.text("MMS - Analytics Report", 14, 20);
       
       doc.setFont("Helvetica", "normal");
       doc.setFontSize(10);

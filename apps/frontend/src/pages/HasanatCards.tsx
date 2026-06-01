@@ -7,6 +7,7 @@ import DenominationsManager from "../components/hasanat/DenominationsManager";
 import StockManager from "../components/hasanat/StockManager";
 import DistributionManager from "../components/hasanat/DistributionManager";
 import RedemptionTracker from "../components/hasanat/RedemptionTracker";
+import HasanatSettings from "../components/hasanat/HasanatSettings";
 import ModuleReports from "../components/reports/ModuleReports";
 import KPISummary from "../components/reports/KPISummary";
 import { DENOMINATIONS, STOCK_BATCHES, DISTRIBUTIONS, Denomination, StockBatch, Distribution } from "../lib/hasanatData";
@@ -34,6 +35,7 @@ const SUB_TABS = [
 export default function HasanatCards() {
   const [activeTab, setActiveTab] = useState("operations");
   const [activeSubTab, setActiveSubTab] = useState("overview");
+  const [configSubTab, setConfigSubTab] = useState<"denominations" | "fields" | "preferences">("denominations");
   const [denoms, setDenoms] = useState<Denomination[]>(() => getCollection("hasanat_denoms", DENOMINATIONS));
   const [batches, setBatches] = useState<StockBatch[]>(() => getCollection("hasanat_batches", STOCK_BATCHES));
   const [distributions, setDistributions] = useState<Distribution[]>(() => getCollection("hasanat_distributions", DISTRIBUTIONS));
@@ -133,7 +135,42 @@ export default function HasanatCards() {
           className="space-y-4"
         >
           {effectiveTab === "analytics" && <ModuleReports category="hasanat" />}
-          {effectiveTab === "configuration" && <DenominationsManager denoms={denoms} onUpdate={setDenoms} />}
+          {effectiveTab === "configuration" && (
+            <div className="space-y-4">
+              <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit border border-border/30">
+                <button
+                  type="button"
+                  onClick={() => setConfigSubTab("denominations")}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    configSubTab === "denominations" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Denominations
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfigSubTab("fields")}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    configSubTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Fields
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfigSubTab("preferences")}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    configSubTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Preferences
+                </button>
+              </div>
+              {configSubTab === "denominations" && <DenominationsManager denoms={denoms} onUpdate={setDenoms} />}
+              {configSubTab === "fields" && <HasanatSettings mode="fields" />}
+              {configSubTab === "preferences" && <HasanatSettings mode="preferences" />}
+            </div>
+          )}
           
           {effectiveTab === "operations" && effectiveSubTab === "overview"     && <HasanatDashboard />}
           {effectiveTab === "operations" && effectiveSubTab === "stock"         && <StockManager batches={batches} denoms={denoms} onUpdate={setBatches} />}

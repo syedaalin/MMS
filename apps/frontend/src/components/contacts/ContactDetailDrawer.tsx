@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { CONTACT_FIELD_REGISTRY, Contact, CustomField, LIFECYCLE_COLORS, ContactActivity, ContactAttachment } from "../../lib/contactFields";
 import { useContactConfig, calculateProfileHealth } from "../../lib/ContactConfigContext";
-import { getDisplayName, getPrimaryPhone, getPrimaryEmail } from "../../lib/contactConstants";
+import { getDisplayName, getPrimaryPhone, getPrimaryEmail, hasWhatsApp } from "../../lib/contactConstants";
 
 const DETAIL_TABS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -364,10 +364,15 @@ export default function ContactDetailDrawer({
 
                   {/* Quick Actions */}
                   <div className="grid grid-cols-3 gap-2">
-                    {hasWA && (
+                    {enabledTabIds.has("phones") && (
                       <button
+                        disabled={!hasWhatsApp(c)}
                         onClick={() => onWhatsApp([c])}
-                        className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border hover:bg-emerald-50 hover:border-emerald-200 transition-all text-[#075E54]"
+                        className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${
+                          hasWhatsApp(c)
+                            ? "border-border hover:bg-emerald-50 hover:border-emerald-200 text-[#075E54] cursor-pointer"
+                            : "border-border opacity-40 bg-muted/20 text-muted-foreground cursor-not-allowed"
+                        }`}
                         type="button"
                       >
                         <MessageCircle className="w-5 h-5" />

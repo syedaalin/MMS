@@ -1,7 +1,7 @@
 import { scrypt, randomBytes, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { getCollection, saveCollection } from '../db/database.js';
-import { type User } from '@darul-quran/shared';
+import { type User } from '@mms/shared';
 
 const scryptAsync = promisify(scrypt);
 

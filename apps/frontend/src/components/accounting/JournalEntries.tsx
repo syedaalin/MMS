@@ -12,6 +12,7 @@ import JournalEntryDetail from "./JournalEntryDetail";
 import SimpleTransactionWizard from "./SimpleTransactionWizard";
 import CashbookView from "./CashbookView";
 import { createReversalEntry, JOURNAL_TAGS, Account, JournalEntry, FiscalYear, AccountingSettings } from "../../lib/accountingData";
+import { DatePicker } from "../ui/DatePicker";
 
 interface QuickActionType {
   id: string;
@@ -372,13 +373,19 @@ export default function JournalEntries({ entries, accounts, settings, fiscalYear
         <div className="flex flex-wrap gap-3 p-4 rounded-xl border border-border bg-muted/30">
           <div>
             <label htmlFor="filter-from" className="text-[10px] font-semibold text-muted-foreground uppercase">From Date</label>
-            <input id="filter-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-              className="mt-1 block text-sm px-3 py-1.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            <DatePicker
+              id="filter-from"
+              value={dateFrom}
+              onChange={setDateFrom}
+            />
           </div>
           <div>
             <label htmlFor="filter-to" className="text-[10px] font-semibold text-muted-foreground uppercase">To Date</label>
-            <input id="filter-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-              className="mt-1 block text-sm px-3 py-1.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            <DatePicker
+              id="filter-to"
+              value={dateTo}
+              onChange={setDateTo}
+            />
           </div>
           <div>
             <label htmlFor="filter-tag" className="text-[10px] font-semibold text-muted-foreground uppercase">Tag</label>

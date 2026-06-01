@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User, BookOpen, CheckCircle2, Layers, DollarSign, ClipboardCheck,
@@ -14,7 +14,11 @@ import Step6Confirmation from "./wizard/Step6Confirmation";
 import { suggestClass, runFullEligibility, Enrollment, CalculatedFee } from "../../lib/enrollmentData";
 import { STUDENTS, Student } from "../../lib/studentsData";
 import { SESSIONS_DATA, Session, Class } from "../../lib/sessionsData";
-import { getCollection } from "../../lib/db";
+import { getCollection, getObject } from "../../lib/db";
+import {
+  type EnrollmentsSettings,
+  DEFAULT_ENROLLMENTS_SETTINGS,
+} from "@mms/shared";
 
 const STEPS: Step[] = [
   { id: "student",     label: "Student",     icon: User },
@@ -47,8 +51,13 @@ export default function EnrollmentWizard({ onComplete, onCancel }: EnrollmentWiz
   const [classInfo, setClassInfo]   = useState<Class | null>(null);
   const [feeResult, setFeeResult]   = useState<CalculatedFee | null>(null);
   const [notes, setNotes]           = useState<string>("");
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
   const [done, setDone]             = useState<boolean>(false);
   const [direction, setDirection]   = useState<number>(1);
+
+  const settings = useMemo(() => getObject<EnrollmentsSettings>("enrollments_settings", DEFAULT_ENROLLMENTS_SETTINGS), []);
+  const fields = settings.fields || DEFAULT_ENROLLMENTS_SETTINGS.fields || {};
+  const customFields = settings.customFields || [];
 
   const suggested = student && session ? suggestClass(student, session) : null;
 
@@ -61,6 +70,14 @@ export default function EnrollmentWizard({ onComplete, onCancel }: EnrollmentWiz
     }
     if (step === 3) return !!classInfo;
     if (step === 4) return !!feeResult;
+    return true;
+  };
+
+  const canConfirm = (): boolean => {
+    if (fields.notes?.required && !notes) return false;
+    for (const cf of customFields) {
+      if (cf.required && !customFieldValues[cf.id]) return false;
+    }
     return true;
   };
 
@@ -98,11 +115,12 @@ export default function EnrollmentWizard({ onComplete, onCancel }: EnrollmentWiz
       invoiceId: `inv${Date.now()}`,
       paymentStatus: "pending",
       notes,
+      customFields: customFieldValues,
       timeline: [
         { ts: new Date().toISOString(), event: "Enrollment created", by: "Admin" },
         { ts: new Date().toISOString(), event: `Invoice generated (PKR ${feeResult.finalFee.toLocaleString()})`, by: "System" },
       ],
-    };
+    } as unknown as Enrollment;
     setDone(true);
     setTimeout(() => onComplete(enrollment), 400);
   };
@@ -161,6 +179,8 @@ export default function EnrollmentWizard({ onComplete, onCancel }: EnrollmentWiz
             <Step6Confirmation
               student={student} session={session} classInfo={classInfo}
               feeResult={feeResult} notes={notes} onNotesChange={setNotes}
+              customFieldValues={customFieldValues}
+              onCustomFieldChange={(id, val) => setCustomFieldValues((prev) => ({ ...prev, [id]: val }))}
             />
           )}
         </motion.div>
@@ -202,7 +222,8 @@ export default function EnrollmentWizard({ onComplete, onCancel }: EnrollmentWiz
             <button
               type="button"
               onClick={handleSubmit}
-              className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+              disabled={!canConfirm()}
+              className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" /> Confirm Enrollment
             </button>

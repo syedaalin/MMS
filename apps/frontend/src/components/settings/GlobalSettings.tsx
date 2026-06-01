@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Save, Globe, Bell, Lock, Moon, Sun, Monitor, LucideIcon, LayoutDashboard, GraduationCap, Users, Calendar, UserPlus, UserCheck, FileText, DollarSign, Briefcase, Star, Shield, BarChart3, Boxes } from "lucide-react";
 import { getObject, saveObject } from "../../lib/db";
-import { type GlobalSettings as GlobalSettingsData, DEFAULT_GLOBAL_SETTINGS, SYSTEM_MODULES } from "../../lib/settingsTypes";
+import { type GlobalSettings as GlobalSettingsData, DEFAULT_GLOBAL_SETTINGS, SYSTEM_MODULES } from "@mms/shared";
 
 const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard, GraduationCap, Users, Calendar, UserPlus, UserCheck, FileText, DollarSign, Briefcase, Star, Shield, BarChart3

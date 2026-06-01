@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Gift, Plus, Star, X } from "lucide-react";
 import { REDEMPTIONS, Redemption, Distribution } from "../../lib/hasanatData";
+import { DatePicker } from "../ui/DatePicker";
 
 const INPUT = "w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
 const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
@@ -63,7 +64,11 @@ function RedeemModal({ distributions, onClose, onSave }: RedeemModalProps) {
             </div>
             <div>
               <label htmlFor="red-date" className={LABEL}>Date</label>
-              <input id="red-date" type="date" className={INPUT} value={data.date} onChange={(e) => upd("date", e.target.value)} />
+              <DatePicker
+                id="red-date"
+                value={data.date || ""}
+                onChange={(val) => upd("date", val)}
+              />
             </div>
           </div>
           <div>

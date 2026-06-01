@@ -1,7 +1,15 @@
 import React, { useState } from "react";
 import { Save, DollarSign } from "lucide-react";
 import { getObject, saveObject } from "../../lib/db";
-import { type FinanceSettings, DEFAULT_FINANCE_SETTINGS } from "../../lib/settingsTypes";
+import {
+  type FinanceSettings as FinanceSettingsData,
+  DEFAULT_FINANCE_SETTINGS,
+  DEFAULT_FINANCE_FIELD_DEFS,
+  getSortedFields,
+  type ModuleCustomField,
+} from "@mms/shared";
+import CustomFieldsBuilder, { CustomFieldConfig } from "../ui/CustomFieldsBuilder";
+import DraggableFieldList from "../ui/DraggableFieldList";
 
 const INPUT = "w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all";
 const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
@@ -20,7 +28,7 @@ interface ToggleProps {
  */
 function Toggle({ label, description, value, onChange }: ToggleProps): React.ReactElement {
   return (
-    <div className="flex items-center justify-between py-1">
+    <div className="flex items-center justify-between py-1 text-left">
       <div>
         <p className="text-[13px] font-semibold text-foreground">{label}</p>
         {description && <p className="text-[11px] text-muted-foreground">{description}</p>}
@@ -39,21 +47,79 @@ function Toggle({ label, description, value, onChange }: ToggleProps): React.Rea
   );
 }
 
-/** @see {@link FinanceSettings} is imported from settingsTypes.ts */
+interface FinanceSettingsProps {
+  mode?: "fields" | "preferences";
+}
 
 /**
  * Finance module settings configuration panel.
  *
  * @returns The FinanceSettings component.
  */
-export default function FinanceSettings(): React.ReactElement {
-  const [data, setData] = useState<FinanceSettings>(() => getObject<FinanceSettings>("finance_settings", DEFAULT_FINANCE_SETTINGS));
+export default function FinanceSettings({ mode }: FinanceSettingsProps): React.ReactElement {
+  const [data, setData] = useState<FinanceSettingsData>(() => getObject<FinanceSettingsData>("finance_settings", DEFAULT_FINANCE_SETTINGS));
   const [saved, setSaved] = useState<boolean>(false);
 
-  const upd = (f: keyof FinanceSettings, v: FinanceSettings[keyof FinanceSettings]) => {
+  const upd = (f: keyof FinanceSettingsData, v: FinanceSettingsData[keyof FinanceSettingsData]) => {
     setData((d) => ({ ...d, [f]: v }));
     setSaved(false);
   };
+
+  const showPrefs = !mode || mode === "preferences";
+  const showFields = !mode || mode === "fields";
+
+  const fields = data.fields || DEFAULT_FINANCE_SETTINGS.fields || {};
+  const customFields = data.customFields || [];
+  const fieldOrder = data.fieldOrder || DEFAULT_FINANCE_SETTINGS.fieldOrder || [];
+
+  const orderedFields = getSortedFields(DEFAULT_FINANCE_FIELD_DEFS, fieldOrder, fields, customFields);
+
+  const updateFieldConfig = (fieldKey: string, prop: "enabled" | "required", value: boolean) => {
+    const fieldObj = fields[fieldKey] || { enabled: true, required: false };
+    const updatedFieldObj = { ...fieldObj, [prop]: value };
+    if (prop === "enabled" && !value) {
+      updatedFieldObj.required = false;
+    }
+    upd("fields", { ...fields, [fieldKey]: updatedFieldObj });
+  };
+
+  const handleToggleEnabled = (id: string) => {
+    if (DEFAULT_FINANCE_FIELD_DEFS.some(f => f.id === id)) {
+      const cfg = fields[id] || { enabled: true, required: false };
+      updateFieldConfig(id, "enabled", !cfg.enabled);
+    }
+  };
+
+  const handleToggleRequired = (id: string) => {
+    if (DEFAULT_FINANCE_FIELD_DEFS.some(f => f.id === id)) {
+      const cfg = fields[id] || { enabled: true, required: false };
+      updateFieldConfig(id, "required", !cfg.required);
+    } else {
+      const updated = customFields.map(f => f.id === id ? { ...f, required: !f.required } : f);
+      upd("customFields", updated);
+    }
+  };
+
+  const handleReorder = (reordered: any[]) => {
+    upd("fieldOrder", reordered.map(f => f.id));
+  };
+
+  const handleCustomFieldsChange = (newFields: CustomFieldConfig[]) => {
+    const coreIds = DEFAULT_FINANCE_FIELD_DEFS.map(f => f.id);
+    const newIds = newFields.map(f => f.id);
+    const kept = fieldOrder.filter((id) => coreIds.includes(id) || newIds.includes(id));
+    const added = newIds.filter((id) => !kept.includes(id));
+
+    setData((d) => ({
+      ...d,
+      customFields: newFields as unknown as ModuleCustomField[],
+      fieldOrder: [...kept, ...added]
+    }));
+    setSaved(false);
+  };
+
+  const enabledSet = new Set(Object.keys(fields).filter(k => fields[k].enabled));
+  const requiredSet = new Set(Object.keys(fields).filter(k => fields[k].required));
 
   const ALL_METHODS = ["cash", "bank_transfer", "cheque", "online", "card", "other"];
   const toggleMethod = (m: string) => {
@@ -71,105 +137,139 @@ export default function FinanceSettings(): React.ReactElement {
         <h3 id="finance-settings-title" className="text-[13px] font-bold text-foreground">Finance Module Settings</h3>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="finance-currency" className={LABEL}>Currency</label>
-          <select
-            id="finance-currency"
-            className={`${INPUT} cursor-pointer`}
-            value={data.currency}
-            onChange={(e) => upd("currency", e.target.value)}
-          >
-            <option value="PKR">PKR — Pakistani Rupee</option>
-            <option value="USD">USD — US Dollar</option>
-            <option value="GBP">GBP — British Pound</option>
-            <option value="SAR">SAR — Saudi Riyal</option>
-            <option value="AED">AED — UAE Dirham</option>
-            <option value="EUR">EUR — Euro</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor="inv-prefix" className={LABEL}>Invoice Prefix</label>
-          <input
-            id="inv-prefix"
-            className={INPUT}
-            value={data.invoicePrefix}
-            onChange={(e) => upd("invoicePrefix", e.target.value)}
-            placeholder="INV"
-          />
-        </div>
-        <div>
-          <label htmlFor="due-days" className={LABEL}>Default Due Days</label>
-          <input
-            id="due-days"
-            type="number"
-            className={INPUT}
-            value={data.dueDays}
-            onChange={(e) => upd("dueDays", e.target.value)}
-          />
-        </div>
-        <div>
-          <label htmlFor="late-fee" className={LABEL}>Late Fee (%)</label>
-          <input
-            id="late-fee"
-            type="number"
-            className={INPUT}
-            value={data.lateFeePercent}
-            onChange={(e) => upd("lateFeePercent", e.target.value)}
-          />
-        </div>
-        <div>
-          <label htmlFor="tax-rate" className={LABEL}>Tax Rate (%)</label>
-          <input
-            id="tax-rate"
-            type="number"
-            className={INPUT}
-            value={data.taxRate}
-            onChange={(e) => upd("taxRate", e.target.value)}
-          />
-        </div>
-        <div>
-          <label htmlFor="reminder-days" className={LABEL}>Reminder Days Before Due</label>
-          <input
-            id="reminder-days"
-            type="number"
-            className={INPUT}
-            value={data.reminderDaysBefore}
-            onChange={(e) => upd("reminderDaysBefore", e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div>
-        <span className={LABEL}>Accepted Payment Methods</span>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Select payment methods">
-          {ALL_METHODS.map((m) => {
-            const active = data.paymentMethods.includes(m);
-            return (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={active}
-                onClick={() => toggleMethod(m)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all capitalize ${
-                  active ? "bg-primary/10 border-primary/30 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted"
-                }`}
+      {showPrefs && (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="finance-currency" className={LABEL}>Currency</label>
+              <select
+                id="finance-currency"
+                className={`${INPUT} cursor-pointer`}
+                value={data.currency}
+                onChange={(e) => upd("currency", e.target.value)}
               >
-                {m.replace("_", " ")}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                <option value="PKR">PKR — Pakistani Rupee</option>
+                <option value="USD">USD — US Dollar</option>
+                <option value="GBP">GBP — British Pound</option>
+                <option value="SAR">SAR — Saudi Riyal</option>
+                <option value="AED">AED — UAE Dirham</option>
+                <option value="EUR">EUR — Euro</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="inv-prefix" className={LABEL}>Invoice Prefix</label>
+              <input
+                id="inv-prefix"
+                className={INPUT}
+                value={data.invoicePrefix}
+                onChange={(e) => upd("invoicePrefix", e.target.value)}
+                placeholder="INV"
+              />
+            </div>
+            <div>
+              <label htmlFor="due-days" className={LABEL}>Default Due Days</label>
+              <input
+                id="due-days"
+                type="number"
+                className={INPUT}
+                value={data.dueDays}
+                onChange={(e) => upd("dueDays", e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="late-fee" className={LABEL}>Late Fee (%)</label>
+              <input
+                id="late-fee"
+                type="number"
+                className={INPUT}
+                value={data.lateFeePercent}
+                onChange={(e) => upd("lateFeePercent", e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="tax-rate" className={LABEL}>Tax Rate (%)</label>
+              <input
+                id="tax-rate"
+                type="number"
+                className={INPUT}
+                value={data.taxRate}
+                onChange={(e) => upd("taxRate", e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="reminder-days" className={LABEL}>Reminder Days Before Due</label>
+              <input
+                id="reminder-days"
+                type="number"
+                className={INPUT}
+                value={data.reminderDaysBefore}
+                onChange={(e) => upd("reminderDaysBefore", e.target.value)}
+              />
+            </div>
+          </div>
 
-      <div className="space-y-2 pt-1" role="group" aria-label="Financial registry feature flags toggles">
-        <Toggle label="Auto-generate Invoices" description="Automatically create invoices on enrollment" value={data.autoGenerateInvoice} onChange={(v) => upd("autoGenerateInvoice", v)} />
-        <Toggle label="Send Invoice by Email" description="Email invoice to guardian on creation" value={data.sendInvoiceEmail} onChange={(v) => upd("sendInvoiceEmail", v)} />
-        <Toggle label="Allow Partial Payment" description="Accept payments less than the full amount" value={data.allowPartialPayment} onChange={(v) => upd("allowPartialPayment", v)} />
-        <Toggle label="Require Approval for Discounts" description="Discounts need admin approval before applying" value={data.requireApproval} onChange={(v) => upd("requireApproval", v)} />
-        <Toggle label="Overdue Reminders" description="Send reminders for overdue invoices" value={data.overdueReminder} onChange={(v) => upd("overdueReminder", v)} />
-        <Toggle label="Fee Reminders" description="Send notifications when fees are due or overdue" value={data.feeReminders} onChange={(v) => upd("feeReminders", v)} />
-      </div>
+          <div>
+            <span className={LABEL}>Accepted Payment Methods</span>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Select payment methods">
+              {ALL_METHODS.map((m) => {
+                const active = data.paymentMethods.includes(m);
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => toggleMethod(m)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all capitalize ${
+                      active ? "bg-primary/10 border-primary/30 text-primary font-bold" : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {m.replace("_", " ")}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-1" role="group" aria-label="Financial registry feature flags toggles">
+            <Toggle label="Auto-generate Invoices" description="Automatically create invoices on enrollment" value={data.autoGenerateInvoice} onChange={(v) => upd("autoGenerateInvoice", v)} />
+            <Toggle label="Send Invoice by Email" description="Email invoice to guardian on creation" value={data.sendInvoiceEmail} onChange={(v) => upd("sendInvoiceEmail", v)} />
+            <Toggle label="Allow Partial Payment" description="Accept payments less than the full amount" value={data.allowPartialPayment} onChange={(v) => upd("allowPartialPayment", v)} />
+            <Toggle label="Require Approval for Discounts" description="Discounts need admin approval before applying" value={data.requireApproval} onChange={(v) => upd("requireApproval", v)} />
+            <Toggle label="Overdue Reminders" description="Send reminders for overdue invoices" value={data.overdueReminder} onChange={(v) => upd("overdueReminder", v)} />
+            <Toggle label="Fee Reminders" description="Send notifications when fees are due or overdue" value={data.feeReminders} onChange={(v) => upd("feeReminders", v)} />
+          </div>
+        </>
+      )}
+
+      {showFields && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-bold text-foreground">Payment Form Fields</h3>
+            <span className="text-xs text-muted-foreground ml-1 flex items-center gap-1">
+              <span>— drag to reorder</span>
+            </span>
+          </div>
+
+          <DraggableFieldList
+            tabId="finance-fields"
+            fields={orderedFields}
+            enabledSet={enabledSet}
+            requiredSet={requiredSet}
+            onToggleEnabled={handleToggleEnabled}
+            onToggleRequired={handleToggleRequired}
+            onReorder={handleReorder}
+          />
+
+          <div className="border-t border-border pt-4">
+            <CustomFieldsBuilder
+              fields={customFields as unknown as CustomFieldConfig[]}
+              droppableId="custom-fields-finance"
+              onChange={handleCustomFieldsChange}
+            />
+          </div>
+        </div>
+      )}
 
       <button
         type="button"

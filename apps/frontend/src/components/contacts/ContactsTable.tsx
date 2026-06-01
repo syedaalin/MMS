@@ -206,16 +206,22 @@ export default function ContactsTable({
                 </div>
               )}
               <CopyBtn text={getPrimaryPhone(c) || ""} />
-              {hasWhatsApp(c) && (
-                <button
-                  onClick={() => onWhatsApp([c])}
-                  title="WhatsApp"
-                  className="opacity-0 group-hover/phone:opacity-100 text-emerald-600 hover:text-emerald-700 transition-all"
-                  type="button"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                </button>
-              )}
+              <button
+                disabled={!hasWhatsApp(c)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onWhatsApp([c]);
+                }}
+                title={hasWhatsApp(c) ? "WhatsApp" : "Not registered on WhatsApp"}
+                className={`transition-all ${
+                  hasWhatsApp(c)
+                    ? "opacity-0 group-hover/phone:opacity-100 text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                    : "opacity-30 group-hover/phone:opacity-60 text-muted-foreground cursor-not-allowed"
+                }`}
+                type="button"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+              </button>
             </div>
           </td>
         );
@@ -401,8 +407,8 @@ export default function ContactsTable({
                           <DropdownMenuItem onClick={() => onEdit(c)}>
                             <Edit2 className="w-3.5 h-3.5 mr-2" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onWhatsApp([c])}>
-                            <MessageCircle className="w-3.5 h-3.5 mr-2 text-emerald-600" /> WhatsApp
+                          <DropdownMenuItem disabled={!hasWhatsApp(c)} onClick={() => onWhatsApp([c])}>
+                            <MessageCircle className={`w-3.5 h-3.5 mr-2 ${hasWhatsApp(c) ? "text-emerald-600" : "text-muted-foreground"}`} /> WhatsApp
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => onDelete(c.id)} className="text-destructive focus:text-destructive">

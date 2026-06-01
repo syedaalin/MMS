@@ -56,7 +56,7 @@ export default function BackupRestore(): React.JSX.Element {
         const dataStr = exportDatabase();
         const now = new Date();
         const dateStr = `${now.toISOString().slice(0, 10)} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-        const fileName = `darul_quran_backup_${now.toISOString().slice(0, 10)}.json`;
+        const fileName = `mms_backup_${now.toISOString().slice(0, 10)}.json`;
 
         triggerDownload(fileName, dataStr);
 
@@ -110,7 +110,7 @@ export default function BackupRestore(): React.JSX.Element {
       return;
     }
     const cleanDate = backup.date.split(" ")[0];
-    triggerDownload(`darul_quran_backup_${cleanDate}.json`, backup.data);
+    triggerDownload(`mms_backup_${cleanDate}.json`, backup.data);
   };
 
   const processImportFile = (file: File | undefined): void => {

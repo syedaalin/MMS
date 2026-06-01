@@ -9,6 +9,7 @@ import { getCollection } from "../../lib/db";
 import ExportToolbar from "./ExportToolbar";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
 import useDebounce from "../../hooks/useDebounce";
+import { DatePicker } from "../ui/DatePicker";
 
 const COLORS = ["#059669","#2563eb","#d97706","#7c3aed","#dc2626","#0891b2"];
 
@@ -274,22 +275,20 @@ export default function ObligationsSummary({
           </div>
           {/* Date From */}
           <div>
-            <input 
-              type="date" 
-              aria-label="Filter from date"
-              value={dateFrom} 
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full px-2 py-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" 
+            <DatePicker
+              value={dateFrom}
+              onChange={setDateFrom}
+              placeholder="From Date"
+              className="w-full px-2 py-2 text-xs rounded-lg border border-border bg-background"
             />
           </div>
           {/* Date To */}
           <div>
-            <input 
-              type="date" 
-              aria-label="Filter to date"
-              value={dateTo} 
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-full px-2 py-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20" 
+            <DatePicker
+              value={dateTo}
+              onChange={setDateTo}
+              placeholder="To Date"
+              className="w-full px-2 py-2 text-xs rounded-lg border border-border bg-background"
             />
           </div>
           {/* Rep filter */}

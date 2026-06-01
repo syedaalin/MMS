@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, lazy, Suspense } from "react";
 import { Receipt, Printer } from "lucide-react";
 import { MOCK_CONTACTS, MOCK_CURRENCIES, MOCK_USERS, ObligationCollection, ObligationType, MujtahidRep, Mujtahid, WakalaType, ObligationDistribution } from "../../lib/obligationsData";
 import { CONTACTS } from "../../lib/contactsData";
 import { SAMPLE_USERS } from "../../lib/usersData";
 import { getCollection } from "../../lib/db";
 import ObligationModal from "./ObligationModal";
-import PrintInvoiceModal from "./invoice/PrintInvoiceModal";
 import InvoiceTemplateEditor from "./invoice/InvoiceTemplateEditor";
+
+const PrintInvoiceModal = lazy(() => import("./invoice/PrintInvoiceModal"));
 
 function fmtDate(d?: string | null): string {
   if (!d) return "—";
@@ -182,14 +183,16 @@ export default function ObligationCollectionDetail({ collection, obligationTypes
       </div>
 
       {showPrint && (
-        <PrintInvoiceModal
-          collection={collection}
-          obligationTypes={obligationTypes}
-          reps={reps}
-          mujtahids={mujtahids}
-          onClose={() => setShowPrint(false)}
-          onOpenEditor={() => { setShowPrint(false); setShowEditor(true); }}
-        />
+        <Suspense fallback={null}>
+          <PrintInvoiceModal
+            collection={collection}
+            obligationTypes={obligationTypes}
+            reps={reps}
+            mujtahids={mujtahids}
+            onClose={() => setShowPrint(false)}
+            onOpenEditor={() => { setShowPrint(false); setShowEditor(true); }}
+          />
+        </Suspense>
       )}
       {showEditor && <InvoiceTemplateEditor onClose={() => setShowEditor(false)} />}
     </ObligationModal>

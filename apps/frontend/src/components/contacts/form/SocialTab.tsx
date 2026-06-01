@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Share2, Plus, Trash2 } from "lucide-react";
 import { DEFAULT_TAB_FIELD_CONFIG } from "../../../lib/contactFields";
-import { INPUT, SELECT, LABEL, Field, FormEmptyState, RequiredBanner, CustomFieldInput, CustomFieldConfig } from "./FormPrimitives";
+import { INPUT, SELECT, LABEL, Field, FormEmptyState, RequiredBanner, CustomFieldInput, CustomFieldConfig, EditableSelect } from "./FormPrimitives";
 import { useSortedFields } from "../../../hooks/useSortedFields";
 import { useContactConfig } from "../../../lib/ContactConfigContext";
 
@@ -52,8 +52,8 @@ export default function SocialTab({
   customFields
 }: SocialTabProps): React.JSX.Element {
   const sortedCustomFields = useSortedFields("socials").filter((f) => f.isCustom && f.showInForm !== false);
-  const { socialPlatforms } = useContactConfig();
-  const socials = data.socials || [];
+  const { socialPlatforms, updateSocialPlatforms } = useContactConfig();
+  const socials = data.socials && data.socials.length > 0 ? data.socials : [{ platform: (socialPlatforms && socialPlatforms[0]) || "Facebook", url: "" }];
 
   const upd = (list: ContactSocial[]): void => {
     onChange({ ...data, socials: list });
@@ -88,18 +88,17 @@ export default function SocialTab({
         >
           <div className="flex items-center justify-between">
             {showPlatform ? (
-              <select
-                className={`${SELECT} w-40`}
-                value={s.platform}
-                onChange={(e) => updateSocial(i, { platform: e.target.value })}
-                aria-label={`Social platform ${i + 1}`}
-              >
-                {(socialPlatforms || []).map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <span className={LABEL + " !mb-0 text-[10px]"}>Type:</span>
+                <EditableSelect
+                  options={socialPlatforms || []}
+                  value={s.platform}
+                  onChange={(val) => updateSocial(i, { platform: val })}
+                  onUpdateOptions={updateSocialPlatforms}
+                  placeholder="Select platform..."
+                  className="w-40"
+                />
+              </div>
             ) : (
               <div />
             )}

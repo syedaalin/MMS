@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Search, ChevronLeft, ChevronRight, Activity } from "lucide-react";
 import { SAMPLE_ACTIVITY_LOGS, ACTION_COLORS, ACTION_TYPES, SAMPLE_USERS, type ActivityLog } from "../../lib/usersData";
+import { DatePicker } from "../ui/DatePicker";
 
 const PAGE_SIZE = 15;
 
@@ -73,10 +74,18 @@ export default function ActivityLogs({ logs: externalLogs }: ActivityLogsProps):
           <option value="all">All Actions</option>
           {ACTION_TYPES.map((a) => <option key={a} value={a}>{a.replace("_", " ")}</option>)}
         </select>
-        <input type="date" value={dateFrom} onChange={(e) => { setFrom(e.target.value); setPage(1); }}
-          className="text-sm rounded-xl border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20" />
-        <input type="date" value={dateTo} onChange={(e) => { setTo(e.target.value); setPage(1); }}
-          className="text-sm rounded-xl border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20" />
+        <DatePicker
+          value={dateFrom}
+          onChange={(val) => { setFrom(val); setPage(1); }}
+          placeholder="From date"
+          className="text-sm rounded-xl border border-border bg-background px-3 py-2 max-w-[150px]"
+        />
+        <DatePicker
+          value={dateTo}
+          onChange={(val) => { setTo(val); setPage(1); }}
+          placeholder="To date"
+          className="text-sm rounded-xl border border-border bg-background px-3 py-2 max-w-[150px]"
+        />
       </div>
 
       {/* Log table */}

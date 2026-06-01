@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Package, X, Save } from "lucide-react";
 import { Denomination, StockBatch } from "../../lib/hasanatData";
+import { DatePicker } from "../ui/DatePicker";
 
 const INPUT = "w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
 const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
@@ -60,7 +61,11 @@ function AddBatchModal({ denoms, onClose, onSave }: AddBatchModalProps) {
             </div>
             <div>
               <label htmlFor="add-date" className={LABEL}>Date</label>
-              <input id="add-date" type="date" className={INPUT} value={data.addedDate} onChange={(e) => upd("addedDate", e.target.value)} />
+              <DatePicker
+                id="add-date"
+                value={data.addedDate || ""}
+                onChange={(val) => upd("addedDate", val)}
+              />
             </div>
           </div>
           <div>

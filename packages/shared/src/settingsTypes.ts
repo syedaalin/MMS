@@ -12,11 +12,100 @@
  *   "enrollments_settings"  → EnrollmentsSettings
  *   "students_settings"     → StudentsSettings
  *   "contact_prefs"         → ContactPrefs
- *   "accounting_settings"   → AccountingSettings  (re-exported from accountingData.ts)
- *
- * IMPORTANT: Keep these interfaces in sync with DEFAULT_OBJECTS in
- * backend/src/db/seeds.ts. Any field added here must also be added there.
+ *   "accounting_settings"   → AccountingSettings
  */
+
+// ─── Customizable Form Fields Schema ──────────────────────────────────────────
+
+export interface ModuleFieldConfig {
+  enabled: boolean;
+  required: boolean;
+}
+
+export interface ModuleCustomField {
+  id: string;
+  label: string;
+  type: "text" | "textarea" | "number" | "select" | "boolean" | "date" | "url" | "email" | "tags";
+  required?: boolean;
+  options?: string[];
+  placeholder?: string;
+  description?: string;
+  defaultValue?: string;
+  showInForm?: boolean;
+  unique?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  min?: number;
+  max?: number;
+  mask?: string;
+}
+
+export interface ModuleFieldDef {
+  id: string;
+  label: string;
+  isCustom?: boolean;
+  alwaysOn?: boolean;
+  type?: string;
+  required?: boolean;
+  options?: string[];
+  enabled?: boolean;
+  description?: string;
+  placeholder?: string;
+  defaultValue?: string;
+  unique?: boolean;
+  showInForm?: boolean;
+}
+
+/**
+ * Returns a sorted list of all module field definitions (default & custom)
+ * based on the saved display sequence order in settings.
+ *
+ * @param defaultDefs The default field definitions of the module
+ * @param fieldOrder The saved sequence of field IDs
+ * @param fieldsConfig The toggled enable/required state for default fields
+ * @param customFields Custom fields created by the user
+ */
+export function getSortedFields(
+  defaultDefs: ModuleFieldDef[],
+  fieldOrder: string[] | undefined,
+  fieldsConfig: Record<string, ModuleFieldConfig> | undefined,
+  customFields: ModuleCustomField[] | undefined
+): ModuleFieldDef[] {
+  const defaults = defaultDefs.map((f) => {
+    const cfg = fieldsConfig?.[f.id] || { enabled: true, required: !!f.required };
+    return {
+      ...f,
+      enabled: f.alwaysOn ? true : cfg.enabled,
+      required: f.alwaysOn ? !!f.required : cfg.required,
+    };
+  });
+
+  const customs = (customFields || []).map((f) => ({
+    id: f.id,
+    label: f.label,
+    isCustom: true,
+    alwaysOn: false,
+    type: f.type,
+    required: !!f.required,
+    options: f.options,
+    placeholder: f.placeholder,
+    description: f.description,
+    defaultValue: f.defaultValue,
+    unique: f.unique,
+    showInForm: f.showInForm !== false,
+    enabled: true,
+  }));
+
+  const all = [...defaults, ...customs];
+  const order = fieldOrder || defaultDefs.map((f) => f.id);
+  const orderMap = Object.fromEntries(order.map((id, index) => [id, index]));
+
+  return all.sort((a, b) => {
+    const ai = orderMap[a.id] ?? 9999;
+    const bi = orderMap[b.id] ?? 9999;
+    return ai - bi;
+  });
+}
 
 // ─── Global Settings ──────────────────────────────────────────────────────────
 
@@ -97,12 +186,117 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
 };
 
 // ─── Attendance Module Settings ───────────────────────────────────────────────
-export type { AttendanceSettings as AttendanceModuleSettings } from "./attendanceData";
-export { DEFAULT_ATT_SETTINGS as DEFAULT_ATTENDANCE_SETTINGS } from "./attendanceData";
+
+export interface AttendanceModuleSettings {
+  workingDays: string[];
+  cutoffTime: string;
+  lateThresholdMins: number;
+  autoAbsentAfterMins: number;
+  qrEnabled: boolean;
+  lowAttendanceThreshold: number;
+  notifyParents: boolean;
+  requireNoteForAbsent: boolean;
+  lockAfterSubmit: boolean;
+  trackHalfDay: boolean;
+  weeklyReport: boolean;
+  attendanceAlerts: boolean;
+  allowManualOverride: boolean;
+  offlineEnabled: boolean;
+  geoTagging: boolean;
+  defaultViewLayout?: string;
+  fields?: Record<string, ModuleFieldConfig>;
+  customFields?: ModuleCustomField[];
+  fieldOrder?: string[];
+}
+
+export const DEFAULT_ATTENDANCE_SETTINGS: AttendanceModuleSettings = {
+  workingDays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+  cutoffTime: "09:30",
+  lateThresholdMins: 15,
+  autoAbsentAfterMins: 30,
+  qrEnabled: false,
+  lowAttendanceThreshold: 75,
+  notifyParents: true,
+  requireNoteForAbsent: true,
+  lockAfterSubmit: true,
+  trackHalfDay: true,
+  weeklyReport: true,
+  attendanceAlerts: true,
+  allowManualOverride: true,
+  offlineEnabled: false,
+  geoTagging: false,
+  defaultViewLayout: "list",
+  fields: {
+    status: { enabled: true, required: true },
+    timeIn: { enabled: true, required: true },
+    timeOut: { enabled: true, required: true },
+    notes: { enabled: true, required: false },
+  },
+  customFields: [],
+  fieldOrder: ["status", "timeIn", "timeOut", "notes"],
+};
+
+export const DEFAULT_ATTENDANCE_FIELD_DEFS: ModuleFieldDef[] = [
+  { id: "status", label: "Attendance Status", alwaysOn: true, required: true },
+  { id: "timeIn", label: "Time In" },
+  { id: "timeOut", label: "Time Out" },
+  { id: "notes", label: "Notes / Comments" },
+];
 
 // ─── Finance Module Settings ──────────────────────────────────────────────────
-export type { FinanceSettings } from "./financeData";
-export { DEFAULT_FINANCE_SETTINGS } from "./financeData";
+
+export interface FinanceSettings {
+  currency: string;
+  invoicePrefix: string;
+  dueDays: string;
+  lateFeePercent: string;
+  taxRate: string;
+  paymentMethods: string[];
+  autoGenerateInvoice: boolean;
+  sendInvoiceEmail: boolean;
+  allowPartialPayment: boolean;
+  requireApproval: boolean;
+  overdueReminder: boolean;
+  reminderDaysBefore: string;
+  feeReminders: boolean;
+  defaultViewLayout?: string;
+  fields?: Record<string, ModuleFieldConfig>;
+  customFields?: ModuleCustomField[];
+  fieldOrder?: string[];
+}
+
+export const DEFAULT_FINANCE_SETTINGS: FinanceSettings = {
+  currency: "PKR",
+  invoicePrefix: "INV",
+  dueDays: "30",
+  lateFeePercent: "5",
+  taxRate: "0",
+  paymentMethods: ["cash", "bank_transfer"],
+  autoGenerateInvoice: true,
+  sendInvoiceEmail: true,
+  allowPartialPayment: true,
+  requireApproval: false,
+  overdueReminder: true,
+  reminderDaysBefore: "3",
+  feeReminders: true,
+  defaultViewLayout: "list",
+  fields: {
+    method: { enabled: true, required: true },
+    date: { enabled: true, required: true },
+    receivedBy: { enabled: true, required: false },
+    note: { enabled: true, required: false },
+  },
+  customFields: [],
+  fieldOrder: ["method", "date", "receivedBy", "note"],
+};
+
+export const DEFAULT_FINANCE_FIELD_DEFS: ModuleFieldDef[] = [
+  { id: "amount", label: "Amount", alwaysOn: true, required: true },
+  { id: "method", label: "Payment Method" },
+  { id: "date", label: "Payment Date" },
+  { id: "receivedBy", label: "Received By" },
+  { id: "note", label: "Note" },
+];
 
 // ─── Examinations Module Settings ─────────────────────────────────────────────
 
@@ -133,6 +327,10 @@ export interface ExaminationsSettings {
   distinguishHonours: boolean;
   /** Whether exam reminder notifications are sent to students/guardians. */
   examReminders: boolean;
+  defaultViewLayout?: string;
+  fields?: Record<string, ModuleFieldConfig>;
+  customFields?: ModuleCustomField[];
+  fieldOrder?: string[];
 }
 
 /** Authoritative default values for ExaminationsSettings. */
@@ -148,7 +346,30 @@ export const DEFAULT_EXAMINATIONS_SETTINGS: ExaminationsSettings = {
   aiGrading: false,
   distinguishHonours: true,
   examReminders: true,
+  defaultViewLayout: "list",
+  fields: {
+    subject: { enabled: true, required: true },
+    status: { enabled: true, required: true },
+    totalMarks: { enabled: true, required: false },
+    passingMarks: { enabled: true, required: false },
+    duration: { enabled: true, required: false },
+    description: { enabled: true, required: false },
+  },
+  customFields: [],
+  fieldOrder: ["subject", "status", "totalMarks", "passingMarks", "duration", "description"],
 };
+
+export const DEFAULT_EXAMINATIONS_FIELD_DEFS: ModuleFieldDef[] = [
+  { id: "name", label: "Exam Name", alwaysOn: true, required: true },
+  { id: "subject", label: "Subject" },
+  { id: "status", label: "Status" },
+  { id: "totalMarks", label: "Total Marks" },
+  { id: "passingMarks", label: "Passing Marks" },
+  { id: "duration", label: "Duration (min)" },
+  { id: "date", label: "Exam Date", alwaysOn: true, required: true },
+  { id: "classIds", label: "Assign to Classes", alwaysOn: true, required: true },
+  { id: "description", label: "Description" },
+];
 
 // ─── Sessions Module Settings ─────────────────────────────────────────────────
 
@@ -175,6 +396,10 @@ export interface SessionsSettings {
   academicYear: string;
   /** Month in which the academic session starts, e.g. "april". */
   sessionStart: string;
+  defaultViewLayout?: string;
+  fields?: Record<string, ModuleFieldConfig>;
+  customFields?: ModuleCustomField[];
+  fieldOrder?: string[];
 }
 
 /** Authoritative default values for SessionsSettings. */
@@ -188,7 +413,28 @@ export const DEFAULT_SESSIONS_SETTINGS: SessionsSettings = {
   notifyOnSessionStart: true,
   academicYear: "2025-2026",
   sessionStart: "april",
+  defaultViewLayout: "cards",
+  fields: {
+    type: { enabled: true, required: true },
+    status: { enabled: true, required: true },
+    baseFee: { enabled: true, required: true },
+    currency: { enabled: true, required: true },
+    description: { enabled: true, required: false },
+  },
+  customFields: [],
+  fieldOrder: ["type", "status", "baseFee", "currency", "description"],
 };
+
+export const DEFAULT_SESSIONS_FIELD_DEFS: ModuleFieldDef[] = [
+  { id: "name", label: "Session Name", alwaysOn: true, required: true },
+  { id: "type", label: "Session Type" },
+  { id: "status", label: "Status" },
+  { id: "startDate", label: "Start Date", alwaysOn: true, required: true },
+  { id: "endDate", label: "End Date", alwaysOn: true, required: true },
+  { id: "baseFee", label: "Base Fee" },
+  { id: "currency", label: "Currency" },
+  { id: "description", label: "Description" },
+];
 
 // ─── Enrollments Module Settings ──────────────────────────────────────────────
 
@@ -213,6 +459,10 @@ export interface EnrollmentsSettings {
   dropDeadlineDays: string;
   /** Whether guardians receive a reminder when re-enrollment opens. */
   reenrollmentReminder: boolean;
+  defaultViewLayout?: string;
+  fields?: Record<string, ModuleFieldConfig>;
+  customFields?: ModuleCustomField[];
+  fieldOrder?: string[];
 }
 
 /** Authoritative default values for EnrollmentsSettings. */
@@ -225,7 +475,20 @@ export const DEFAULT_ENROLLMENTS_SETTINGS: EnrollmentsSettings = {
   allowTransfers: true,
   dropDeadlineDays: "14",
   reenrollmentReminder: true,
+  defaultViewLayout: "list",
+  fields: {
+    notes: { enabled: true, required: false },
+  },
+  customFields: [],
+  fieldOrder: ["notes"],
 };
+
+export const DEFAULT_ENROLLMENTS_FIELD_DEFS: ModuleFieldDef[] = [
+  { id: "studentId", label: "Select Student", alwaysOn: true, required: true },
+  { id: "sessionId", label: "Select Session", alwaysOn: true, required: true },
+  { id: "classId", label: "Assign Class", alwaysOn: true, required: true },
+  { id: "notes", label: "Notes" },
+];
 
 // ─── Students Module Settings ─────────────────────────────────────────────────
 
@@ -271,6 +534,7 @@ export interface StudentsSettings {
   grNumberDigits: number;
   /** Whether sequence restarts from 1 at the beginning of each year. */
   grNumberRestartAnnually: boolean;
+  defaultViewLayout?: string;
   /** Field level customization visibility/requirement toggles */
   fields?: Record<string, StudentFieldConfig>;
   /** User defined dynamic custom fields */
@@ -293,6 +557,7 @@ export const DEFAULT_STUDENTS_SETTINGS: StudentsSettings = {
   grNumberTemplate: "{seq}-{year}",
   grNumberDigits: 4,
   grNumberRestartAnnually: true,
+  defaultViewLayout: "list",
   fields: {
     gender: { enabled: true, required: true },
     dob: { enabled: true, required: false },
@@ -392,9 +657,116 @@ export const DEFAULT_CONTACT_PREFS: ContactPrefs = {
   showWhatsApp: true,
 };
 
-// ─── Accounting Settings (re-export) ─────────────────────────────────────────
-// AccountingSettings and DEFAULT_SETTINGS are authoritative in accountingData.ts
-// because that file also owns the type-level logic (computeFinancials, etc.).
-// We re-export them here so consumers can import from a single location.
-export type { AccountingSettings } from "./accountingData";
-export { DEFAULT_SETTINGS as DEFAULT_ACCOUNTING_SETTINGS } from "./accountingData";
+// ─── Accounting Settings ─────────────────────────────────────────────────────
+
+export interface AccountingSettings {
+  currency: string;
+  currencySymbol: string;
+  dateFormat: string;
+  decimalSeparator: "period" | "comma";
+  decimalPlaces: number;
+  fyStartMonth: string;
+  accountCodeLength: number;
+  requireNarration: boolean;
+  allowEditPosted: boolean;
+  autoPostDrafts: boolean;
+  retainedEarningsAccount: string;
+  organizationName: string;
+  defaultViewLayout?: string;
+  fields?: Record<string, ModuleFieldConfig>;
+  customFields?: ModuleCustomField[];
+  fieldOrder?: string[];
+}
+
+export const DEFAULT_ACCOUNTING_SETTINGS: AccountingSettings = {
+  currency: "PKR",
+  currencySymbol: "₨",
+  dateFormat: "DD/MM/YYYY",
+  decimalSeparator: "period",
+  decimalPlaces: 2,
+  fyStartMonth: "July",
+  accountCodeLength: 4,
+  requireNarration: true,
+  allowEditPosted: false,
+  autoPostDrafts: false,
+  retainedEarningsAccount: "a3100",
+  organizationName: "Al-Madrasa Al-Islamiyya",
+  defaultViewLayout: "list",
+  fields: {
+    subtype: { enabled: true, required: false },
+    description: { enabled: true, required: false },
+  },
+  customFields: [],
+  fieldOrder: ["subtype", "description"],
+};
+
+export const DEFAULT_ACCOUNT_FIELD_DEFS: ModuleFieldDef[] = [
+  { id: "code", label: "Account Code", alwaysOn: true, required: true },
+  { id: "type", label: "Type", alwaysOn: true, required: true },
+  { id: "name", label: "Account Name", alwaysOn: true, required: true },
+  { id: "subtype", label: "Sub-type" },
+  { id: "description", label: "Description" },
+];
+
+// ─── Hasanat Module Settings ──────────────────────────────────────────────────
+
+export interface HasanatSettings {
+  pointsPerUnit: number;
+  autoApprovePayouts: boolean;
+  defaultViewLayout?: string;
+  fields?: Record<string, ModuleFieldConfig>;
+  customFields?: ModuleCustomField[];
+  fieldOrder?: string[];
+}
+
+export const DEFAULT_HASANAT_SETTINGS: HasanatSettings = {
+  pointsPerUnit: 10,
+  autoApprovePayouts: false,
+  defaultViewLayout: "list",
+  fields: {
+    recipientClass: { enabled: true, required: false },
+    issuedBy: { enabled: true, required: false },
+  },
+  customFields: [],
+  fieldOrder: ["recipientClass", "issuedBy"],
+};
+
+export const DEFAULT_HASANAT_FIELD_DEFS: ModuleFieldDef[] = [
+  { id: "denominationId", label: "Denomination", alwaysOn: true, required: true },
+  { id: "recipientType", label: "Recipient Type", alwaysOn: true, required: true },
+  { id: "recipientName", label: "Recipient Name", alwaysOn: true, required: true },
+  { id: "recipientClass", label: "Class / Department" },
+  { id: "quantity", label: "Quantity", alwaysOn: true, required: true },
+  { id: "issuedDate", label: "Issued Date", alwaysOn: true, required: true },
+  { id: "reason", label: "Reason / Achievement", alwaysOn: true, required: true },
+  { id: "issuedBy", label: "Issued By" },
+];
+
+// ─── Users Module Settings ───────────────────────────────────────────────────
+
+export interface UsersSettings {
+  allowSelfRegistration: boolean;
+  requireEmailVerification: boolean;
+  defaultViewLayout?: string;
+  fields?: Record<string, ModuleFieldConfig>;
+  customFields?: ModuleCustomField[];
+  fieldOrder?: string[];
+}
+
+export const DEFAULT_USERS_SETTINGS: UsersSettings = {
+  allowSelfRegistration: false,
+  requireEmailVerification: true,
+  defaultViewLayout: "list",
+  fields: {
+    roles: { enabled: true, required: true },
+  },
+  customFields: [],
+  fieldOrder: ["roles"],
+};
+
+export const DEFAULT_USERS_FIELD_DEFS: ModuleFieldDef[] = [
+  { id: "name", label: "Full Name", alwaysOn: true, required: true },
+  { id: "email", label: "Email Address", alwaysOn: true, required: true },
+  { id: "roles", label: "System Roles", alwaysOn: true, required: true },
+];
+

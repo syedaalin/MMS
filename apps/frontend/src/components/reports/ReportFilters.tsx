@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Filter, ChevronDown, ChevronUp, X, Calendar } from "lucide-react";
+import { DatePicker } from "../ui/DatePicker";
 import { getCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import { SESSIONS_DATA, type Session } from "../../lib/sessionsData";
 
 const STATUSES: string[] = ["all", "active", "inactive", "completed"];
@@ -36,17 +38,17 @@ export default function ReportFilters({ category, filters, onChange }: ReportFil
 
   const allowed = CATEGORY_FILTERS[category] || ["session", "class", "status", "dateFrom", "dateTo", "student"];
 
+  const rawSessions = useLiveCollection<Session>("sessions", SESSIONS_DATA);
+
   const sessions = useMemo(() => {
-    const raw = getCollection("sessions", SESSIONS_DATA);
-    return [{ id: "all", name: "All Sessions" }, ...raw.map(s => ({ id: s.id, name: s.name }))];
-  }, []);
+    return [{ id: "all", name: "All Sessions" }, ...rawSessions.map(s => ({ id: s.id, name: s.name }))];
+  }, [rawSessions]);
 
   const classes = useMemo(() => {
-    const rawSessions = getCollection("sessions", SESSIONS_DATA);
     const uniqueClasses = new Set<string>();
     rawSessions.forEach(s => (s.classes || []).forEach(c => uniqueClasses.add(c.name)));
     return [{ id: "all", name: "All Classes" }, ...Array.from(uniqueClasses).map(name => ({ id: name, name }))];
-    }, []);
+  }, [rawSessions]);
 
     const set = (key: keyof ReportFilterFields, value: string): void => {
 
@@ -169,11 +171,9 @@ export default function ReportFilters({ category, filters, onChange }: ReportFil
               {allowed.includes("dateFrom") && (
                 <div className="flex flex-col gap-1 text-left min-w-[130px] flex-1">
                   <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1"><Calendar className="w-3 h-3" />From</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={filters.dateFrom}
-                    onChange={(e) => set("dateFrom", e.target.value)}
-                    className="text-sm rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm px-2 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    onChange={(val) => set("dateFrom", val)}
                   />
                 </div>
               )}
@@ -182,11 +182,9 @@ export default function ReportFilters({ category, filters, onChange }: ReportFil
               {allowed.includes("dateTo") && (
                 <div className="flex flex-col gap-1 text-left min-w-[130px] flex-1">
                   <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1"><Calendar className="w-3 h-3" />To</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={filters.dateTo}
-                    onChange={(e) => set("dateTo", e.target.value)}
-                    className="text-sm rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm px-2 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    onChange={(val) => set("dateTo", val)}
                   />
                 </div>
               )}

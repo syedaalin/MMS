@@ -109,9 +109,9 @@ export function calculateProfileHealth(c: Partial<Contact>): number {
 }
 
 // ── Storage keys ─────────────────────────────────────────────────────────────
-const PREFS_KEY = "darul_quran_contact_prefs";
-const CONFIG_KEY = "darul_quran_contact_field_config";
-const VISIBLE_COLUMNS_KEY = "darul_quran_visible_columns_v1";
+const PREFS_KEY = "mms_contact_prefs";
+const CONFIG_KEY = "mms_contact_field_config";
+const VISIBLE_COLUMNS_KEY = "mms_visible_columns_v1";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -145,6 +145,7 @@ const DEFAULT_PREFS: ContactPreferences = {
   defaultCountry: "Pakistan",
   defaultProvince: "Sindh",
   defaultCity: "Karachi",
+  defaultViewLayout: "list",
 };
 
 // RFC-5321-compatible pattern: rejects consecutive dots, missing TLD, and
@@ -291,8 +292,8 @@ export function ContactConfigProvider({ children }: { children: ReactNode }) {
       } else if (e.key === PREFS_KEY) {
         const parsed = safeParseEvent(e, "prefs");
         if (parsed) setPrefsState((p) => ({ ...DEFAULT_PREFS, ...p, ...(parsed as Partial<ContactPreferences>) }));
-      } else if (e.key && e.key.startsWith("darul_quran_")) {
-        const subKey = e.key.replace("darul_quran_", "");
+      } else if (e.key && e.key.startsWith("mms_")) {
+        const subKey = e.key.replace("mms_", "");
         const parsed = safeParseEvent(e, subKey);
         if (parsed) {
           const COLLECTION_SETTERS: Record<string, (val: unknown) => void> = {

@@ -74,7 +74,7 @@ export default function AppLayout(): React.JSX.Element {
           <Outlet />
         </div>
         <footer className="py-3 px-6 border-t border-border/50 text-center text-[10.5px] font-semibold text-muted-foreground bg-card/20 select-none">
-          {branding.footerText || "© 2026 Dar ul Quran. All rights reserved."}
+          {branding.footerText || "© 2026 MMS. All rights reserved."}
         </footer>
       </main>
     </div>

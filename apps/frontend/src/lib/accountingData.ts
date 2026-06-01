@@ -66,20 +66,9 @@ export interface Currency {
   symbol: string;
 }
 
-export interface AccountingSettings {
-  currency: string;
-  currencySymbol: string;
-  dateFormat: string;
-  decimalSeparator: "period" | "comma";
-  decimalPlaces: number;
-  fyStartMonth: string;
-  accountCodeLength: number;
-  requireNarration: boolean;
-  allowEditPosted: boolean;
-  autoPostDrafts: boolean;
-  retainedEarningsAccount: string;
-  organizationName: string;
-}
+import { type AccountingSettings } from "@mms/shared";
+export type { AccountingSettings };
+
 
 export const CHART_OF_ACCOUNTS: Account[] = [
   {
@@ -3240,20 +3229,9 @@ export const JOURNAL_ENTRIES: JournalEntry[] = [
   }
 ];
 
-export const DEFAULT_SETTINGS: AccountingSettings = {
-  currency: "PKR",
-  currencySymbol: "₨",
-  dateFormat: "DD/MM/YYYY",
-  decimalSeparator: "period",
-  decimalPlaces: 2,
-  fyStartMonth: "July",
-  accountCodeLength: 4,
-  requireNarration: true,
-  allowEditPosted: false,
-  autoPostDrafts: false,
-  retainedEarningsAccount: "a3100",
-  organizationName: "Al-Madrasa Al-Islamiyya"
-};
+import { DEFAULT_ACCOUNTING_SETTINGS as DEFAULT_SETTINGS } from "@mms/shared";
+export { DEFAULT_SETTINGS };
+
 
 export const DEFAULT_FISCAL_YEARS: FiscalYear[] = [
   { id: "fy1", label: "FY 2024–25", startDate: "2024-07-01", endDate: "2025-06-30", status: "closed" },

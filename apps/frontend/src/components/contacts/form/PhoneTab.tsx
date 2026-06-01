@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Phone, Plus, Trash2 } from "lucide-react";
 import { DEFAULT_TAB_FIELD_CONFIG } from "../../../lib/contactFields";
-import { INPUT, SELECT, LABEL, Field, FormEmptyState, RequiredBanner, CustomFieldInput, CustomFieldConfig } from "./FormPrimitives";
+import { INPUT, SELECT, LABEL, Field, FormEmptyState, RequiredBanner, CustomFieldInput, CustomFieldConfig, EditableSelect } from "./FormPrimitives";
 import { useSortedFields } from "../../../hooks/useSortedFields";
 import { useContactConfig } from "../../../lib/ContactConfigContext";
 
@@ -44,8 +44,8 @@ export default function PhoneTab({
   customFields
 }: PhoneTabProps): React.JSX.Element {
   const sortedCustomFields = useSortedFields("phones").filter((f) => f.isCustom && f.showInForm !== false);
-  const { phoneLabels, countryCodesMap } = useContactConfig();
-  const phones = data.phones || [];
+  const { phoneLabels, countryCodesMap, updatePhoneLabels } = useContactConfig();
+  const phones = data.phones && data.phones.length > 0 ? data.phones : [{ label: "Mobile", number: "", countryCode: countryCodesMap[defaultCountry] || "+92", whatsapp: false }];
 
   const upd = (list: ContactPhone[]): void => {
     onChange({ ...data, phones: list });
@@ -58,9 +58,7 @@ export default function PhoneTab({
   const en = tabFieldCfg?.enabled ?? DEFAULT_TAB_FIELD_CONFIG.phones.enabled;
   const req = tabFieldCfg?.required ?? DEFAULT_TAB_FIELD_CONFIG.phones.required;
   const showLabel = en.includes("label");
-  const showWhatsApp = en.includes("whatsapp");
   const reqNumber = req.includes("number");
-  const reqWhatsApp = req.includes("whatsapp");
   const defaultCode = countryCodesMap[defaultCountry] || "+92";
 
   const updatePhone = (i: number, patch: Partial<ContactPhone>): void => {
@@ -82,18 +80,17 @@ export default function PhoneTab({
         >
           <div className="flex items-center justify-between">
             {showLabel ? (
-              <select
-                className={`${SELECT} w-28`}
-                value={p.label}
-                onChange={(e) => updatePhone(i, { label: e.target.value })}
-                aria-label={`Phone label ${i + 1}`}
-              >
-                {(phoneLabels || []).map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <span className={LABEL + " !mb-0 text-[10px]"}>Type:</span>
+                <EditableSelect
+                  options={phoneLabels || []}
+                  value={p.label}
+                  onChange={(val) => updatePhone(i, { label: val })}
+                  onUpdateOptions={updatePhoneLabels}
+                  placeholder="Select label..."
+                  className="w-28"
+                />
+              </div>
             ) : (
               <div />
             )}
@@ -130,20 +127,6 @@ export default function PhoneTab({
               aria-label={`Phone number ${i + 1}`}
             />
           </div>
-
-          {showWhatsApp && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!!p.whatsapp}
-                onChange={(e) => updatePhone(i, { whatsapp: e.target.checked })}
-                className="w-4 h-4 accent-emerald-600 rounded border-border bg-background cursor-pointer"
-              />
-              <span className="text-xs font-medium text-foreground">
-                WhatsApp enabled{reqWhatsApp ? <span className="text-red-500 ml-0.5">*</span> : ""}
-              </span>
-            </label>
-          )}
         </motion.div>
       ))}
 

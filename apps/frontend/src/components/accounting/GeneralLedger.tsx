@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Download } from "lucide-react";
 import { ACCOUNT_TYPE_META, ACCOUNT_TYPES, computeLedger, Account, JournalEntry, AccountType } from "../../lib/accountingData";
+import { DatePicker } from "../ui/DatePicker";
 
 interface GeneralLedgerProps {
   accounts: Account[];
@@ -76,16 +77,18 @@ export default function GeneralLedger({ accounts, entries, fmt }: GeneralLedgerP
           <option value="">— Select Account —</option>
           {filteredAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} – {a.name}</option>)}
         </select>
-        <div>
-          <label htmlFor="ledger-date-from" className="sr-only">From Date</label>
-          <input id="ledger-date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-            placeholder="From" className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20" />
-        </div>
-        <div>
-          <label htmlFor="ledger-date-to" className="sr-only">To Date</label>
-          <input id="ledger-date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-            placeholder="To" className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20" />
-        </div>
+        <DatePicker
+          id="ledger-date-from"
+          value={dateFrom}
+          onChange={setDateFrom}
+          placeholder="From"
+        />
+        <DatePicker
+          id="ledger-date-to"
+          value={dateTo}
+          onChange={setDateTo}
+          placeholder="To"
+        />
       </nav>
 
       {!selectedAccount && (

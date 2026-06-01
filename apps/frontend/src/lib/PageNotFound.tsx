@@ -30,7 +30,7 @@ export default function PageNotFound({}: PageNotFoundProps): React.JSX.Element {
       return {
         user: {
           id: 'mock-user-123',
-          email: 'admin@darulquran.com',
+          email: 'admin@mms.com',
           name: 'Admin (Mock Mode)',
           role: 'admin'
         },

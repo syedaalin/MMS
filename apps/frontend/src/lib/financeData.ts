@@ -39,37 +39,14 @@ export interface HasanatPayout {
   approvedBy: string | null;
 }
 
-export interface FinanceSettings {
-  currency: string;
-  invoicePrefix: string;
-  dueDays: string;
-  lateFeePercent: string;
-  taxRate: string;
-  paymentMethods: string[];
-  autoGenerateInvoice: boolean;
-  sendInvoiceEmail: boolean;
-  allowPartialPayment: boolean;
-  requireApproval: boolean;
-  overdueReminder: boolean;
-  reminderDaysBefore: string;
-  feeReminders: boolean;
-}
+import {
+  type FinanceSettings,
+  DEFAULT_FINANCE_SETTINGS
+} from "@mms/shared";
 
-export const DEFAULT_FINANCE_SETTINGS: FinanceSettings = {
-  currency: "PKR",
-  invoicePrefix: "INV",
-  dueDays: "30",
-  lateFeePercent: "5",
-  taxRate: "0",
-  paymentMethods: ["cash", "bank_transfer"],
-  autoGenerateInvoice: true,
-  sendInvoiceEmail: true,
-  allowPartialPayment: true,
-  requireApproval: false,
-  overdueReminder: true,
-  reminderDaysBefore: "3",
-  feeReminders: true
-};
+export type { FinanceSettings };
+export { DEFAULT_FINANCE_SETTINGS };
+
 
 export const INVOICES: Invoice[] = [
   {

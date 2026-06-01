@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Phone, Mail, MapPin, Share2, User, Save, Loader2, AlertCircle, Heart, CheckCircle2, Users, LucideIcon } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -113,7 +113,7 @@ export default function ContactForm({
   defaultProvince: defaultProvinceProp = "",
 }: ContactFormProps): React.JSX.Element {
   // Always read from context (live updates from settings panel)
-  const { fieldConfig, prefs, enabledTabIds, requiredTabIds, tabFieldConfig, tabCustomFields, countryCodesMap, setActivePersonaId } = useContactConfig();
+  const { fieldConfig, prefs, enabledTabIds, requiredTabIds, tabFieldConfig, tabCustomFields, countryCodesMap } = useContactConfig();
   const validate = useContactValidation();
 
   const [tab,         setTab]         = useState<string>("basic");
@@ -122,7 +122,6 @@ export default function ContactForm({
       return {
         name: "", phones: [], emails: [], addresses: [], socials: [], emergencyContacts: [],
         lifecycleStage: "Lead", rating: 3, relationships: [], activities: [],
-        personaId: fieldConfig.defaultPersonaId || "general"
       };
     }
     const defaultCode = countryCodesMap[defaultCountryProp] || "+92";
@@ -139,16 +138,9 @@ export default function ContactForm({
       lifecycleStage: "Lead", rating: 3, relationships: [], activities: [],
       ...contact,
       phones,
-      personaId: contact.personaId || fieldConfig.defaultPersonaId || "general"
     };
   });
 
-  // Sync persona with context for dynamic tab/field visibility
-  useEffect(() => {
-    const pId = data.personaId || fieldConfig.defaultPersonaId || "general";
-    setActivePersonaId(pId);
-    return () => setActivePersonaId(null);
-  }, [data.personaId, fieldConfig.defaultPersonaId, setActivePersonaId]);
 
   const [saving,      setSaving]      = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);

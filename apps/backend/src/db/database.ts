@@ -22,7 +22,7 @@ let db: ReturnType<typeof drizzle<typeof schema>>;
  */
 export async function initDb(): Promise<void> {
   try {
-    const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/darul_quran';
+    const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/mms';
     
     pool = new Pool({
       connectionString
@@ -195,6 +195,8 @@ export async function getAllData(): Promise<{ collections: Record<string, unknow
  */
 export async function resetDatabase(): Promise<void> {
   try {
+    // Design Boundary Constraint: Drizzle ORM does not support dynamic schema teardown / dropping tables 
+    // at runtime via type-safe query builders. Therefore, administrative DROP statements must execute raw SQL.
     await db.execute(sql`DROP TABLE IF EXISTS collections;`);
     await db.execute(sql`DROP TABLE IF EXISTS objects;`);
     await db.execute(sql`DROP TABLE IF EXISTS __drizzle_migrations;`);

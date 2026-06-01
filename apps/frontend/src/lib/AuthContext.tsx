@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { syncDatabase } from './db';
-import { type User } from '@darul-quran/shared';
+import { type User } from '@mms/shared';
 
 export interface AuthError {
   type: 'invalid_credentials' | 'auth_required' | 'connection_error' | 'user_not_registered';
@@ -69,7 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkUserAuth = async (): Promise<void> => {
     setIsLoadingAuth(true);
     setAuthError(null);
-    const token = localStorage.getItem('darul_quran_token');
+    const token = localStorage.getItem('mms_token');
     
     if (!token) {
       setUser(null);
@@ -90,20 +90,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = await response.json();
         setUser(data.user);
         setIsAuthenticated(true);
-        localStorage.setItem('darul_quran_user', JSON.stringify(data.user));
+        localStorage.setItem('mms_user', JSON.stringify(data.user));
         
         // Seeding / updates local database from server in the background
         await syncDatabase(token);
       } else {
         // Token is invalid/expired
-        localStorage.removeItem('darul_quran_token');
-        localStorage.removeItem('darul_quran_user');
+        localStorage.removeItem('mms_token');
+        localStorage.removeItem('mms_user');
         setUser(null);
         setIsAuthenticated(false);
       }
     } catch (error) {
       console.warn('Network error checking auth, trying local cache:', error);
-      const cachedUser = localStorage.getItem('darul_quran_user');
+      const cachedUser = localStorage.getItem('mms_user');
       if (cachedUser) {
         setUser(JSON.parse(cachedUser));
         setIsAuthenticated(true);
@@ -131,8 +131,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem('darul_quran_token', data.token);
-        localStorage.setItem('darul_quran_user', JSON.stringify(data.user));
+        localStorage.setItem('mms_token', data.token);
+        localStorage.setItem('mms_user', JSON.stringify(data.user));
         setUser(data.user);
         setIsAuthenticated(true);
         setAuthChecked(true);
@@ -156,8 +156,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = (shouldRedirect = true): void => {
-    localStorage.removeItem('darul_quran_token');
-    localStorage.removeItem('darul_quran_user');
+    localStorage.removeItem('mms_token');
+    localStorage.removeItem('mms_user');
     setUser(null);
     setIsAuthenticated(false);
     setAuthChecked(true);
@@ -190,8 +190,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (response.ok) {
         const responseData = await response.json();
-        localStorage.setItem('darul_quran_token', responseData.token);
-        localStorage.setItem('darul_quran_user', JSON.stringify(responseData.user));
+        localStorage.setItem('mms_token', responseData.token);
+        localStorage.setItem('mms_user', JSON.stringify(responseData.user));
         setUser(responseData.user);
         setIsAuthenticated(true);
         setAuthChecked(true);

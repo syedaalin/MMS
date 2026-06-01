@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo } from "react";
 import { Bookmark, Trash2, Play, Plus, Clock, User } from "lucide-react";
 import { getCollection, saveCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import EmptyState from "../ui/EmptyState";
 
 export interface SavedReportItem {
@@ -41,16 +42,11 @@ interface SavedReportsProps {
  * @returns React.JSX.Element
  */
 export default function SavedReports({ category }: SavedReportsProps): React.JSX.Element {
-  const [saved, setSaved] = useState<SavedReportItem[]>(() => {
-    const all = getCollection("reports_saved_reports", SAVED_REPORTS);
-    // Note: in a real system we'd filter here, but for demo we show all if not found
-    return all.filter(r => r.category === category || r.category === "students"); 
-    });
+  const allSaved = useLiveCollection<SavedReportItem>("reports_saved_reports", SAVED_REPORTS);
 
-    useEffect(() => {
-
-    saveCollection("reports_saved_reports", saved);
-  }, [saved]);
+  const saved = useMemo(() => {
+    return allSaved.filter(r => r.category === category || r.category === "students");
+  }, [allSaved, category]);
 
   return (
     <div className="space-y-4">
@@ -92,7 +88,7 @@ export default function SavedReports({ category }: SavedReportsProps): React.JSX
                   <Play className="w-3 h-3" /> Run
                 </button>
                 <button
-                  onClick={() => setSaved((s) => s.filter((x) => x.id !== r.id))}
+                  onClick={() => saveCollection("reports_saved_reports", allSaved.filter((x) => x.id !== r.id))}
                   className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-destructive transition-colors ml-auto"
                   type="button"
                 >

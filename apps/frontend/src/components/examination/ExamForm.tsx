@@ -1,8 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { X, Save, BookOpen } from "lucide-react";
+import { X, Save, BookOpen, Loader2 } from "lucide-react";
 import { CLASSES, Exam } from "../../lib/examinationData";
 import { toTitleCase } from "../../lib/utils";
+import { getObject } from "../../lib/db";
+import {
+  type ExaminationsSettings,
+  DEFAULT_EXAMINATIONS_SETTINGS,
+  DEFAULT_EXAMINATIONS_FIELD_DEFS,
+  getSortedFields,
+} from "@mms/shared";
+import { DatePicker } from "../ui/DatePicker";
 
 const INPUT = "w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
 const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
@@ -29,17 +37,22 @@ interface ExamFormProps {
 
 /**
  * Modal form dialog for creating or updating exam records.
- *
- * @param props - Component props.
- * @param props.exam - Selected exam metadata if editing, otherwise null for creation.
- * @param props.onClose - Action callback to close dialog.
- * @param props.onSave - Callback when saving form changes.
- * @returns The ExamForm component.
  */
 export default function ExamForm({ exam, onClose, onSave }: ExamFormProps): React.ReactElement {
   const [data, setData] = useState<Partial<Exam>>(() => {
     return exam ? { ...exam } : { ...EMPTY };
   });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const settings = useMemo(() => getObject<ExaminationsSettings>("examinations_settings", DEFAULT_EXAMINATIONS_SETTINGS), []);
+  const fields = settings.fields || DEFAULT_EXAMINATIONS_SETTINGS.fields || {};
+  const customFields = settings.customFields || [];
+  const fieldOrder = settings.fieldOrder || DEFAULT_EXAMINATIONS_SETTINGS.fieldOrder || [];
+
+  const orderedFields = useMemo(() => {
+    return getSortedFields(DEFAULT_EXAMINATIONS_FIELD_DEFS, fieldOrder, fields, customFields);
+  }, [fieldOrder, fields, customFields]);
 
   const upd = <K extends keyof Exam>(f: K, v: Exam[K]) => setData((d: Partial<Exam>) => ({ ...d, [f]: v }));
   const toggleClass = (id: string) =>
@@ -51,7 +64,48 @@ export default function ExamForm({ exam, onClose, onSave }: ExamFormProps): Reac
       };
     });
 
-  const valid = !!(data.name && data.subject && data.date && data.classIds && data.classIds.length > 0);
+  const handleSave = async () => {
+    setError("");
+    if (!data.name) {
+      setError("Exam Name is required.");
+      return;
+    }
+    if (!data.date) {
+      setError("Exam Date is required.");
+      return;
+    }
+    if (!data.classIds || data.classIds.length === 0) {
+      setError("At least one Class must be assigned.");
+      return;
+    }
+
+    // Validate default required fields
+    for (const key of Object.keys(fields)) {
+      if (fields[key].required && (data[key as keyof Exam] === undefined || data[key as keyof Exam] === "")) {
+        setError(`${key.charAt(0).toUpperCase() + key.slice(1)} is required.`);
+        return;
+      }
+    }
+
+    // Validate custom required fields
+    for (const cf of customFields) {
+      if (cf.required && !(data as Record<string, unknown>)[cf.id]) {
+        setError(`"${cf.label}" is required.`);
+        return;
+      }
+    }
+
+    setSaving(true);
+    await new Promise((r) => setTimeout(r, 600));
+    onSave({
+      ...data,
+      name: toTitleCase(data.name || ""),
+      id: exam?.id || `ex${Date.now()}`
+    } as Exam);
+    setSaving(false);
+  };
+
+  const valid = !!(data.name && data.date && data.classIds && data.classIds.length > 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="exam-form-title">
@@ -73,130 +127,252 @@ export default function ExamForm({ exam, onClose, onSave }: ExamFormProps): Reac
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          <div>
-            <label htmlFor="exam-name" className={LABEL}>Exam Name *</label>
-            <input
-              id="exam-name"
-              className={INPUT}
-              value={data.name || ""}
-              onChange={(e) => upd("name", e.target.value)}
-              placeholder="e.g. Tajweed Mid-Term"
-              required
-            />
-          </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs font-semibold text-left">
+              {error}
+            </div>
+          )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="exam-subject" className={LABEL}>Subject *</label>
-              <select
-                id="exam-subject"
-                className={INPUT + " cursor-pointer"}
-                value={data.subject || ""}
-                onChange={(e) => upd("subject", e.target.value)}
-                required
-              >
-                <option value="">Select subject…</option>
-                {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="exam-status" className={LABEL}>Status</label>
-              <select
-                id="exam-status"
-                className={INPUT + " cursor-pointer"}
-                value={data.status || "upcoming"}
-                onChange={(e) => upd("status", e.target.value as Exam["status"])}
-              >
-                <option value="upcoming">Upcoming</option>
-                <option value="ongoing">Ongoing</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
-          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {orderedFields.map((field) => {
+              const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled !== false);
+              if (!isEnabled) return null;
 
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label htmlFor="exam-total" className={LABEL}>Total Marks</label>
-              <input
-                id="exam-total"
-                type="number"
-                className={INPUT}
-                value={data.totalMarks ?? 100}
-                onChange={(e) => upd("totalMarks", +e.target.value)}
-                min={1}
-              />
-            </div>
-            <div>
-              <label htmlFor="exam-passing" className={LABEL}>Passing Marks</label>
-              <input
-                id="exam-passing"
-                type="number"
-                className={INPUT}
-                value={data.passingMarks ?? 50}
-                onChange={(e) => upd("passingMarks", +e.target.value)}
-                min={1}
-                max={data.totalMarks ?? 100}
-              />
-            </div>
-            <div>
-              <label htmlFor="exam-duration" className={LABEL}>Duration (min)</label>
-              <input
-                id="exam-duration"
-                type="number"
-                className={INPUT}
-                value={data.duration ?? 60}
-                onChange={(e) => upd("duration", +e.target.value)}
-                min={5}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="exam-date" className={LABEL}>Exam Date *</label>
-            <input
-              id="exam-date"
-              type="date"
-              className={INPUT}
-              value={data.date || ""}
-              onChange={(e) => upd("date", e.target.value)}
-              required
-            />
-          </div>
-
-          <div>
-            <span className={LABEL}>Assign to Classes *</span>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Assign to classes list">
-              {CLASSES.map((cls) => {
-                const active = !!(data.classIds && data.classIds.includes(cls.id));
+              if (field.id === "name") {
                 return (
-                  <button
-                    key={cls.id}
-                    type="button"
-                    onClick={() => toggleClass(cls.id)}
-                    className={`px-3 py-1.5 rounded-lg border text-[12px] font-semibold transition-all ${
-                      active
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-border bg-muted hover:bg-muted/80 text-foreground"
-                    }`}
-                  >
-                    {cls.name}
-                  </button>
+                  <div key="name" className="sm:col-span-2">
+                    <label htmlFor="exam-name" className={LABEL}>Exam Name *</label>
+                    <input
+                      id="exam-name"
+                      className={INPUT}
+                      value={data.name || ""}
+                      onChange={(e) => upd("name", e.target.value)}
+                      placeholder="e.g. Tajweed Mid-Term"
+                      required
+                    />
+                  </div>
                 );
-              })}
-            </div>
-          </div>
+              }
 
-          <div>
-            <label htmlFor="exam-desc" className={LABEL}>Description</label>
-            <textarea
-              id="exam-desc"
-              className={INPUT + " resize-none"}
-              rows={2}
-              value={data.description || ""}
-              onChange={(e) => upd("description", e.target.value)}
-              placeholder="Optional notes about this exam…"
-            />
+              if (field.id === "subject") {
+                return (
+                  <div key="subject">
+                    <label htmlFor="exam-subject" className={LABEL}>Subject {field.required ? "*" : ""}</label>
+                    <select
+                      id="exam-subject"
+                      className={INPUT + " cursor-pointer"}
+                      value={data.subject || ""}
+                      onChange={(e) => upd("subject", e.target.value)}
+                      required={field.required}
+                    >
+                      <option value="">Select subject…</option>
+                      {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                );
+              }
+
+              if (field.id === "status") {
+                return (
+                  <div key="status">
+                    <label htmlFor="exam-status" className={LABEL}>Status {field.required ? "*" : ""}</label>
+                    <select
+                      id="exam-status"
+                      className={INPUT + " cursor-pointer"}
+                      value={data.status || "upcoming"}
+                      onChange={(e) => upd("status", e.target.value as Exam["status"])}
+                      required={field.required}
+                    >
+                      <option value="upcoming">Upcoming</option>
+                      <option value="ongoing">Ongoing</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
+                );
+              }
+
+              if (field.id === "totalMarks") {
+                return (
+                  <div key="totalMarks">
+                    <label htmlFor="exam-total" className={LABEL}>Total Marks {field.required ? "*" : ""}</label>
+                    <input
+                      id="exam-total"
+                      type="number"
+                      className={INPUT}
+                      value={data.totalMarks ?? 100}
+                      onChange={(e) => upd("totalMarks", +e.target.value)}
+                      min={1}
+                      required={field.required}
+                    />
+                  </div>
+                );
+              }
+
+              if (field.id === "passingMarks") {
+                return (
+                  <div key="passingMarks">
+                    <label htmlFor="exam-passing" className={LABEL}>Passing Marks {field.required ? "*" : ""}</label>
+                    <input
+                      id="exam-passing"
+                      type="number"
+                      className={INPUT}
+                      value={data.passingMarks ?? 50}
+                      onChange={(e) => upd("passingMarks", +e.target.value)}
+                      min={1}
+                      max={data.totalMarks ?? 100}
+                      required={field.required}
+                    />
+                  </div>
+                );
+              }
+
+              if (field.id === "duration") {
+                return (
+                  <div key="duration">
+                    <label htmlFor="exam-duration" className={LABEL}>Duration (min) {field.required ? "*" : ""}</label>
+                    <input
+                      id="exam-duration"
+                      type="number"
+                      className={INPUT}
+                      value={data.duration ?? 60}
+                      onChange={(e) => upd("duration", +e.target.value)}
+                      min={5}
+                      required={field.required}
+                    />
+                  </div>
+                );
+              }
+
+              if (field.id === "date") {
+                return (
+                  <div key="date" className="sm:col-span-2">
+                    <label htmlFor="exam-date" className={LABEL}>Exam Date *</label>
+                    <DatePicker
+                      id="exam-date"
+                      value={data.date || ""}
+                      onChange={(val) => upd("date", val)}
+                      required
+                    />
+                  </div>
+                );
+              }
+
+              if (field.id === "classIds") {
+                return (
+                  <div key="classIds" className="sm:col-span-2">
+                    <span className={LABEL}>Assign to Classes *</span>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label="Assign to classes list">
+                      {CLASSES.map((cls) => {
+                        const active = !!(data.classIds && data.classIds.includes(cls.id));
+                        return (
+                          <button
+                            key={cls.id}
+                            type="button"
+                            onClick={() => toggleClass(cls.id)}
+                            className={`px-3 py-1.5 rounded-lg border text-[12px] font-semibold transition-all ${
+                              active
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "border-border bg-muted hover:bg-muted/80 text-foreground"
+                            }`}
+                          >
+                            {cls.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+
+              if (field.id === "description") {
+                return (
+                  <div key="description" className="sm:col-span-2">
+                    <label htmlFor="exam-desc" className={LABEL}>Description {field.required ? "*" : ""}</label>
+                    <textarea
+                      id="exam-desc"
+                      className={INPUT + " resize-none"}
+                      rows={2}
+                      value={data.description || ""}
+                      onChange={(e) => upd("description", e.target.value)}
+                      placeholder="Optional notes about this exam…"
+                      required={field.required}
+                    />
+                  </div>
+                );
+              }
+
+              // Custom field
+              if (field.isCustom) {
+                const val = (data as Record<string, unknown>)[field.id] ?? "";
+                return (
+                  <div key={field.id} className={field.type === "textarea" ? "sm:col-span-2" : ""}>
+                    <label className={LABEL}>
+                      {field.label} {field.required ? "*" : ""}
+                    </label>
+                    {field.type === "textarea" ? (
+                      <textarea
+                        className={INPUT + " min-h-[80px] py-2 resize-none"}
+                        value={val as string}
+                        onChange={(e) => setData((d) => ({ ...d, [field.id]: e.target.value }))}
+                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}…`}
+                        required={field.required}
+                      />
+                    ) : field.type === "select" ? (
+                      <select
+                        className={INPUT + " cursor-pointer"}
+                        value={val as string}
+                        onChange={(e) => setData((d) => ({ ...d, [field.id]: e.target.value }))}
+                        required={field.required}
+                      >
+                        <option value="">Select option…</option>
+                        {field.options?.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    ) : field.type === "boolean" ? (
+                      <label className="flex items-center gap-2.5 py-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={!!val}
+                          onChange={(e) => setData((d) => ({ ...d, [field.id]: e.target.checked }))}
+                          className="w-4 h-4 rounded border border-border accent-primary cursor-pointer"
+                        />
+                        <span className="text-xs font-medium text-foreground">{field.label}</span>
+                      </label>
+                    ) : field.type === "number" ? (
+                      <input
+                        type="number"
+                        className={INPUT}
+                        value={val as number}
+                        onChange={(e) => setData((d) => ({ ...d, [field.id]: e.target.value }))}
+                        placeholder={field.placeholder || `Enter number…`}
+                        required={field.required}
+                      />
+                    ) : field.type === "date" ? (
+                      <DatePicker
+                        value={val as string}
+                        onChange={(val) => setData((d) => ({ ...d, [field.id]: val }))}
+                        required={field.required}
+                      />
+                    ) : (
+                      <input
+                        type={field.type === "email" ? "email" : field.type === "url" ? "url" : "text"}
+                        className={INPUT}
+                        value={val as string}
+                        onChange={(e) => setData((d) => ({ ...d, [field.id]: e.target.value }))}
+                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}…`}
+                        required={field.required}
+                      />
+                    )}
+                  </div>
+                );
+              }
+
+              return null;
+            })}
           </div>
         </div>
 
@@ -204,11 +380,12 @@ export default function ExamForm({ exam, onClose, onSave }: ExamFormProps): Reac
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted">Cancel</button>
           <button
             type="button"
-            onClick={() => valid && onSave({ ...data, name: toTitleCase(data.name || ""), id: exam?.id || `ex${Date.now()}` } as Exam)}
-            disabled={!valid}
+            onClick={handleSave}
+            disabled={saving || !valid}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60"
           >
-            <Save className="w-3.5 h-3.5" aria-hidden="true" /> {exam ? "Save Changes" : "Create Exam"}
+            {saving ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <Save className="w-3.5 h-3.5" aria-hidden="true" />}
+            {saving ? "Saving…" : exam ? "Save Changes" : "Create Exam"}
           </button>
         </div>
       </motion.div>

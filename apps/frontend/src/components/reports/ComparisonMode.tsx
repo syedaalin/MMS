@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { GitCompare, X } from "lucide-react";
+import { DatePicker } from "../ui/DatePicker";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -207,9 +208,17 @@ export default function ComparisonMode({ category, onClose }: ComparisonModeProp
             ].map(({ label, range, set, color }) => (
               <div key={label} className="space-y-2">
                 <p className={`text-[11px] font-bold uppercase tracking-wide ${color}`}>{label}</p>
-                <div className="flex gap-2">
-                  <input type="date" value={range.from} onChange={(e) => set((r) => ({ ...r, from: e.target.value }))} className="flex-1 text-sm rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                  <input type="date" value={range.to}   onChange={(e) => set((r) => ({ ...r, to: e.target.value }))}   className="flex-1 text-sm rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                <div className="flex gap-2 items-center">
+                  <DatePicker
+                    value={range.from}
+                    onChange={(val) => set((r) => ({ ...r, from: val }))}
+                    className="flex-1 text-sm rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm px-2 py-1.5"
+                  />
+                  <DatePicker
+                    value={range.to}
+                    onChange={(val) => set((r) => ({ ...r, to: val }))}
+                    className="flex-1 text-sm rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm px-2 py-1.5"
+                  />
                 </div>
               </div>
             ))}

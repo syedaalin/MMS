@@ -1,6 +1,6 @@
 import { getObject } from "./db";
 
-const STORAGE_KEY = "darul_quran_invoice_template";
+const STORAGE_KEY = "mms_invoice_template";
 
 export interface PageSizeInfo {
   width: number;
@@ -77,11 +77,11 @@ export interface FieldLookupInfo {
  */
 function getBranding(): BrandingInfo {
   const DEFAULT_BRANDING: BrandingInfo = {
-    madrasaName: "Dar ul Quran",
+    madrasaName: "MMS",
     tagline: "Nurturing Knowledge & Character",
-    logoUrl: "https://media.base44.com/images/public/69e092979d7a1ef05dd05cfc/4d2d7305a_canva_logo.png",
+    logoUrl: "",
     primaryColor: "#047857",
-    footerText: "© 2026 Dar ul Quran. All rights reserved.",
+    footerText: "© 2026 MMS. All rights reserved.",
     address: "",
     phone: "",
     email: "",
@@ -92,7 +92,7 @@ function getBranding(): BrandingInfo {
     const raw = localStorage.getItem("madrasa_branding");
     if (raw) {
       const parsed = JSON.parse(raw) as BrandingInfo;
-      localStorage.setItem("darul_quran_branding", raw);
+      localStorage.setItem("mms_branding", raw);
       try {
         localStorage.removeItem("madrasa_branding");
       } catch (err) {

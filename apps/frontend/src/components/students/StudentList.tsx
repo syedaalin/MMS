@@ -13,7 +13,7 @@ import EmptyState from "../ui/EmptyState";
 import { calcAge, type Student } from "../../lib/studentsData";
 import { SESSIONS_DATA } from "../../lib/sessionsData";
 import { getCollection, formatDate, getObject } from "../../lib/db";
-import { type StudentsSettings, DEFAULT_STUDENTS_SETTINGS } from "../../lib/settingsTypes";
+import { type StudentsSettings, DEFAULT_STUDENTS_SETTINGS } from "@mms/shared";
 import StudentDetail from "./StudentDetail";
 
 const GENDER_ICON = { male: "♂", female: "♀", other: "⚧" } as const;
@@ -42,6 +42,7 @@ export interface StudentListProps {
   onDelete: (id: string) => void;
   onBulkDelete?: (ids: string[]) => void;
   onBulkStatusChange?: (ids: string[], status: "active" | "inactive") => void;
+  layout?: string;
 }
 
 /**
@@ -52,7 +53,8 @@ export default function StudentList({
   onEdit,
   onDelete,
   onBulkDelete,
-  onBulkStatusChange
+  onBulkStatusChange,
+  layout = "list"
 }: StudentListProps): JSX.Element {
   const sessions = getCollection("sessions", SESSIONS_DATA);
 
@@ -118,8 +120,8 @@ export default function StudentList({
     if (!sortField) return students;
 
     return [...students].sort((a, b) => {
-      let valA: any = "";
-      let valB: any = "";
+      let valA = "";
+      let valB = "";
 
       if (sortField === "name") {
         valA = a.name.toLowerCase();
@@ -184,6 +186,166 @@ export default function StudentList({
 
   const allSelected = paginatedStudents.length > 0 && selectedIds.length === paginatedStudents.length;
   const someSelected = selectedIds.length > 0 && selectedIds.length < paginatedStudents.length;
+
+  if (layout === "cards") {
+    return (
+      <div className="space-y-4">
+        {paginatedStudents.length === 0 ? (
+          <EmptyState
+            icon={GraduationCap}
+            title="No students found"
+            description="Try adjusting your search or filters, or register a new student."
+          />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+            {paginatedStudents.map((st) => {
+              const isSelected = selectedIds.includes(st.id);
+              const age = calcAge(st.dob);
+              return (
+                <motion.div
+                  key={st.id}
+                  onClick={(e) => handleRowClick(e, st)}
+                  className={`relative rounded-2xl border bg-card/40 backdrop-blur-xl p-5 hover:shadow-md transition-all group cursor-pointer ${
+                    isSelected ? "border-primary bg-primary/[0.015]" : "border-border/50 hover:border-primary/20"
+                  }`}
+                >
+                  <div className="absolute top-3 left-3">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleSelectOne(st.id)}
+                      className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+                    />
+                  </div>
+                  <div className="absolute top-3 right-3">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                          <MoreHorizontal className="w-3.5 h-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuItem onClick={() => setViewStudent(st)}>
+                          <Eye className="w-3.5 h-3.5 mr-2" /> View profile
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onEdit(st)}>
+                          <Edit2 className="w-3.5 h-3.5 mr-2" /> Edit student
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => onDelete(st.id)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-2" /> Remove
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center mt-3 mb-4">
+                    <StudentAvatar student={st} />
+                    <h4 className="text-sm font-bold text-foreground mt-2 group-hover:text-primary transition-colors truncate w-full max-w-[150px]">
+                      {st.name}
+                    </h4>
+                    {st.grNumber && (
+                      <span className="bg-primary/5 text-primary text-[9px] px-1.5 py-0.5 rounded border border-primary/10 font-bold uppercase tracking-wider mt-1">
+                        GR: {st.grNumber}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 border-t border-border/40 pt-3 text-[11px]">
+                    {fields.gender?.enabled !== false && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Gender:</span>
+                        <span className="font-semibold text-foreground capitalize">{st.gender} {GENDER_ICON[st.gender] || ""}</span>
+                      </div>
+                    )}
+                    {fields.dob?.enabled !== false && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Age / DOB:</span>
+                        <span className="font-semibold text-foreground">{age ? `${age} yrs` : "—"}</span>
+                      </div>
+                    )}
+                    {fields.fatherLink?.enabled !== false && st.fatherName && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Father:</span>
+                        <span className="font-semibold text-foreground truncate max-w-[100px]">{st.fatherName}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Status:</span>
+                      <StatusBadge status={st.status} />
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Footer with pagination */}
+        {students.length > 0 && (
+          <div className="px-5 py-3 border border-border bg-muted/10 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+            <div>
+              Showing {Math.min(students.length, (currentPage - 1) * pageSize + 1)}-
+              {Math.min(students.length, currentPage * pageSize)} of {students.length} students
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <span>Rows per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="bg-background border border-border rounded px-1.5 py-0.5 text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {[8, 16, 24, 48].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  className="p-1 rounded hover:bg-muted text-foreground disabled:opacity-40 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="p-1 rounded hover:bg-muted text-foreground disabled:opacity-40 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <AnimatePresence>
+          {viewStudent && (
+            <StudentDetail
+              student={viewStudent}
+              onClose={() => setViewStudent(null)}
+              onEdit={(s) => {
+                setViewStudent(null);
+                onEdit(s);
+              }}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -352,7 +514,7 @@ export default function StudentList({
                           </div>
                         </td>
                         {sortedCustomFields.map((field) => {
-                          const val = (st as any)[field.id];
+                          const val = (st as unknown as Record<string, unknown>)[field.id];
                           let displayVal = "—";
                           if (val !== undefined && val !== null && val !== "") {
                             if (typeof val === "boolean") {

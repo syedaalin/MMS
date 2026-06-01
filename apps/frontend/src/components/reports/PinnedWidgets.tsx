@@ -1908,7 +1908,7 @@ export default function PinnedWidgets({ category }: { category: string }): React
 
   const [disabledCardIds, setDisabledCardIds] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem("darul_quran_dashboard_disabled_cards") || localStorage.getItem("dashboard_disabled_cards");
+      const saved = localStorage.getItem("mms_dashboard_disabled_cards") || localStorage.getItem("dashboard_disabled_cards");
       if (saved) return JSON.parse(saved) as string[];
     } catch (e) {
       console.error(e);
@@ -1931,7 +1931,7 @@ export default function PinnedWidgets({ category }: { category: string }): React
       next = [...disabledCardIds, cardId];
     }
     setDisabledCardIds(next);
-    localStorage.setItem("darul_quran_dashboard_disabled_cards", JSON.stringify(next));
+    localStorage.setItem("mms_dashboard_disabled_cards", JSON.stringify(next));
     window.dispatchEvent(new Event("local-database-update"));
   };
 

@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Users, ShieldCheck, Target, TrendingUp } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { getCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import ReportSummaryCard from "./ReportSummaryCard";
 import ReportExportBar from "./ReportExportBar";
 import EmptyState from "../ui/EmptyState";
@@ -11,7 +12,7 @@ const COLORS = ["#047857", "#0ea5e9", "#f59e0b", "#6366f1", "#ec4899", "#94a3b8"
 import { CONTACTS } from "../../lib/contactsData";
 import { Contact } from "../../lib/contactFields";
 import { calculateProfileHealth } from "../../lib/ContactConfigContext";
-import { STUDENTS } from "../../lib/studentsData";
+import { STUDENTS, Student } from "../../lib/studentsData";
 
 export interface ContactPersonaItem {
   persona: string;
@@ -34,15 +35,9 @@ export interface LifecycleStageItem {
  * @returns {React.JSX.Element}
  */
 export default function ContactReport(_props: { onEditVisual?: (config: unknown) => void } = {}) {
-  const contacts = useMemo<Contact[]>(
-    () => getCollection("contacts", CONTACTS),
-    []
-  );
+  const contacts = useLiveCollection<Contact>("contacts", CONTACTS);
   
-  const students = useMemo(
-    () => getCollection("students", STUDENTS),
-    []
-  );
+  const students = useLiveCollection<Student>("students", STUDENTS);
 
   const personas = useMemo<ContactPersonaItem[]>(() => {
     const counts: Record<string, { count: number; totalHealth: number }> = {};

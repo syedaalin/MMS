@@ -17,7 +17,8 @@ import { getCollection, saveCollection, getObject, saveObject } from "../lib/db"
 import { ATTENDANCE_RECORDS, DEFAULT_ATT_SETTINGS } from "../lib/attendanceData";
 
 const ATTENDANCE_SETTINGS_SUB_TABS = [
-  { id: "fields", label: "Fields & Preferences" },
+  { id: "fields", label: "Fields" },
+  { id: "preferences", label: "Preferences" },
 ];
 
 const ROLES = ["admin", "teacher", "accountant"] as const;
@@ -104,9 +105,7 @@ export default function Attendance() {
               </button>
             ))}
           </div>
-          {subTab === "fields" && (
-            <AttendanceSettings role={role} settings={settings} setSettings={setSettings} />
-          )}
+          <AttendanceSettings role={role} settings={settings} setSettings={setSettings} mode={subTab as "fields" | "preferences"} />
         </div>
       );
     }

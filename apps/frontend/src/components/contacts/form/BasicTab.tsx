@@ -1,17 +1,14 @@
 import React, { useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { Camera, User, GraduationCap, Briefcase, LucideIcon } from "lucide-react";
+import { Camera } from "lucide-react";
 import { useContactConfig } from "../../../lib/ContactConfigContext";
 import { Field, INPUT, CustomFieldInput, CustomFieldConfig } from "./FormPrimitives";
+import { DatePicker } from "../../ui/DatePicker";
 import AvatarCropper from "../AvatarCropper";
 import { useSortedFields } from "../../../hooks/useSortedFields";
 import DynamicField from "./DynamicField";
 
-const PERSONA_ICONS: Record<string, LucideIcon> = {
-  User: User,
-  GraduationCap: GraduationCap,
-  Briefcase: Briefcase,
-};
+import { optimizeImage } from "../../../lib/utils";
 
 interface ContactFormData {
   firstName?: string;
@@ -21,7 +18,6 @@ interface ContactFormData {
   gender?: string;
   dob?: string;
   isSyed?: boolean;
-  personaId?: string;
   [key: string]: unknown;
 }
 
@@ -38,17 +34,13 @@ interface BasicTabProps {
 export default function BasicTab({ data, onChange }: BasicTabProps): React.JSX.Element {
   const [cropSrc, setCropSrc] = useState<string | null>(null);
 
-  const { isTabFieldEnabled, isTabFieldRequired, genders, lifecycleStages, fieldConfig, setActivePersonaId } = useContactConfig();
+  const { isTabFieldEnabled, isTabFieldRequired, genders, lifecycleStages } = useContactConfig();
 
   // Sorted field order from prefs — includes custom fields merged inline
   const sortedFields = useSortedFields("basic");
 
   const upd = (f: string, v: unknown): void => {
     onChange({ ...data, [f]: v });
-  };
-
-  const updPersona = (id: string): void => {
-    onChange({ ...data, personaId: id });
   };
 
   const updName = (field: "firstName" | "lastName", value: string): void => {
@@ -77,17 +69,18 @@ export default function BasicTab({ data, onChange }: BasicTabProps): React.JSX.E
     .join("")
     .toUpperCase() || "?";
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
+    const optimized = await optimizeImage(file);
     const reader = new FileReader();
     reader.onload = (ev) => {
       if (typeof ev.target?.result === "string") {
         setCropSrc(ev.target.result);
       }
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(optimized);
   };
 
   return (
@@ -106,32 +99,6 @@ export default function BasicTab({ data, onChange }: BasicTabProps): React.JSX.E
       )}
 
       <div className="space-y-5">
-        {/* Persona Selector — 2026 Modern addition */}
-        <section className="space-y-2">
-          <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Contact Persona</h4>
-          <div className="grid grid-cols-3 gap-2">
-            {(fieldConfig.personas || []).map((p) => {
-              const Icon = PERSONA_ICONS[p.icon] || User;
-              const isActive = (data.personaId || fieldConfig.defaultPersonaId) === p.id;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => updPersona(p.id)}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
-                    isActive
-                      ? "bg-primary/5 border-primary text-primary shadow-sm"
-                      : "border-border text-muted-foreground hover:border-muted-foreground/30 hover:bg-muted/30"
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="text-[10px] font-bold">{p.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
         {/* Essential Info block — always first (firstName is alwaysOn) */}
         <section className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
           <h4 className="text-[11px] font-bold text-primary uppercase tracking-wide">Essential Info</h4>
@@ -246,11 +213,10 @@ export default function BasicTab({ data, onChange }: BasicTabProps): React.JSX.E
             if (field.id === "dob" && showDob) {
               return (
                 <Field key="dob" label="Date of Birth" required={dobRequired}>
-                  <input
-                    type="date"
-                    className={INPUT}
+                  <DatePicker
                     value={(data.dob as string) || ""}
-                    onChange={(e) => upd("dob", e.target.value)}
+                    onChange={(val) => upd("dob", val)}
+                    required={dobRequired}
                   />
                 </Field>
               );

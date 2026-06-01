@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { Upload, Save, RotateCcw, Palette } from "lucide-react";
 import { getObject, saveObject } from "../../lib/db";
+import { optimizeImage } from "@/lib/utils";
 
 const INPUT = "w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all";
 const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
@@ -16,13 +17,13 @@ interface BrandingData {
 }
 
 const DEFAULT: BrandingData = {
-  madrasaName: "Dar ul Quran",
+  madrasaName: "MMS",
   tagline: "Nurturing Knowledge & Character",
   primaryColor: "#047857",
   secondaryColor: "#d97706",
-  logoUrl: "https://media.base44.com/images/public/69e092979d7a1ef05dd05cfc/4d2d7305a_canva_logo.png",
+  logoUrl: "",
   faviconUrl: "",
-  footerText: "© 2026 Dar ul Quran. All rights reserved.",
+  footerText: "© 2026 MMS. All rights reserved.",
 };
 
 /**
@@ -64,28 +65,30 @@ export default function BrandingSettings(): React.JSX.Element {
     setSaved(false);
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const optimized = await optimizeImage(file);
     const reader = new FileReader();
     reader.onload = (ev) => {
       if (typeof ev.target?.result === "string") {
         upd("logoUrl", ev.target.result);
       }
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(optimized);
   };
 
-  const handleFaviconUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const optimized = await optimizeImage(file, { maxWidth: 64, maxHeight: 64 });
     const reader = new FileReader();
     reader.onload = (ev) => {
       if (typeof ev.target?.result === "string") {
         upd("faviconUrl", ev.target.result);
       }
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(optimized);
   };
 
   const handleSave = (): void => {

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, Gift, X, Save, Edit2 } from "lucide-react";
 import { Session, TabarrukItem } from "../../../lib/sessionsData";
+import { DatePicker } from "../../ui/DatePicker";
 
 const INPUT = "w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
 const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
@@ -42,7 +43,11 @@ function TabarrukModal({ entry, onClose, onSave }: TabarrukModalProps) {
             </div>
             <div>
               <label className={LABEL} htmlFor="tabarruk-date">Date</label>
-              <input id="tabarruk-date" type="date" className={INPUT} value={data.date || ""} onChange={(e) => upd("date", e.target.value)} />
+              <DatePicker
+                id="tabarruk-date"
+                value={data.date || ""}
+                onChange={(val) => upd("date", val)}
+              />
             </div>
           </div>
           <div>

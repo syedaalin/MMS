@@ -1,38 +1,11 @@
-export interface AttendanceSettings {
-  workingDays: string[];
-  cutoffTime: string;
-  lateThresholdMins: number;
-  autoAbsentAfterMins: number;
-  qrEnabled: boolean;
-  lowAttendanceThreshold: number;
-  notifyParents: boolean;
-  requireNoteForAbsent: boolean;
-  lockAfterSubmit: boolean;
-  trackHalfDay: boolean;
-  weeklyReport: boolean;
-  attendanceAlerts: boolean;
-  allowManualOverride: boolean;
-  offlineEnabled: boolean;
-  geoTagging: boolean;
-}
+import {
+  type AttendanceModuleSettings as AttendanceSettings,
+  DEFAULT_ATTENDANCE_SETTINGS as DEFAULT_ATT_SETTINGS
+} from "@mms/shared";
 
-export const DEFAULT_ATT_SETTINGS: AttendanceSettings = {
-  workingDays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
-  cutoffTime: "09:30",
-  lateThresholdMins: 15,
-  autoAbsentAfterMins: 30,
-  qrEnabled: false,
-  lowAttendanceThreshold: 75,
-  notifyParents: true,
-  requireNoteForAbsent: true,
-  lockAfterSubmit: true,
-  trackHalfDay: true,
-  weeklyReport: true,
-  attendanceAlerts: true,
-  allowManualOverride: true,
-  offlineEnabled: false,
-  geoTagging: false,
-};
+export type { AttendanceSettings };
+export { DEFAULT_ATT_SETTINGS };
+
 
 export interface AttendanceRecord {
   id: string;

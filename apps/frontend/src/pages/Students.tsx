@@ -17,9 +17,9 @@ import ErrorBoundary from "../components/ui/ErrorBoundary";
 // Students Imports
 import StudentList from "../components/students/StudentList";
 import StudentForm from "../components/students/StudentForm";
-import StudentsSettings from "../components/students/StudentsSettings";
+import StudentsSettingsPanel from "../components/students/StudentsSettings";
 import { STUDENTS, Student } from "../lib/studentsData";
-import { DEFAULT_STUDENTS_SETTINGS } from "../lib/settingsTypes";
+import { type StudentsSettings, DEFAULT_STUDENTS_SETTINGS } from "@mms/shared";
 
 // Generic Reports & DB Utils
 import ModuleReports from "../components/reports/ModuleReports";
@@ -33,7 +33,8 @@ const PAGE_TABS = [
 ];
 
 const STUDENT_SETTINGS_SUB_TABS = [
-  { id: "fields", label: "Fields & Preferences" },
+  { id: "fields",      label: "Fields" },
+  { id: "preferences", label: "Preferences" },
 ];
 
 const STUDENT_STATUS_OPTIONS = ["active", "inactive", "suspended"];
@@ -45,10 +46,11 @@ const STUDENT_STATUS_OPTIONS = ["active", "inactive", "suspended"];
 export default function Students() {
   const [activeTab, setActiveTab] = useState("operations");
 
+  const settings = useMemo(() => getObject<StudentsSettings>("students_settings", DEFAULT_STUDENTS_SETTINGS), []);
+
   // STUDENT SUB-MODULE STATE & GR Number auto-generation/migration
   const [students, setStudents] = useState<Student[]>(() => {
     const raw = getCollection("students", STUDENTS);
-    const settings = getObject<any>("students_settings", DEFAULT_STUDENTS_SETTINGS);
     const template = settings.grNumberTemplate || "{seq}-{year}";
     const digits = settings.grNumberDigits || 4;
     const restartAnnually = settings.grNumberRestartAnnually !== false;
@@ -133,15 +135,13 @@ export default function Students() {
         title="Students"
         subtitle="Manage student directory and records"
         actions={
-          activeTab === "operations" ? (
-            <ActionButton
-              variant="primary"
-              icon={UserPlus}
-              onClick={() => { setEditStudent(null); setShowStudentForm(true); }}
-            >
-              Add Student
-            </ActionButton>
-          ) : null
+          <ActionButton
+            variant="primary"
+            icon={UserPlus}
+            onClick={() => { setEditStudent(null); setShowStudentForm(true); }}
+          >
+            Add Student
+          </ActionButton>
         }
       />
 
@@ -265,6 +265,7 @@ export default function Students() {
             <ErrorBoundary>
               <StudentList
                 students={filteredStudents}
+                layout={settings.defaultViewLayout}
                 onEdit={(s: Student) => { setEditStudent(s); setShowStudentForm(true); }}
                 onDelete={(id: string) => setStudents((ss) => ss.filter((s) => s.id !== id))}
                 onBulkDelete={(ids) => setStudents((ss) => ss.filter((s) => !ids.includes(s.id)))}
@@ -309,7 +310,8 @@ export default function Students() {
                     </button>
                   ))}
                 </div>
-                {subTab === "fields" && <StudentsSettings />}
+                {subTab === "fields" && <StudentsSettingsPanel mode="fields" />}
+                {subTab === "preferences" && <StudentsSettingsPanel mode="preferences" />}
               </div>
             </ErrorBoundary>
           </motion.div>

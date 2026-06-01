@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Users, UserCheck, UserX, TrendingUp } from "lucide-react";
 import { getCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import { STUDENTS, Student } from "../../lib/studentsData";
 import ReportSummaryCard from "./ReportSummaryCard";
 import ReportExportBar from "./ReportExportBar";
@@ -69,10 +70,7 @@ const STATUS_COLOR: Record<string, string> = {
 export default function StudentReport({ filters }: StudentReportProps): React.JSX.Element {
   const [sub, setSub] = useState<SubTab>("Student List");
 
-  const allStudents = useMemo<Student[]>(
-    () => getCollection("students", STUDENTS),
-    []
-  );
+  const allStudents = useLiveCollection<Student>("students", STUDENTS);
 
   const studentList = useMemo<ReportStudent[]>(() => {
     return allStudents.map(s => {

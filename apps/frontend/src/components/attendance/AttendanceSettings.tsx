@@ -1,11 +1,22 @@
 import React, { useState } from "react";
-import { Save, RotateCcw, QrCode, Bell, Clock, Shield, Scan } from "lucide-react";
-import { DEFAULT_ATT_SETTINGS, type AttendanceSettings as AttendanceSettingsData } from "../../lib/attendanceData";
+import { Save, RotateCcw, QrCode, Bell, Clock, Shield, Scan, ClipboardCheck } from "lucide-react";
+import {
+  DEFAULT_ATT_SETTINGS,
+  type AttendanceSettings as AttendanceSettingsData
+} from "../../lib/attendanceData";
+import {
+  DEFAULT_ATTENDANCE_FIELD_DEFS,
+  getSortedFields,
+  type ModuleCustomField,
+} from "@mms/shared";
+import CustomFieldsBuilder, { CustomFieldConfig } from "../ui/CustomFieldsBuilder";
+import DraggableFieldList from "../ui/DraggableFieldList";
 
 interface AttendanceSettingsProps {
   role: string;
   settings: AttendanceSettingsData;
   setSettings: React.Dispatch<React.SetStateAction<AttendanceSettingsData>>;
+  mode?: "fields" | "preferences";
 }
 
 interface SettingRowProps {
@@ -51,11 +62,8 @@ function Toggle({ checked, onChange }: ToggleProps) {
  * 
  * Provides an interface for administrators to configure global attendance rules,
  * such as late thresholds, QR code enablement, and notifications.
- * 
- * @param {AttendanceSettingsProps} props - The component props.
- * @returns {React.ReactElement} The rendered settings component.
  */
-export default function AttendanceSettings({ role, settings, setSettings }: AttendanceSettingsProps) {
+export default function AttendanceSettings({ role, settings, setSettings, mode }: AttendanceSettingsProps) {
   const [saved, setSaved] = useState(false);
 
   if (role !== "admin") {
@@ -79,119 +87,235 @@ export default function AttendanceSettings({ role, settings, setSettings }: Atte
     setSaved(false); 
   };
 
+  const showPrefs = !mode || mode === "preferences";
+  const showFields = !mode || mode === "fields";
+
+  const fields = settings.fields || DEFAULT_ATT_SETTINGS.fields || {};
+  const customFields = settings.customFields || [];
+  const fieldOrder = settings.fieldOrder || DEFAULT_ATT_SETTINGS.fieldOrder || [];
+
+  const orderedFields = getSortedFields(DEFAULT_ATTENDANCE_FIELD_DEFS, fieldOrder, fields, customFields);
+
+  const updateFieldConfig = (fieldKey: string, prop: "enabled" | "required", value: boolean) => {
+    const fieldObj = fields[fieldKey] || { enabled: true, required: false };
+    const updatedFieldObj = { ...fieldObj, [prop]: value };
+    if (prop === "enabled" && !value) {
+      updatedFieldObj.required = false;
+    }
+    setSettings((s) => ({ ...s, fields: { ...fields, [fieldKey]: updatedFieldObj } }));
+    setSaved(false);
+  };
+
+  const handleToggleEnabled = (id: string) => {
+    if (DEFAULT_ATTENDANCE_FIELD_DEFS.some(f => f.id === id)) {
+      const cfg = fields[id] || { enabled: true, required: false };
+      updateFieldConfig(id, "enabled", !cfg.enabled);
+    }
+  };
+
+  const handleToggleRequired = (id: string) => {
+    if (DEFAULT_ATTENDANCE_FIELD_DEFS.some(f => f.id === id)) {
+      const cfg = fields[id] || { enabled: true, required: false };
+      updateFieldConfig(id, "required", !cfg.required);
+    } else {
+      const updated = customFields.map(f => f.id === id ? { ...f, required: !f.required } : f);
+      setSettings((s) => ({ ...s, customFields: updated }));
+      setSaved(false);
+    }
+  };
+
+  const handleReorder = (reordered: any[]) => {
+    setSettings((s) => ({ ...s, fieldOrder: reordered.map(f => f.id) }));
+    setSaved(false);
+  };
+
+  const handleCustomFieldsChange = (newFields: CustomFieldConfig[]) => {
+    const coreIds = DEFAULT_ATTENDANCE_FIELD_DEFS.map(f => f.id);
+    const newIds = newFields.map(f => f.id);
+    const kept = fieldOrder.filter((id) => coreIds.includes(id) || newIds.includes(id));
+    const added = newIds.filter((id) => !kept.includes(id));
+
+    setSettings((s) => ({
+      ...s,
+      customFields: newFields as unknown as ModuleCustomField[],
+      fieldOrder: [...kept, ...added]
+    }));
+    setSaved(false);
+  };
+
+  const enabledSet = new Set(Object.keys(fields).filter(k => fields[k].enabled));
+  const requiredSet = new Set(Object.keys(fields).filter(k => fields[k].required));
+
   return (
     <section className="max-w-2xl space-y-6">
-      {/* Timing */}
-      <article className="rounded-xl border border-border bg-card overflow-hidden">
-        <header className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground m-0">Timing Rules</h2>
-        </header>
-        <div className="px-4">
-          <SettingRow label="Late Threshold" sub="Students arriving after this many minutes are marked Late">
-            <div className="flex items-center gap-2">
-              <label htmlFor="setting-late-threshold" className="sr-only">Late Threshold Minutes</label>
-              <input 
-                id="setting-late-threshold"
-                type="number" 
-                min={1} 
-                max={60} 
-                value={settings.lateThresholdMins}
-                onChange={(e) => set("lateThresholdMins", Number(e.target.value))}
-                className="w-16 text-sm text-center rounded-lg border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20" 
-              />
-              <span className="text-xs text-muted-foreground">min</span>
+      {showPrefs && (
+        <>
+          {/* Timing */}
+          <article className="rounded-xl border border-border bg-card overflow-hidden">
+            <header className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-bold text-foreground m-0">Timing Rules</h2>
+            </header>
+            <div className="px-4">
+              <SettingRow label="Late Threshold" sub="Students arriving after this many minutes are marked Late">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="setting-late-threshold" className="sr-only">Late Threshold Minutes</label>
+                  <input 
+                    id="setting-late-threshold"
+                    type="number" 
+                    min={1} 
+                    max={60} 
+                    value={settings.lateThresholdMins}
+                    onChange={(e) => set("lateThresholdMins", Number(e.target.value))}
+                    className="w-16 text-sm text-center rounded-lg border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20" 
+                  />
+                  <span className="text-xs text-muted-foreground">min</span>
+                </div>
+              </SettingRow>
+              <SettingRow label="Auto-Absent After" sub="Mark student absent if not arrived after this threshold">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="setting-auto-absent" className="sr-only">Auto Absent Minutes</label>
+                  <input 
+                    id="setting-auto-absent"
+                    type="number" 
+                    min={10} 
+                    max={120} 
+                    value={settings.autoAbsentAfterMins}
+                    onChange={(e) => set("autoAbsentAfterMins", Number(e.target.value))}
+                    className="w-16 text-sm text-center rounded-lg border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20" 
+                  />
+                  <span className="text-xs text-muted-foreground">min</span>
+                </div>
+              </SettingRow>
+              <SettingRow label="Lock After Submit" sub="Prevent edits once attendance is submitted">
+                <Toggle checked={settings.lockAfterSubmit} onChange={(v) => set("lockAfterSubmit", v)} />
+              </SettingRow>
             </div>
-          </SettingRow>
-          <SettingRow label="Auto-Absent After" sub="Mark student absent if not arrived after this threshold">
-            <div className="flex items-center gap-2">
-              <label htmlFor="setting-auto-absent" className="sr-only">Auto Absent Minutes</label>
-              <input 
-                id="setting-auto-absent"
-                type="number" 
-                min={10} 
-                max={120} 
-                value={settings.autoAbsentAfterMins}
-                onChange={(e) => set("autoAbsentAfterMins", Number(e.target.value))}
-                className="w-16 text-sm text-center rounded-lg border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20" 
-              />
-              <span className="text-xs text-muted-foreground">min</span>
+          </article>
+
+          {/* QR */}
+          <article className="rounded-xl border border-border bg-card overflow-hidden">
+            <header className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+              <QrCode className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-bold text-foreground m-0">QR Attendance</h2>
+            </header>
+            <div className="px-4">
+              <SettingRow label="Enable QR Attendance" sub="Allow teachers to scan student QR codes to mark attendance">
+                <Toggle checked={settings.qrEnabled} onChange={(v) => set("qrEnabled", v)} />
+              </SettingRow>
             </div>
-          </SettingRow>
-          <SettingRow label="Lock After Submit" sub="Prevent edits once attendance is submitted">
-            <Toggle checked={settings.lockAfterSubmit} onChange={(v) => set("lockAfterSubmit", v)} />
-          </SettingRow>
-        </div>
-      </article>
+          </article>
 
-      {/* QR */}
-      <article className="rounded-xl border border-border bg-card overflow-hidden">
-        <header className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
-          <QrCode className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground m-0">QR Attendance</h2>
-        </header>
-        <div className="px-4">
-          <SettingRow label="Enable QR Attendance" sub="Allow teachers to scan student QR codes to mark attendance">
-            <Toggle checked={settings.qrEnabled} onChange={(v) => set("qrEnabled", v)} />
-          </SettingRow>
-        </div>
-      </article>
-
-      {/* Alerts */}
-      <article className="rounded-xl border border-border bg-card overflow-hidden">
-        <header className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
-          <Bell className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground m-0">Alerts & Notifications</h2>
-        </header>
-        <div className="px-4">
-          <SettingRow label="Low Attendance Threshold" sub="Trigger alert when student attendance drops below this %">
-            <div className="flex items-center gap-2">
-              <label htmlFor="setting-low-attendance" className="sr-only">Low Attendance Threshold Percentage</label>
-              <input 
-                id="setting-low-attendance"
-                type="number" 
-                min={50} 
-                max={100} 
-                value={settings.lowAttendanceThreshold}
-                onChange={(e) => set("lowAttendanceThreshold", Number(e.target.value))}
-                className="w-16 text-sm text-center rounded-lg border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20" 
-              />
-              <span className="text-xs text-muted-foreground">%</span>
+          {/* Alerts */}
+          <article className="rounded-xl border border-border bg-card overflow-hidden">
+            <header className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+              <Bell className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-bold text-foreground m-0">Alerts & Notifications</h2>
+            </header>
+            <div className="px-4">
+              <SettingRow label="Low Attendance Threshold" sub="Trigger alert when student attendance drops below this %">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="setting-low-attendance" className="sr-only">Low Attendance Threshold Percentage</label>
+                  <input 
+                    id="setting-low-attendance"
+                    type="number" 
+                    min={50} 
+                    max={100} 
+                    value={settings.lowAttendanceThreshold}
+                    onChange={(e) => set("lowAttendanceThreshold", Number(e.target.value))}
+                    className="w-16 text-sm text-center rounded-lg border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20" 
+                  />
+                  <span className="text-xs text-muted-foreground">%</span>
+                </div>
+              </SettingRow>
+              <SettingRow label="Notify Parents" sub="Send SMS/WhatsApp to parent on student absence">
+                <Toggle checked={settings.notifyParents} onChange={(v) => set("notifyParents", v)} />
+              </SettingRow>
+              <SettingRow label="Require Note for Absent" sub="Teacher must add a note when marking a student absent">
+                <Toggle checked={settings.requireNoteForAbsent} onChange={(v) => set("requireNoteForAbsent", v)} />
+              </SettingRow>
             </div>
-          </SettingRow>
-          <SettingRow label="Notify Parents" sub="Send SMS/WhatsApp to parent on student absence">
-            <Toggle checked={settings.notifyParents} onChange={(v) => set("notifyParents", v)} />
-          </SettingRow>
-          <SettingRow label="Require Note for Absent" sub="Teacher must add a note when marking a student absent">
-            <Toggle checked={settings.requireNoteForAbsent} onChange={(v) => set("requireNoteForAbsent", v)} />
-          </SettingRow>
-        </div>
-      </article>
+          </article>
 
-      {/* Advanced Features */}
-      <article className="rounded-xl border border-border bg-card overflow-hidden">
-        <header className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
-          <Scan className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground m-0">Advanced Features</h2>
-        </header>
-        <div className="px-4">
-          <SettingRow label="Offline Mode" sub="Allow teachers to mark attendance without internet; syncs when reconnected">
-            <Toggle checked={settings.offlineEnabled ?? true} onChange={(v) => set("offlineEnabled", v)} />
-          </SettingRow>
-          <SettingRow label="Geo-location Tagging" sub="Record teacher's GPS coordinates when submitting attendance">
-            <Toggle checked={settings.geoTagging ?? false} onChange={(v) => set("geoTagging", v)} />
-          </SettingRow>
-          <SettingRow label="Facial Recognition" sub="AI-powered face scan for attendance (coming soon)">
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Coming Soon</span>
-          </SettingRow>
-          <SettingRow label="Daily Auto-Lock" sub="Automatically lock attendance after end-of-day submission">
-            <Toggle checked={settings.lockAfterSubmit} onChange={(v) => set("lockAfterSubmit", v)} />
-          </SettingRow>
-          <SettingRow label="Audit Logging" sub="Record all edits and submissions in an audit trail (always on)">
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Active</span>
-          </SettingRow>
-        </div>
-      </article>
+          {/* Advanced Features */}
+          <article className="rounded-xl border border-border bg-card overflow-hidden">
+            <header className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+              <Scan className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-bold text-foreground m-0">Advanced Features</h2>
+            </header>
+            <div className="px-4">
+              <SettingRow label="Offline Mode" sub="Allow teachers to mark attendance without internet; syncs when reconnected">
+                <Toggle checked={settings.offlineEnabled ?? true} onChange={(v) => set("offlineEnabled", v)} />
+              </SettingRow>
+              <SettingRow label="Geo-location Tagging" sub="Record teacher's GPS coordinates when submitting attendance">
+                <Toggle checked={settings.geoTagging ?? false} onChange={(v) => set("geoTagging", v)} />
+              </SettingRow>
+              <SettingRow label="Default View Layout" sub="Select default layout format for attendance records in operations view">
+                <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
+                  <button
+                    type="button"
+                    onClick={() => set("defaultViewLayout", "list")}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      (settings.defaultViewLayout || "list") === "list"
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    List View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => set("defaultViewLayout", "cards")}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      settings.defaultViewLayout === "cards"
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Card Grid
+                  </button>
+                </div>
+              </SettingRow>
+              <SettingRow label="Facial Recognition" sub="AI-powered face scan for attendance (coming soon)">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Coming Soon</span>
+              </SettingRow>
+              <SettingRow label="Daily Auto-Lock" sub="Automatically lock attendance after end-of-day submission">
+                <Toggle checked={settings.lockAfterSubmit} onChange={(v) => set("lockAfterSubmit", v)} />
+              </SettingRow>
+              <SettingRow label="Audit Logging" sub="Record all edits and submissions in an audit trail (always on)">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Active</span>
+              </SettingRow>
+            </div>
+          </article>
+        </>
+      )}
+
+      {showFields && (
+        <article className="rounded-xl border border-border bg-card overflow-hidden p-5 space-y-4 text-left">
+          <header className="pb-1 border-b border-border/60 flex items-center gap-2">
+            <ClipboardCheck className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-bold text-foreground m-0">Attendance Grid Fields</h2>
+          </header>
+
+          <DraggableFieldList
+            tabId="attendance-fields"
+            fields={orderedFields}
+            enabledSet={enabledSet}
+            requiredSet={requiredSet}
+            onToggleEnabled={handleToggleEnabled}
+            onToggleRequired={handleToggleRequired}
+            onReorder={handleReorder}
+          />
+
+          <div className="border-t border-border pt-4">
+            <CustomFieldsBuilder
+              fields={customFields as unknown as CustomFieldConfig[]}
+              droppableId="custom-fields-attendance"
+              onChange={handleCustomFieldsChange}
+            />
+          </div>
+        </article>
+      )}
 
       {/* Actions */}
       <div className="flex gap-3">
@@ -202,12 +326,14 @@ export default function AttendanceSettings({ role, settings, setSettings }: Atte
           <Save className="w-3.5 h-3.5" />
           {saved ? "Saved!" : "Save Settings"}
         </button>
-        <button 
-          onClick={handleReset}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border bg-card text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <RotateCcw className="w-3.5 h-3.5" /> Reset to Defaults
-        </button>
+        {showPrefs && (
+          <button 
+            onClick={handleReset}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border bg-card text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Reset to Defaults
+          </button>
+        )}
       </div>
     </section>
   );

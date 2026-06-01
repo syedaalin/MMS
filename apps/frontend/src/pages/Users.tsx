@@ -8,6 +8,7 @@ import InviteUserModal from "../components/users/InviteUserModal";
 import EditUserModal from "../components/users/EditUserModal";
 import AddUserModal from "../components/users/AddUserModal";
 import RolesPermissions from "../components/users/RolesPermissions";
+import UsersSettingsPanel from "../components/users/UsersSettingsPanel";
 import ActivityLogs from "../components/users/ActivityLogs";
 import ModuleReports from "../components/reports/ModuleReports";
 import KPISummary from "../components/reports/KPISummary";
@@ -36,6 +37,7 @@ const SUB_TABS = [
 export default function Users() {
   const [activeTab, setActiveTab] = useState("operations");
   const [activeSubTab, setActiveSubTab] = useState("users");
+  const [configSubTab, setConfigSubTab] = useState<"permissions" | "fields" | "preferences">("permissions");
   const [viewerRole, setViewerRole] = useState("admin");
   const [users, setUsers]           = useState<SystemUser[]>(() => getCollection("users", SAMPLE_USERS));
   const [logs, setLogs]             = useState<ActivityLog[]>(() => getCollection("user_activity_logs", SAMPLE_ACTIVITY_LOGS));
@@ -181,7 +183,42 @@ export default function Users() {
           className="space-y-4">
 
           {effectiveTab === "analytics" && <ModuleReports category="faculty" role={viewerRole} />}
-          {effectiveTab === "configuration" && <RolesPermissions adminRole={viewerRole} />}
+          {effectiveTab === "configuration" && (
+            <div className="space-y-4">
+              <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit border border-border/30">
+                <button
+                  type="button"
+                  onClick={() => setConfigSubTab("permissions")}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    configSubTab === "permissions" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Permissions
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfigSubTab("fields")}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    configSubTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Fields
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfigSubTab("preferences")}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    configSubTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Preferences
+                </button>
+              </div>
+              {configSubTab === "permissions" && <RolesPermissions adminRole={viewerRole} />}
+              {configSubTab === "fields" && <UsersSettingsPanel mode="fields" />}
+              {configSubTab === "preferences" && <UsersSettingsPanel mode="preferences" />}
+            </div>
+          )}
 
           {effectiveTab === "operations" && effectiveSubTab === "users" && (
             <UsersList

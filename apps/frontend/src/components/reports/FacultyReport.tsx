@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { SESSIONS_DATA, Session } from "../../lib/sessionsData";
 import { getCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import ReportSummaryCard from "./ReportSummaryCard";
 import ReportExportBar from "./ReportExportBar";
 
@@ -37,10 +38,7 @@ interface FacultyReportProps {
  * @returns The FacultyReport component.
  */
 export default function FacultyReport({ filters: _filters }: FacultyReportProps): React.JSX.Element {
-  const sessions = useMemo<Session[]>(
-    () => getCollection("sessions", SESSIONS_DATA),
-    [],
-  );
+  const sessions = useLiveCollection<Session>("sessions", SESSIONS_DATA);
 
   const facultyWorkload = useMemo<FacultyWorkloadItem[]>(() => {
     const map: Record<string, { classes: Set<string>, sessions: Set<string>, students: number, hours: number }> = {};

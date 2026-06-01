@@ -20,7 +20,8 @@ import ModuleReports from "../components/reports/ModuleReports";
 import ErrorBoundary from "../components/ui/ErrorBoundary";
 import KPISummary from "../components/reports/KPISummary";
 import { SESSIONS_DATA, SESSION_TYPES, Session } from "../lib/sessionsData";
-import { getCollection, saveCollection, formatDate } from "../lib/db";
+import { getCollection, saveCollection, formatDate, getObject } from "../lib/db";
+import { SessionsSettings as SessionsSettingsData, DEFAULT_SESSIONS_SETTINGS } from "@mms/shared";
 
 const PAGE_TABS = [
   { id: "operations",    label: "Operations",    icon: LayoutDashboard },
@@ -29,7 +30,8 @@ const PAGE_TABS = [
 ];
 
 const SESSION_SETTINGS_SUB_TABS = [
-  { id: "fields", label: "Fields & Preferences" },
+  { id: "fields", label: "Fields" },
+  { id: "preferences", label: "Preferences" },
 ];
 
 type SessionStatus = "active" | "upcoming" | "completed" | "cancelled";
@@ -127,6 +129,7 @@ function SessionCard({ session, onClick }: SessionCardProps) {
  */
 export default function Sessions() {
   const [sessions, setSessions] = useState<Session[]>(() => getCollection("sessions", SESSIONS_DATA));
+  const settings = getObject<SessionsSettingsData>("sessions_settings", DEFAULT_SESSIONS_SETTINGS);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<SessionStatus[]>([]);
   const [filterType, setFilterType] = useState<SessionType[]>([]);
@@ -178,11 +181,11 @@ export default function Sessions() {
         icon={Calendar}
         title="Sessions"
         subtitle={`${sessions.length} total · ${sessions.filter((s) => s.status === "active").length} active`}
-        actions={activeTab === "operations" ? (
+        actions={
           <ActionButton variant="primary" icon={Plus} onClick={() => { setEditSession(null); setShowForm(true); }}>
             New Session
           </ActionButton>
-        ) : null}
+        }
       />
 
       <div className="space-y-4">
@@ -260,7 +263,7 @@ export default function Sessions() {
               onClearAll={() => { setFilterStatus([]); setFilterType([]); }}
             />
 
-            {/* Session grid */}
+            {/* Session grid or list */}
             {filtered.length === 0 ? (
               <EmptyState
                 icon={BookOpen}
@@ -268,6 +271,54 @@ export default function Sessions() {
                 description="Try adjusting your filters or create a new session."
                 action={<ActionButton variant="primary" icon={Plus} onClick={() => setShowForm(true)}>New Session</ActionButton>}
               />
+            ) : (settings.defaultViewLayout || "cards") === "list" ? (
+              <div className="rounded-2xl border border-border bg-card/45 backdrop-blur-xl overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border/50 bg-muted/20">
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Session Name</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Type</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Duration</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Fee</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Enrolled</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {filtered.map((s) => {
+                        const totalEnrolled = s.classes?.reduce((sum, c) => sum + c.enrolled, 0) ?? 0;
+                        const totalCapacity = s.classes?.reduce((sum, c) => sum + c.capacity, 0) ?? 0;
+                        const statusCfg = STATUS_CONFIG[s.status as SessionStatus] ?? STATUS_CONFIG.active;
+                        return (
+                          <tr key={s.id} onClick={() => setDetailSession(s)} className="hover:bg-muted/20 cursor-pointer transition-colors group">
+                            <td className="px-4 py-3 font-semibold text-foreground group-hover:text-primary transition-colors">{s.name}</td>
+                            <td className="px-4 py-3">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${TYPE_COLORS[s.type as SessionType] ?? "bg-muted text-muted-foreground"}`}>
+                                {s.type}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground">
+                              {formatDate(s.startDate, true)} — {formatDate(s.endDate, true)}
+                            </td>
+                            <td className="px-4 py-3 text-xs font-medium">
+                              {s.currency} {Number(s.baseFee).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground">
+                              {totalEnrolled}/{totalCapacity || "—"}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${statusCfg.cls}`}>
+                                {statusCfg.label}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filtered.map((s) => (
@@ -305,7 +356,7 @@ export default function Sessions() {
                     </button>
                   ))}
                 </div>
-                {subTab === "fields" && <SessionsSettings />}
+                <SessionsSettings mode={subTab as "fields" | "preferences"} />
               </div>
             </ErrorBoundary>
           </motion.div>

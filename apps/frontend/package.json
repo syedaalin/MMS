@@ -1,5 +1,5 @@
 {
-  "name": "base44-app",
+  "name": "mms-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -64,7 +64,7 @@
     "vaul": "^1.1.2",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3",
-    "@darul-quran/shared": "workspace:*"
+    "@mms/shared": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

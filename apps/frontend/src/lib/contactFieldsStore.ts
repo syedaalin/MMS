@@ -28,8 +28,8 @@ import {
 } from "./contactFields";
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
-const STORAGE_KEY = "darul_quran_contact_field_config";
-const DEFAULT_STORAGE_KEY = "darul_quran_contact_field_config_default";
+const STORAGE_KEY = "mms_contact_field_config";
+const DEFAULT_STORAGE_KEY = "mms_contact_field_config_default";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -73,7 +73,7 @@ function getHardcodedDefaults(): FieldConfig {
       tabFieldConfig: {
         ...tabFieldConfig,
         basic: {
-          enabled: ["avatar", "firstName", "lastName", "gender", "dob", "lifecycleStage"],
+          enabled: ["avatar", "firstName", "lastName", "gender", "dob"],
           required: ["firstName", "lastName", "gender", "dob"],
         }
       },
@@ -88,7 +88,7 @@ function getHardcodedDefaults(): FieldConfig {
       tabFieldConfig: {
         ...tabFieldConfig,
         basic: {
-          enabled: ["avatar", "firstName", "lastName", "gender", "dob", "lifecycleStage", "rating"],
+          enabled: ["avatar", "firstName", "lastName", "gender", "dob"],
           required: ["firstName", "lastName", "gender"],
         }
       },

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Plus, Trash2, X, AlertCircle, CheckCircle2, Tag } from "lucide-react";
 import { motion } from "framer-motion";
 import { ACCOUNT_TYPE_META, JOURNAL_TAGS, generateJERef, Account, JournalEntry, FiscalYear, JournalLine, AccountType } from "../../lib/accountingData";
+import { DatePicker } from "../ui/DatePicker";
 
 interface DraftLine extends Omit<JournalLine, "debit" | "credit"> {
   debit: string | number;
@@ -136,7 +137,12 @@ export default function JournalEntryForm({ accounts, entries, onSave, onClose, i
           <fieldset className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-0 p-0 m-0">
             <div>
               <label htmlFor="je-date" className="text-xs font-semibold text-muted-foreground uppercase">Date *</label>
-              <input id="je-date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={inp} aria-invalid={!!errors.date} />
+              <DatePicker
+                id="je-date"
+                value={form.date}
+                onChange={(val) => setForm({ ...form, date: val })}
+                required
+              />
               {errors.date && <p className="text-xs text-red-500 mt-1" role="alert">{errors.date}</p>}
             </div>
             <div>

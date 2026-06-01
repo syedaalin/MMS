@@ -3,7 +3,7 @@ import { X, User, BookOpen, Layers, DollarSign, Clock, ArrowRight } from "lucide
 import { motion } from "framer-motion";
 import { STATUS_MAP, Enrollment } from "../../lib/enrollmentData";
 import { getCollection } from "../../lib/db";
-import { STUDENTS } from "../../lib/studentsData";
+import { STUDENTS, Student } from "../../lib/studentsData";
 
 interface SectionProps {
   icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
@@ -83,7 +83,7 @@ export default function EnrollmentDetail({ enrollment, onClose, onStatusChange, 
   };
   const nextStatuses = TRANSITIONS[enrollment.status] || [];
 
-  const students = React.useMemo(() => getCollection<any>("students", STUDENTS), []);
+  const students = React.useMemo(() => getCollection<Student>("students", STUDENTS), []);
   const student = React.useMemo(() => {
     return students.find((st) => String(st.id) === String(enrollment.studentId));
   }, [enrollment, students]);

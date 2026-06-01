@@ -19,7 +19,7 @@ import { ATTENDANCE_RECORDS, type AttendanceRecord } from "../lib/attendanceData
 import { DISTRIBUTIONS, type Distribution } from "../lib/hasanatData";
 import { type Contact } from "../lib/contactFields";
 import { revenueData as defaultRevenueData } from "../lib/dashboardData";
-import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "../lib/settingsTypes";
+import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "@mms/shared";
 import { useAuth } from "@/lib/AuthContext";
 import {
   GraduationCap, CalendarCheck, BookOpen, UserCheck,
@@ -130,7 +130,7 @@ export default function Dashboard() {
   // Card visibility settings state
   const [disabledCardIds, setDisabledCardIds] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem("darul_quran_dashboard_disabled_cards") || localStorage.getItem("dashboard_disabled_cards");
+      const saved = localStorage.getItem("mms_dashboard_disabled_cards") || localStorage.getItem("dashboard_disabled_cards");
       if (saved) return JSON.parse(saved) as string[];
     } catch (e) {
       console.error(e);
@@ -171,7 +171,7 @@ export default function Dashboard() {
     const handleUpdate = () => {
       setDbUpdateCounter((prev) => prev + 1);
       try {
-        const savedCards = localStorage.getItem("darul_quran_dashboard_disabled_cards") || localStorage.getItem("dashboard_disabled_cards");
+        const savedCards = localStorage.getItem("mms_dashboard_disabled_cards") || localStorage.getItem("dashboard_disabled_cards");
         if (savedCards) {
           setDisabledCardIds(JSON.parse(savedCards) as string[]);
         } else {
@@ -264,14 +264,14 @@ export default function Dashboard() {
     }
     setDisabledCardIds(updated);
     saveCollection("dashboard_disabled_cards", updated);
-    localStorage.setItem("darul_quran_dashboard_disabled_cards", JSON.stringify(updated));
+    localStorage.setItem("mms_dashboard_disabled_cards", JSON.stringify(updated));
     window.dispatchEvent(new Event("local-database-update"));
   };
 
   const handleResetToDefaults = () => {
     setDisabledCardIds([]);
     saveCollection("dashboard_disabled_cards", []);
-    localStorage.removeItem("darul_quran_dashboard_disabled_cards");
+    localStorage.removeItem("mms_dashboard_disabled_cards");
     localStorage.removeItem("dashboard_disabled_cards");
     window.dispatchEvent(new Event("local-database-update"));
   };

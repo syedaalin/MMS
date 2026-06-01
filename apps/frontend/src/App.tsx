@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
+import React, { useEffect, Suspense } from "react";
 import { getObject } from "./lib/db";
-import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "./lib/settingsTypes";
+import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "@mms/shared";
 import { hexToTailwindHsl } from "./lib/utils";
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -12,24 +12,31 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { ContactConfigProvider } from "./lib/ContactConfigContext";
 
 import AppLayout from './components/layout/AppLayout';
-import Dashboard from './pages/Dashboard';
-import PlaceholderPage from './pages/PlaceholderPage';
-import Contacts from './pages/Contacts';
-import Students from './pages/Students';
-import Enrollments from './pages/Enrollments';
-import Sessions from './pages/Sessions';
-import Finance from './pages/Finance';
-import HasanatCards from './pages/HasanatCards';
-import Examinations from './pages/Examinations';
-import SettingsPage from './pages/Settings';
-import Attendance from './pages/Attendance';
-import Users from './pages/Users';
-import Obligations from './pages/Obligations';
-import Accounting from './pages/Accounting';
-import Login from './pages/auth/Login';
-import ForgotPassword from './pages/auth/ForgotPassword';
-import TwoFactorAuth from './pages/auth/TwoFactorAuth';
-import OnboardingWizard from './pages/onboarding/OnboardingWizard';
+
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const PlaceholderPage = React.lazy(() => import('./pages/PlaceholderPage'));
+const Contacts = React.lazy(() => import('./pages/Contacts'));
+const Students = React.lazy(() => import('./pages/Students'));
+const Enrollments = React.lazy(() => import('./pages/Enrollments'));
+const Sessions = React.lazy(() => import('./pages/Sessions'));
+const Finance = React.lazy(() => import('./pages/Finance'));
+const HasanatCards = React.lazy(() => import('./pages/HasanatCards'));
+const Examinations = React.lazy(() => import('./pages/Examinations'));
+const SettingsPage = React.lazy(() => import('./pages/Settings'));
+const Attendance = React.lazy(() => import('./pages/Attendance'));
+const Users = React.lazy(() => import('./pages/Users'));
+const Obligations = React.lazy(() => import('./pages/Obligations'));
+const Accounting = React.lazy(() => import('./pages/Accounting'));
+const Login = React.lazy(() => import('./pages/auth/Login'));
+const ForgotPassword = React.lazy(() => import('./pages/auth/ForgotPassword'));
+const TwoFactorAuth = React.lazy(() => import('./pages/auth/TwoFactorAuth'));
+const OnboardingWizard = React.lazy(() => import('./pages/onboarding/OnboardingWizard'));
+
+const LoadingFallback = (): React.JSX.Element => (
+  <div className="flex items-center justify-center min-h-[50vh] w-full">
+    <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+  </div>
+);
 
 const AuthenticatedApp = (): React.JSX.Element | null => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -57,43 +64,45 @@ const AuthenticatedApp = (): React.JSX.Element | null => {
   }
 
   return (
-    <Routes>
-      {/* Auth routes — no layout */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/2fa" element={<TwoFactorAuth />} />
-      <Route path="/onboarding" element={<OnboardingWizard />} />
+    <Suspense fallback={<LoadingFallback />}>
+      <Routes>
+        {/* Auth routes — no layout */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/2fa" element={<TwoFactorAuth />} />
+        <Route path="/onboarding" element={<OnboardingWizard />} />
 
-      {/* App routes — with sidebar layout */}
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/contacts" element={<Contacts />} />
-        <Route path="/students" element={<Students />} />
-        <Route path="/enrollments" element={<Enrollments />} />
-        <Route path="/sessions" element={<Sessions />} />
-        <Route path="/attendance" element={<Attendance />} />
-        <Route path="/finance" element={<Finance />} />
-        <Route path="/hasanat-cards" element={<HasanatCards />} />
-        <Route path="/examinations" element={<Examinations />} />
-        <Route path="/accounting" element={<Accounting />} />
-        <Route path="/obligations" element={<Obligations />} />
-        <Route path="/users" element={<Users />} />
-        <Route path="/settings" element={<SettingsPage />} />
-      </Route>
+        {/* App routes — with sidebar layout */}
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/contacts" element={<Contacts />} />
+          <Route path="/students" element={<Students />} />
+          <Route path="/enrollments" element={<Enrollments />} />
+          <Route path="/sessions" element={<Sessions />} />
+          <Route path="/attendance" element={<Attendance />} />
+          <Route path="/finance" element={<Finance />} />
+          <Route path="/hasanat-cards" element={<HasanatCards />} />
+          <Route path="/examinations" element={<Examinations />} />
+          <Route path="/accounting" element={<Accounting />} />
+          <Route path="/obligations" element={<Obligations />} />
+          <Route path="/users" element={<Users />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Route>
 
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    </Suspense>
   );
 };
 
 const DEFAULT_BRANDING = {
-  madrasaName: "Dar ul Quran",
+  madrasaName: "MMS",
   tagline: "Nurturing Knowledge & Character",
   primaryColor: "#047857",
   secondaryColor: "#d97706",
-  logoUrl: "https://media.base44.com/images/public/69e092979d7a1ef05dd05cfc/4d2d7305a_canva_logo.png",
+  logoUrl: "",
   faviconUrl: "",
-  footerText: "© 2026 Dar ul Quran. All rights reserved.",
+  footerText: "© 2026 MMS. All rights reserved.",
 };
 
 /**

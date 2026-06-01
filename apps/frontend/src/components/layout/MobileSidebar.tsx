@@ -23,7 +23,7 @@ import useBranding from "@/hooks/useBranding";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { getObject } from "@/lib/db";
-import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "@/lib/settingsTypes";
+import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "@mms/shared";
 
 interface MenuItem {
   label: string;
@@ -48,13 +48,13 @@ const menuItems: MenuItem[] = [
       { label: "Students", icon: GraduationCap, path: "/students", moduleId: "students" },
       { label: "Sessions", icon: Calendar, path: "/sessions", moduleId: "sessions" },
       { label: "Enrollments", icon: ClipboardList, path: "/enrollments", moduleId: "enrollment" },
+      { label: "Hasanat Cards", icon: Star, path: "/hasanat-cards", moduleId: "hasanat" },
+      { label: "Examinations", icon: FileText, path: "/examinations", moduleId: "examination" },
     ]
   },
   { label: "Attendance", icon: UserCheck, path: "/attendance", moduleId: "attendance" },
   { label: "Finance", icon: DollarSign, path: "/finance", moduleId: "finance" },
   { label: "Accounting", icon: TrendingUp, path: "/accounting", moduleId: "accounting" },
-  { label: "Hasanat Cards", icon: Star, path: "/hasanat-cards", moduleId: "hasanat" },
-  { label: "Examinations", icon: FileText, path: "/examinations", moduleId: "examination" },
   { label: "Obligations", icon: Scale, path: "/obligations", moduleId: "finance" },
   { label: "Users", icon: UserCog, path: "/users", moduleId: "users" },
   { label: "Settings", icon: Settings, path: "/settings" },

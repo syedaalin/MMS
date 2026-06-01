@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Search, Save, Loader2, Plus, User, Mail, Phone, Calendar, Sparkles, Users, Lock } from "lucide-react";
+import { X, Search, Save, Loader2, Plus, User, Mail, Phone, Calendar, Sparkles, Users, Lock, Camera, Upload } from "lucide-react";
 import { CONTACTS } from "../../lib/contactsData";
-import { toTitleCase } from "../../lib/utils";
+import { toTitleCase, optimizeImage, cn } from "../../lib/utils";
 import { getCollection, saveCollection, getObject } from "../../lib/db";
 import type { Contact } from "../../lib/contactFields";
 import type { Student } from "../../lib/studentsData";
@@ -11,13 +11,15 @@ import {
   DEFAULT_STUDENTS_SETTINGS,
   type StudentCustomField,
   getSortedStudentFields
-} from "../../lib/settingsTypes";
+} from "@mms/shared";
+import { useContactConfig } from "../../lib/ContactConfigContext";
+import { DatePicker } from "../ui/DatePicker";
 
 const INPUT = "w-full px-3.5 py-2.5 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
 const LABEL = "text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5 block";
 
 const generateGrNumber = (studentsList: Student[], regDate: string): string => {
-  const settings = getObject<any>("students_settings", DEFAULT_STUDENTS_SETTINGS);
+  const settings = getObject<StudentsSettings>("students_settings", DEFAULT_STUDENTS_SETTINGS);
   const template = settings.grNumberTemplate || "{seq}-{year}";
   const digits = settings.grNumberDigits || 4;
   const restartAnnually = settings.grNumberRestartAnnually !== false;
@@ -48,6 +50,7 @@ interface ContactPickerProps {
   contacts?: Contact[];
   excludeIds?: (string | number | null)[];
   onCreateContact?: (query: string) => void;
+  onAvatarChange?: (avatarUrl: string) => void;
 }
 
 function ContactPicker({
@@ -57,9 +60,11 @@ function ContactPicker({
   contacts = [],
   excludeIds = [],
   onCreateContact,
+  onAvatarChange,
 }: ContactPickerProps): JSX.Element {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const normalizedExcludeIds = useMemo(() => excludeIds.map(String), [excludeIds]);
 
@@ -72,6 +77,19 @@ function ContactPicker({
   }).slice(0, 6);
 
   const selected = contacts.find((c) => String(c.id) === String(value));
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const optimized = await optimizeImage(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (typeof ev.target?.result === "string") {
+        onAvatarChange?.(ev.target.result);
+      }
+    };
+    reader.readAsDataURL(optimized);
+  };
 
   if (selected) {
     const isMale = selected.gender?.toLowerCase() === "male";
@@ -96,28 +114,52 @@ function ContactPicker({
       <div className="relative">
         <span className={LABEL}>{label}</span>
         <div className="group relative flex items-center gap-3.5 p-4 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/[0.01] to-primary/[0.04] dark:from-primary/[0.02] dark:to-primary/[0.06] shadow-sm hover:shadow-md transition-all duration-200">
-          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${avatarGradient} flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-sm`}>
-            {initials}
+          <div 
+            onClick={() => onAvatarChange && fileInputRef.current?.click()}
+            className={cn(
+              "w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 bg-muted border border-border flex items-center justify-center shadow-sm relative",
+              onAvatarChange && "cursor-pointer group/avatar"
+            )}
+          >
+            {selected.avatar ? (
+              <img src={selected.avatar} alt={selected.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className={`w-full h-full bg-gradient-to-br ${avatarGradient} flex items-center justify-center text-white font-bold text-sm`}>
+                {initials}
+              </div>
+            )}
+            {onAvatarChange && (
+              <div className="absolute inset-0 bg-black/40 rounded-xl opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity duration-150">
+                <Camera className="w-4 h-4 text-white" />
+              </div>
+            )}
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleFileChange} 
+            />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-1.5 mb-1">
-              <p className="text-[13.5px] font-bold text-foreground truncate">{selected.name}</p>
+              <p className="text-[13px] font-bold text-foreground truncate">{selected.name}</p>
               {selected.gender && (
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${genderBadgeColor}`}>
+                <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full capitalize ${genderBadgeColor}`}>
                   {selected.gender}
                 </span>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
               {selectedPhone && (
                 <span className="flex items-center gap-1">
-                  <Phone className="w-3.5 h-3.5 text-muted-foreground/60" />
+                  <Phone className="w-3 h-3 text-muted-foreground/60" />
                   {selectedPhone}
                 </span>
               )}
               {selectedEmail && (
                 <span className="flex items-center gap-1">
-                  <Mail className="w-3.5 h-3.5 text-muted-foreground/60" />
+                  <Mail className="w-3 h-3 text-muted-foreground/60" />
                   {selectedEmail}
                 </span>
               )}
@@ -245,7 +287,7 @@ interface StudentFormData {
   email: string;
   grNumber: string;
   registeredDate: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 const EMPTY: StudentFormData = {
@@ -277,6 +319,9 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Read contact config — prefs drive defaults; isTabFieldEnabled gates field visibility
+  const { prefs, isTabFieldEnabled, genders } = useContactConfig();
+
   const settings = useMemo(() => getObject<StudentsSettings>("students_settings", DEFAULT_STUDENTS_SETTINGS), []);
   const fields = settings.fields || DEFAULT_STUDENTS_SETTINGS.fields || {};
   const customFields = settings.customFields || [];
@@ -288,13 +333,23 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createType, setCreateType] = useState<"student" | "father" | "mother" | null>(null);
   const [createName, setCreateName] = useState("");
-  const [newContact, setNewContact] = useState({
+  const newContactFileRef = useRef<HTMLInputElement>(null);
+  const [newContact, setNewContact] = useState<{
+    name: string;
+    gender: string;
+    dob: string;
+    phone: string;
+    email: string;
+    city: string;
+    avatar?: string | null;
+  }>({
     name: "",
     gender: "",
     dob: "",
     phone: "",
     email: "",
-    city: "Karachi",
+    city: prefs.defaultCity || "",
+    avatar: null,
   });
 
   const handleContactSelect = (id: string | number | null): void => {
@@ -331,6 +386,29 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
         grNumber: "",
       }));
     }
+  };
+
+  const handleStudentAvatarChange = (avatarUrl: string) => {
+    if (!data.contactId) return;
+    const updatedContacts = contacts.map((c) =>
+      String(c.id) === String(data.contactId) ? { ...c, avatar: avatarUrl } : c
+    );
+    setContacts(updatedContacts);
+    saveCollection("contacts", updatedContacts);
+  };
+
+  const handleNewContactAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const optimized = await optimizeImage(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const res = ev.target?.result;
+      if (typeof res === "string") {
+        setNewContact((c) => ({ ...c, avatar: res }));
+      }
+    };
+    reader.readAsDataURL(optimized);
   };
 
   const handleRegisteredDateChange = (newDate: string) => {
@@ -384,7 +462,8 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
       dob: "",
       phone: "",
       email: "",
-      city: "Karachi",
+      city: prefs.defaultCity || "",
+      avatar: null,
     });
     setShowCreateModal(true);
   };
@@ -404,6 +483,7 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
       phone: newContact.phone || "",
       email: newContact.email || "",
       city: newContact.city || "",
+      avatar: newContact.avatar || null,
       phones: newContact.phone ? [{ label: "Mobile", number: newContact.phone, whatsapp: true }] : [],
       emails: newContact.email ? [{ label: "Personal", address: newContact.email }] : [],
       createdAt: new Date().toISOString().split("T")[0],
@@ -582,6 +662,7 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
                 contacts={contacts} 
                 excludeIds={studentExcludeIds} 
                 onCreateContact={(query) => handleStartCreate("student", query)}
+                onAvatarChange={handleStudentAvatarChange}
               />
             </div>
 
@@ -615,7 +696,7 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
                     <select
                       className={INPUT + " cursor-pointer"}
                       value={data.status}
-                      onChange={(e) => setData((d) => ({ ...d, status: e.target.value as any }))}
+                      onChange={(e) => setData((d) => ({ ...d, status: e.target.value as "active" | "inactive" | "suspended" }))}
                     >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
@@ -665,11 +746,10 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
                         return (
                           <div key="dob">
                             <label className={LABEL}>Date of Birth {field.required ? "*" : ""}</label>
-                            <input
-                              type="date"
-                              className={INPUT}
+                            <DatePicker
                               value={data.dob}
-                              onChange={(e) => setData((d) => ({ ...d, dob: e.target.value }))}
+                              onChange={(val) => setData((d) => ({ ...d, dob: val }))}
+                              required={field.required}
                             />
                           </div>
                         );
@@ -709,12 +789,10 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
                         return (
                           <div key="registeredDate">
                             <label className={LABEL}>Registration Date {field.required ? "*" : ""}</label>
-                            <input
-                              type="date"
+                            <DatePicker
                               required={field.required}
-                              className={INPUT}
                               value={data.registeredDate}
-                              onChange={(e) => handleRegisteredDateChange(e.target.value)}
+                              onChange={handleRegisteredDateChange}
                             />
                           </div>
                         );
@@ -770,11 +848,9 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
                                 required={field.required}
                               />
                             ) : field.type === "date" ? (
-                              <input
-                                type="date"
-                                className={INPUT}
+                              <DatePicker
                                 value={value as string}
-                                onChange={(e) => setData((d) => ({ ...d, [field.id]: e.target.value }))}
+                                onChange={(val) => setData((d) => ({ ...d, [field.id]: val }))}
                                 required={field.required}
                               />
                             ) : (
@@ -848,6 +924,32 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
               </div>
 
               <form onSubmit={handleCreateSubmit} className="space-y-4">
+                <div className="flex items-center gap-4 border-b border-border/60 pb-4">
+                  <div className="relative group/new-avatar cursor-pointer" onClick={() => newContactFileRef.current?.click()}>
+                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-muted border border-border flex items-center justify-center shadow-sm">
+                      {newContact.avatar ? (
+                        <img src={newContact.avatar} alt="new avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <Upload className="w-5 h-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="absolute inset-0 bg-black/45 rounded-xl opacity-0 group-hover/new-avatar:opacity-100 flex items-center justify-center transition-opacity">
+                      <Camera className="w-4 h-4 text-white" />
+                    </div>
+                    <input
+                      type="file"
+                      ref={newContactFileRef}
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleNewContactAvatarChange}
+                    />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-foreground">Profile Photo</h4>
+                    <p className="text-[10px] text-muted-foreground">Upload and optimize photo</p>
+                  </div>
+                </div>
+
                 <div>
                   <label className={LABEL}>Name *</label>
                   <div className="relative">
@@ -863,26 +965,33 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Gender — uses genders list from ContactConfigContext */}
                   <div>
                     <label className={LABEL}>Gender *</label>
                     {createType === "student" ? (
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { val: "male", label: "Male", activeClass: "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/10 ring-2 ring-blue-500/10", inactiveClass: "border-border bg-card text-muted-foreground hover:bg-muted" },
-                          { val: "female", label: "Female", activeClass: "border-rose-500 text-rose-600 dark:text-rose-400 bg-rose-500/10 ring-2 ring-rose-500/10", inactiveClass: "border-border bg-card text-muted-foreground hover:bg-muted" },
-                          { val: "other", label: "Other", activeClass: "border-purple-500 text-purple-600 dark:text-purple-400 bg-purple-500/10 ring-2 ring-purple-500/10", inactiveClass: "border-border bg-card text-muted-foreground hover:bg-muted" }
-                        ].map((opt) => {
-                          const isSelected = newContact.gender === opt.val;
+                      <div className="flex flex-wrap gap-2">
+                        {genders.map((g) => {
+                          const isSelected = newContact.gender === g;
+                          const colorClass =
+                            g === "male"
+                              ? isSelected
+                                ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/10 ring-2 ring-blue-500/10"
+                                : "border-border bg-card text-muted-foreground hover:bg-muted"
+                              : g === "female"
+                              ? isSelected
+                                ? "border-rose-500 text-rose-600 dark:text-rose-400 bg-rose-500/10 ring-2 ring-rose-500/10"
+                                : "border-border bg-card text-muted-foreground hover:bg-muted"
+                              : isSelected
+                              ? "border-purple-500 text-purple-600 dark:text-purple-400 bg-purple-500/10 ring-2 ring-purple-500/10"
+                              : "border-border bg-card text-muted-foreground hover:bg-muted";
                           return (
                             <button
-                              key={opt.val}
+                              key={g}
                               type="button"
-                              onClick={() => setNewContact((c) => ({ ...c, gender: opt.val }))}
-                              className={`flex items-center justify-center py-2 px-3 rounded-lg border text-[11px] font-bold transition-all duration-150 ${
-                                isSelected ? opt.activeClass : opt.inactiveClass
-                              }`}
+                              onClick={() => setNewContact((c) => ({ ...c, gender: g }))}
+                              className={`flex-1 py-2 px-3 rounded-lg border text-[11px] font-bold capitalize transition-all duration-150 ${colorClass}`}
                             >
-                              {opt.label}
+                              {g}
                             </button>
                           );
                         })}
@@ -909,19 +1018,15 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
 
                   <div>
                     <label className={LABEL}>Date of Birth</label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none" />
-                      <input
-                        type="date"
-                        className={INPUT + " pl-9.5"}
-                        value={newContact.dob}
-                        onChange={(e) => setNewContact((c) => ({ ...c, dob: e.target.value }))}
-                      />
-                    </div>
+                    <DatePicker
+                      value={newContact.dob}
+                      onChange={(val) => setNewContact((c) => ({ ...c, dob: val }))}
+                    />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Phone — only shown if contacts phones tab / phone field is enabled */}
+                {isTabFieldEnabled("phones", "number") && (
                   <div>
                     <label className={LABEL}>Phone Number</label>
                     <div className="relative">
@@ -930,11 +1035,14 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
                         className={INPUT + " pl-9.5"}
                         value={newContact.phone}
                         onChange={(e) => setNewContact((c) => ({ ...c, phone: e.target.value }))}
-                        placeholder="+92 XXX XXXXXXX"
+                        placeholder={`${prefs.defaultCountry === "United States" ? "+1" : "+92"} XXX XXXXXXX`}
                       />
                     </div>
                   </div>
+                )}
 
+                {/* Email — only shown if contacts emails tab / address field is enabled */}
+                {isTabFieldEnabled("emails", "address") && (
                   <div>
                     <label className={LABEL}>Email Address</label>
                     <div className="relative">
@@ -948,7 +1056,7 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
                       />
                     </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border mt-5">
                   <button

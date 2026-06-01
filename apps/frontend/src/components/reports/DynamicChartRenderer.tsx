@@ -7,6 +7,7 @@ import {
   Legend, Tooltip, XAxis, YAxis, CartesianGrid
 } from "recharts";
 import { getCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import { METADATA_FIELDS } from "./reportMetadata";
 
 const THEME_PALETTES: Record<string, string[]> = {
@@ -73,9 +74,12 @@ export default function DynamicChartRenderer({ config, height = 200 }: DynamicCh
   const activeMeta = METADATA_FIELDS[config.collection];
   const currentColors = THEME_PALETTES[config.activePalette || "accessibleColorblind"] || THEME_PALETTES.accessibleColorblind;
 
+  const dbKey = activeMeta?.dbKey || "";
+  const defaultData = (activeMeta?.defaultData as Record<string, unknown>[]) || [];
+  const dataList = useLiveCollection<Record<string, unknown>>(dbKey, defaultData);
+
   const processedData = useMemo(() => {
-    if (!activeMeta) return [];
-    const dataList = getCollection(activeMeta.dbKey, activeMeta.defaultData as unknown[]) as Record<string, unknown>[];
+    if (!activeMeta || !dataList) return [];
     
     // 1. Group records by xAxisField dimension
     const groups: Record<string, Record<string, unknown>[]> = {};
@@ -188,7 +192,7 @@ export default function DynamicChartRenderer({ config, height = 200 }: DynamicCh
       }
       return sortedResult;
     }
-  }, [config, activeMeta]);
+  }, [config, activeMeta, dataList]);
 
   if (processedData.length === 0) {
     return (

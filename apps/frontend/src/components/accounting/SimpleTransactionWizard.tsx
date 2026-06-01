@@ -6,6 +6,7 @@ import {
   Building2, Zap, Package, Home, UserCheck, Heart, Plus, Upload, Calendar
 } from "lucide-react";
 import { generateJERef, Account, JournalEntry, FiscalYear } from "../../lib/accountingData";
+import { DatePicker } from "../ui/DatePicker";
 
 // ── Transaction Type Definitions ──────────────────────────────────────────────
 
@@ -193,11 +194,11 @@ function StepTransactionForm({ type, form, setForm, accounts }: { type: QuickAct
         {/* Date */}
         <div className="col-span-2 sm:col-span-1">
           <label htmlFor="wizard-date" className={LBL}>Date</label>
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-            <input id="wizard-date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
-              className={INP + " pl-9"} />
-          </div>
+          <DatePicker
+            id="wizard-date"
+            value={form.date}
+            onChange={(val) => setForm({ ...form, date: val })}
+          />
         </div>
 
         {/* Amount */}

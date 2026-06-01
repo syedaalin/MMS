@@ -6,6 +6,13 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Distribution, Denomination, StockBatch } from "../../lib/hasanatData";
+import { getObject } from "../../lib/db";
+import {
+  DEFAULT_HASANAT_SETTINGS,
+  DEFAULT_HASANAT_FIELD_DEFS,
+  getSortedFields,
+} from "@mms/shared";
+import { DatePicker } from "../ui/DatePicker";
 
 const STATUS_CFG: Record<string, { label: string, cls: string }> = {
   active:   { label: "Active",   cls: "bg-blue-50 text-blue-700 border-blue-100" },
@@ -41,6 +48,31 @@ function DistributeModal({ denoms, batches, onClose, onSave }: DistributeModalPr
   const availableBatches = batches.filter((b) => b.denominationId === data.denominationId && b.remaining > 0);
   const totalAvailable = availableBatches.reduce((s: number, b: StockBatch) => s + b.remaining, 0);
 
+  const settings = getObject("hasanat_settings", DEFAULT_HASANAT_SETTINGS);
+  const fields = settings.fields || DEFAULT_HASANAT_SETTINGS.fields || {};
+  const customFields = settings.customFields || [];
+  const fieldOrder = settings.fieldOrder || DEFAULT_HASANAT_SETTINGS.fieldOrder || [];
+
+  const orderedFields = getSortedFields(
+    DEFAULT_HASANAT_FIELD_DEFS,
+    fieldOrder,
+    fields,
+    customFields
+  );
+
+  const isValid = useMemo(() => {
+    if (totalAvailable === 0) return false;
+    for (const f of orderedFields) {
+      const isEnabled = f.isCustom ? true : (fields[f.id]?.enabled !== false);
+      const isRequired = f.isCustom ? !!f.required : (f.alwaysOn ? !!f.required : fields[f.id]?.required);
+      if (isEnabled && isRequired) {
+        const val = (data as any)[f.id];
+        if (val === undefined || val === null || val === "") return false;
+      }
+    }
+    return true;
+  }, [orderedFields, fields, data, totalAvailable]);
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
@@ -57,77 +89,191 @@ function DistributeModal({ denoms, batches, onClose, onSave }: DistributeModalPr
           <button type="button" aria-label="Close modal" onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="w-4 h-4" aria-hidden="true" /></button>
         </header>
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          <div>
-            <label htmlFor="denom" className={LABEL}>Denomination *</label>
-            <select id="denom" className={INPUT + " cursor-pointer"} value={data.denominationId} onChange={(e) => upd("denominationId", e.target.value)}>
-              {denoms.filter((d) => d.active).map((d) => <option key={d.id} value={d.id}>{d.icon} {d.name} ({d.points} pts)</option>)}
-            </select>
-            {selectedDen && (
-              <div className="mt-2 flex items-center gap-2">
-                <div className="h-8 flex-1 rounded-lg flex items-center gap-2 px-3 text-white text-xs font-semibold" style={{ background: selectedDen.color }}>
-                  <span>{selectedDen.icon}</span><span>{selectedDen.name}</span>
-                </div>
-                <span className={`text-[11px] font-semibold ${totalAvailable === 0 ? "text-red-600" : "text-emerald-600"}`}>
-                  {totalAvailable} available
-                </span>
-              </div>
-            )}
-          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {orderedFields.map((field) => {
+              const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled !== false);
+              if (!isEnabled) return null;
 
-          {/* Recipient type */}
-          <fieldset>
-            <legend className={LABEL}>Recipient Type</legend>
-            <div className="flex gap-2">
-              {([
-                { id: "student" as const, label: "Student", icon: User },
-                { id: "faculty" as const, label: "Faculty", icon: Users2 }
-              ]).map((rt) => {
-                const Icon = rt.icon;
+              if (field.id === "denominationId") {
                 return (
-                  <button
-                    key={rt.id}
-                    type="button"
-                    aria-pressed={data.recipientType === rt.id}
-                    onClick={() => upd("recipientType", rt.id)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-sm font-medium transition-colors ${data.recipientType === rt.id ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted text-muted-foreground"}`}
-                  >
-                    <Icon className="w-3.5 h-3.5" aria-hidden="true" /> {rt.label}
-                  </button>
+                  <div key="denominationId" className="sm:col-span-2">
+                    <label htmlFor="denom" className={LABEL}>Denomination *</label>
+                    <select id="denom" className={INPUT + " cursor-pointer"} value={data.denominationId} onChange={(e) => upd("denominationId", e.target.value)}>
+                      {denoms.filter((d) => d.active).map((d) => <option key={d.id} value={d.id}>{d.icon} {d.name} ({d.points} pts)</option>)}
+                    </select>
+                    {selectedDen && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="h-8 flex-1 rounded-lg flex items-center gap-2 px-3 text-white text-xs font-semibold" style={{ background: selectedDen.color }}>
+                          <span>{selectedDen.icon}</span><span>{selectedDen.name}</span>
+                        </div>
+                        <span className={`text-[11px] font-semibold ${totalAvailable === 0 ? "text-red-600" : "text-emerald-600"}`}>
+                          {totalAvailable} available
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 );
-              })}
-            </div>
-          </fieldset>
+              }
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="recp-name" className={LABEL}>Recipient Name *</label>
-              <input id="recp-name" className={INPUT} value={data.recipientName} onChange={(e) => upd("recipientName", e.target.value)} placeholder="Full name" />
-            </div>
-            <div>
-              <label htmlFor="recp-class" className={LABEL}>{data.recipientType === "student" ? "Class" : "Department"}</label>
-              <input id="recp-class" className={INPUT} value={data.recipientClass} onChange={(e) => upd("recipientClass", e.target.value)} placeholder="e.g. Hifz A" />
-            </div>
-          </div>
+              if (field.id === "recipientType") {
+                return (
+                  <div key="recipientType" className="sm:col-span-2">
+                    <label className={LABEL}>Recipient Type *</label>
+                    <div className="flex gap-2">
+                      {([
+                        { id: "student" as const, label: "Student", icon: User },
+                        { id: "faculty" as const, label: "Faculty", icon: Users2 }
+                      ]).map((rt) => {
+                        const Icon = rt.icon;
+                        return (
+                          <button
+                            key={rt.id}
+                            type="button"
+                            aria-pressed={data.recipientType === rt.id}
+                            onClick={() => upd("recipientType", rt.id)}
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-sm font-medium transition-colors ${data.recipientType === rt.id ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted text-muted-foreground"}`}
+                          >
+                            <Icon className="w-3.5 h-3.5" aria-hidden="true" /> {rt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="qty" className={LABEL}>Quantity *</label>
-              <input id="qty" type="number" className={INPUT} value={data.quantity} onChange={(e) => upd("quantity", Math.min(+e.target.value, totalAvailable))} min={1} max={totalAvailable} />
-            </div>
-            <div>
-              <label htmlFor="issue-date" className={LABEL}>Issued Date</label>
-              <input id="issue-date" type="date" className={INPUT} value={data.issuedDate} onChange={(e) => upd("issuedDate", e.target.value)} />
-            </div>
-          </div>
+              if (field.id === "recipientName") {
+                return (
+                  <div key="recipientName">
+                    <label htmlFor="recp-name" className={LABEL}>Recipient Name *</label>
+                    <input id="recp-name" className={INPUT} value={data.recipientName || ""} onChange={(e) => upd("recipientName", e.target.value)} placeholder="Full name" required />
+                  </div>
+                );
+              }
 
-          <div>
-            <label htmlFor="reason" className={LABEL}>Reason / Achievement *</label>
-            <input id="reason" className={INPUT} value={data.reason} onChange={(e) => upd("reason", e.target.value)} placeholder="e.g. Completed Juz 5" />
-          </div>
+              if (field.id === "recipientClass") {
+                const isRequired = !!fields[field.id]?.required;
+                return (
+                  <div key="recipientClass">
+                    <label htmlFor="recp-class" className={LABEL}>{data.recipientType === "student" ? "Class" : "Department"} {isRequired ? "*" : ""}</label>
+                    <input id="recp-class" className={INPUT} value={data.recipientClass || ""} onChange={(e) => upd("recipientClass", e.target.value)} placeholder="e.g. Hifz A" required={isRequired} />
+                  </div>
+                );
+              }
 
-          <div>
-            <label htmlFor="issued-by" className={LABEL}>Issued By</label>
-            <input id="issued-by" className={INPUT} value={data.issuedBy} onChange={(e) => upd("issuedBy", e.target.value)} placeholder="Teacher / Admin name" />
+              if (field.id === "quantity") {
+                return (
+                  <div key="quantity">
+                    <label htmlFor="qty" className={LABEL}>Quantity *</label>
+                    <input id="qty" type="number" className={INPUT} value={data.quantity || 1} onChange={(e) => upd("quantity", Math.min(+e.target.value, totalAvailable))} min={1} max={totalAvailable} required />
+                  </div>
+                );
+              }
+
+              if (field.id === "issuedDate") {
+                return (
+                  <div key="issuedDate">
+                    <label htmlFor="issue-date" className={LABEL}>Issued Date *</label>
+                    <DatePicker
+                      id="issue-date"
+                      value={data.issuedDate || ""}
+                      onChange={(val) => upd("issuedDate", val)}
+                      required
+                    />
+                  </div>
+                );
+              }
+
+              if (field.id === "reason") {
+                return (
+                  <div key="reason" className="sm:col-span-2">
+                    <label htmlFor="reason" className={LABEL}>Reason / Achievement *</label>
+                    <input id="reason" className={INPUT} value={data.reason || ""} onChange={(e) => upd("reason", e.target.value)} placeholder="e.g. Completed Juz 5" required />
+                  </div>
+                );
+              }
+
+              if (field.id === "issuedBy") {
+                const isRequired = !!fields[field.id]?.required;
+                return (
+                  <div key="issuedBy" className="sm:col-span-2">
+                    <label htmlFor="issued-by" className={LABEL}>Issued By {isRequired ? "*" : ""}</label>
+                    <input id="issued-by" className={INPUT} value={data.issuedBy || ""} onChange={(e) => upd("issuedBy", e.target.value)} placeholder="Teacher / Admin name" required={isRequired} />
+                  </div>
+                );
+              }
+
+              // Custom Field
+              if (field.isCustom) {
+                const value = (data as any)[field.id] ?? "";
+                return (
+                  <div key={field.id} className={field.type === "textarea" ? "sm:col-span-2" : ""}>
+                    <label className={LABEL}>
+                      {field.label} {field.required ? "*" : ""}
+                    </label>
+                    {field.type === "textarea" ? (
+                      <textarea
+                        className={INPUT + " min-h-[80px] py-2"}
+                        value={value as string}
+                        onChange={(e) => upd(field.id as any, e.target.value as any)}
+                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}…`}
+                        required={field.required}
+                      />
+                    ) : field.type === "select" ? (
+                      <select
+                        className={INPUT + " cursor-pointer"}
+                        value={value as string}
+                        onChange={(e) => upd(field.id as any, e.target.value as any)}
+                        required={field.required}
+                      >
+                        <option value="">Select option…</option>
+                        {field.options?.map((opt: string) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    ) : field.type === "boolean" ? (
+                      <label className="flex items-center gap-2.5 py-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={!!value}
+                          onChange={(e) => upd(field.id as any, e.target.checked as any)}
+                          className="w-4 h-4 rounded border border-border accent-primary cursor-pointer"
+                        />
+                        <span className="text-xs font-medium text-foreground">{field.label}</span>
+                      </label>
+                    ) : field.type === "number" ? (
+                      <input
+                        type="number"
+                        className={INPUT}
+                        value={value as number}
+                        onChange={(e) => upd(field.id as any, e.target.value as any)}
+                        placeholder={field.placeholder || `Enter number…`}
+                        required={field.required}
+                      />
+                    ) : field.type === "date" ? (
+                      <DatePicker
+                        value={value as string}
+                        onChange={(val) => upd(field.id as any, val as any)}
+                        required={field.required}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        className={INPUT}
+                        value={value as string}
+                        onChange={(e) => upd(field.id as any, e.target.value as any)}
+                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}…`}
+                        required={field.required}
+                      />
+                    )}
+                  </div>
+                );
+              }
+
+              return null;
+            })}
           </div>
         </div>
         <footer className="px-5 py-4 border-t border-border flex justify-end gap-2.5 flex-shrink-0">
@@ -139,7 +285,7 @@ function DistributeModal({ denoms, batches, onClose, onSave }: DistributeModalPr
               const batch = batches.find((b) => b.denominationId === data.denominationId && b.remaining > 0);
               onSave({ ...data, id: `dist${Date.now()}`, denominationName: den?.name || "", batchId: batch?.id || "", status: "active" } as Distribution);
             }}
-            disabled={!data.recipientName || !data.reason || !data.quantity || totalAvailable === 0}
+            disabled={!isValid}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60"
           >
             <Star className="w-3.5 h-3.5" aria-hidden="true" /> Distribute

@@ -93,8 +93,8 @@ export interface FieldConfig {
   tabFieldConfig: Record<string, TabFieldConfig>;
   customFields: CustomField[];
   tabCustomFields: Record<string, CustomField[]>;
-  personas: PersonaConfig[];
-  defaultPersonaId: string;
+  personas?: PersonaConfig[];       // @deprecated — persona system removed
+  defaultPersonaId?: string;         // @deprecated — persona system removed
 }
 
 /** System Preferences for contacts. */
@@ -102,6 +102,7 @@ export interface ContactPreferences {
   defaultCountry: string;
   defaultProvince: string;
   defaultCity: string;
+  defaultViewLayout?: string;
 }
 
 /** Individual Phone Number payload. */
@@ -207,8 +208,6 @@ export const CONTACT_FIELD_REGISTRY: ContactField[] = [
   { id: "gender",         label: "Gender",          type: "select",  tab: "basic", group: "identity",                                        description: "Self-identified gender. Used for personalization & inclusive communication practices." },
   { id: "isSyed",         label: "Is Syed",         type: "boolean", tab: "basic", group: "identity",                                        description: "Whether contact is of Syed (Hashemite) lineage. Cultural/genealogical indicator." },
   { id: "dob",            label: "Date of Birth",   type: "date",    tab: "basic", group: "identity",                                        description: "Date of birth for age tracking, age-appropriate communications & milestone events." },
-  { id: "lifecycleStage", label: "Lifecycle Stage", type: "select",  tab: "basic", group: "identity",                                        description: "Stage of the contact (Lead, Student, Donor, Staff, Parent, Volunteer, Alumnus) to group in pipeline." },
-  { id: "rating",         label: "Rating",          type: "number",  tab: "basic", group: "identity",                                        description: "CRM Rating from 1 to 5 to prioritize leads and indicate engagement." },
   { id: "aiSummary",      label: "AI Summary",      type: "ai_summary", tab: "basic", group: "identity",                                   description: "Automated summary of contact history and engagement." },
 
   // ── ADDRESSES TAB: Location ──────────────────────────────────────────────
@@ -245,21 +244,21 @@ export const TAB_FIELD_DEFINITIONS: Record<string, TabFieldDefinition[]> = {
     { id: "lastName",       label: "Last Name",              description: "Last name input. Combined with first name for full identification." },
     { id: "gender",         label: "Gender (Male / Female)", description: "Gender selector. Enables personalization & inclusive communication." },
     { id: "dob",            label: "Date of Birth",          description: "Date of birth for age tracking & milestone events." },
-    { id: "lifecycleStage", label: "Lifecycle Stage",        description: "CRM Lifecycle Stage (Lead, Active Student, Parent, Donor, Staff, Volunteer, Alumnus)." },
-    { id: "rating",         label: "CRM Rating (1-5)",       description: "Star rating (1 to 5) indicating contact importance or lead priority." },
   ],
   phones: [
+    { id: "label",    label: "Phone Type / Label",               description: "Select type of phone number (e.g. Mobile, Home, Work)." },
     { id: "number",   label: "Phone Number (with country code)", description: "Phone number input with country code. Primary channel for direct communication.", alwaysOn: true, alwaysRequired: true },
-    { id: "whatsapp", label: "WhatsApp Toggle",                  description: "WhatsApp checkbox. Enables modern messaging channel & read receipts." },
   ],
   emails: [
-    { id: "address", label: "Email Address", description: "Email input field (unique per contact). Essential for formal communication & bulk outreach.", alwaysOn: true },
+    { id: "label",   label: "Email Type / Label", description: "Select type of email address (e.g. Personal, Work, School)." },
+    { id: "address", label: "Email Address",      description: "Email input field (unique per contact). Essential for formal communication & bulk outreach.", alwaysOn: true },
   ],
   addresses: [
-    { id: "line1",   label: "Street Address",  description: "Street/building address.", alwaysOn: true },
-    { id: "city",    label: "City",            description: "City of residence.",       alwaysOn: true },
-    { id: "state",   label: "State / Province",description: "State or province.",       alwaysOn: true },
-    { id: "country", label: "Country",         description: "Country of residence.",    alwaysOn: true },
+    { id: "label",   label: "Address Type / Label", description: "Select type of address (e.g. Home, Work, Billing)." },
+    { id: "line1",   label: "Street Address",       description: "Street/building address.", alwaysOn: true },
+    { id: "city",    label: "City",                 description: "City of residence.",       alwaysOn: true },
+    { id: "state",   label: "State / Province",     description: "State or province.",       alwaysOn: true },
+    { id: "country", label: "Country",              description: "Country of residence.",    alwaysOn: true },
   ],
   socials: [
     { id: "platform", label: "Platform Selection", description: "Platform selection (Facebook, X, etc.)", alwaysOn: true },
@@ -273,10 +272,10 @@ export const TAB_FIELD_DEFINITIONS: Record<string, TabFieldDefinition[]> = {
 
 /** Default enabled/required field IDs per tab. */
 export const DEFAULT_TAB_FIELD_CONFIG: Record<string, { enabled: string[]; required: string[] }> = {
-  basic:     { enabled: ["avatar", "isSyed", "firstName", "lastName", "gender", "dob", "lifecycleStage", "rating"], required: ["firstName"] },
-  phones:    { enabled: ["number", "whatsapp"], required: ["number"] },
-  emails:    { enabled: ["address"], required: [] },
-  addresses: { enabled: ["line1", "city", "state", "country"], required: [] },
+  basic:     { enabled: ["avatar", "isSyed", "firstName", "lastName", "gender", "dob"], required: ["firstName"] },
+  phones:    { enabled: ["label", "number"], required: ["number"] },
+  emails:    { enabled: ["label", "address"], required: [] },
+  addresses: { enabled: ["label", "line1", "city", "state", "country"], required: [] },
   socials:   { enabled: ["platform", "url"], required: [] },
   emergency: { enabled: ["contactId", "relationship"], required: ["contactId"] },
 };

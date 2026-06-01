@@ -98,3 +98,118 @@ export function hexToTailwindHsl(hex: string): string {
 
   return `${hDeg} ${sPct}% ${lPct}%`;
 }
+
+import { getObject } from "./db"
+import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "@mms/shared"
+
+/**
+ * Formats a date string (YYYY-MM-DD) or Date object based on GlobalSettings.dateFormat.
+ * @param dateInput - The date to format.
+ * @returns The formatted date string, or empty string.
+ */
+export function formatDate(dateInput: string | Date | undefined | null): string {
+  if (!dateInput) return ""
+  
+  let date: Date
+  if (dateInput instanceof Date) {
+    date = dateInput
+  } else {
+    const parts = dateInput.split("-").map(Number)
+    if (parts.length === 3 && !parts.some(isNaN)) {
+      date = new Date(parts[0], parts[1] - 1, parts[2])
+    } else {
+      date = new Date(dateInput)
+    }
+  }
+
+  if (isNaN(date.getTime())) return ""
+
+  let settings = DEFAULT_GLOBAL_SETTINGS
+  try {
+    settings = getObject<GlobalSettings>("global_settings", DEFAULT_GLOBAL_SETTINGS)
+  } catch {
+    // Fail-safe for server/test environments
+  }
+  const format = settings.dateFormat || "DD/MM/YYYY"
+
+  const day = String(date.getDate()).padStart(2, "0")
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const year = String(date.getFullYear())
+
+  if (format === "MM/DD/YYYY") {
+    return `${month}/${day}/${year}`
+  }
+  if (format === "YYYY-MM-DD") {
+    return `${year}-${month}-${day}`
+  }
+  return `${day}/${month}/${year}`
+}
+
+/**
+ * Resizes and compresses an image file on the client-side to a modern WebP format.
+ * Falls back to the original file if conversion is unsupported or fails.
+ *
+ * @param file - The input image file.
+ * @param options - Configuration for resizing/quality.
+ * @returns A promise resolving to the optimized File (or original if failed).
+ */
+export function optimizeImage(
+  file: File,
+  options: { maxWidth?: number; maxHeight?: number; quality?: number } = {}
+): Promise<File> {
+  const { maxWidth = 800, maxHeight = 800, quality = 0.82 } = options
+
+  if (!file.type.startsWith("image/")) {
+    return Promise.resolve(file)
+  }
+
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const img = new Image()
+      img.onload = () => {
+        let width = img.width
+        let height = img.height
+
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height)
+          width = Math.round(width * ratio)
+          height = Math.round(height * ratio)
+        }
+
+        const canvas = document.createElement("canvas")
+        canvas.width = width
+        canvas.height = height
+
+        const ctx = canvas.getContext("2d")
+        if (!ctx) {
+          resolve(file)
+          return
+        }
+
+        ctx.drawImage(img, 0, 0, width, height)
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(file)
+              return
+            }
+            const optimizedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".webp", {
+              type: "image/webp",
+              lastModified: Date.now()
+            })
+            resolve(optimizedFile)
+          },
+          "image/webp",
+          quality
+        )
+      }
+      img.onerror = () => resolve(file)
+      img.src = event.target?.result as string
+    }
+    reader.onerror = () => resolve(file)
+    reader.readAsDataURL(file)
+  })
+}
+

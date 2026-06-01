@@ -111,13 +111,13 @@ export default function OnboardingWizard(): React.ReactElement {
     
     // Save onboarding branding details to database
     const defaultBranding = {
-      madrasaName: "Dar ul Quran",
+      madrasaName: "MMS",
       tagline: "Nurturing Knowledge & Character",
       primaryColor: "#047857",
       secondaryColor: "#d97706",
-      logoUrl: "https://media.base44.com/images/public/69e092979d7a1ef05dd05cfc/4d2d7305a_canva_logo.png",
+      logoUrl: "",
       faviconUrl: "",
-      footerText: "© 2026 Dar ul Quran. All rights reserved.",
+      footerText: "© 2026 MMS. All rights reserved.",
     };
     
     const brandingData = {
@@ -130,7 +130,7 @@ export default function OnboardingWizard(): React.ReactElement {
     
     try {
       await onboard({
-        madrasaName: data.name || "Dar ul Quran",
+        madrasaName: data.name || "MMS",
         tagline: "Nurturing Knowledge & Character",
         adminName: `${data.firstName} ${data.lastName}`,
         email: data.email,

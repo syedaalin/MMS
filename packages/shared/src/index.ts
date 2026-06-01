@@ -5,3 +5,6 @@ export interface User {
   name: string;
   role: string;
 }
+
+export * from './settingsTypes.js';
+

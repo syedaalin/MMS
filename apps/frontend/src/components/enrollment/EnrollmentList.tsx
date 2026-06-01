@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { ENROLLMENT_STATUSES, STATUS_MAP, Enrollment, EnrollmentStatus } from "../../lib/enrollmentData";
 import { SESSIONS_DATA, Session } from "../../lib/sessionsData";
 import { getCollection } from "../../lib/db";
-import { STUDENTS } from "../../lib/studentsData";
+import { STUDENTS, Student } from "../../lib/studentsData";
 
 const PAGE_SIZE = 12;
 
@@ -32,7 +32,7 @@ export default function EnrollmentList({ enrollments, role, onView, onCancel }: 
   const [page, setPage]             = useState<number>(1);
 
   const sessions = useMemo<Session[]>(() => getCollection<Session>("sessions", SESSIONS_DATA), []);
-  const students = useMemo(() => getCollection<any>("students", STUDENTS), []);
+  const students = useMemo(() => getCollection<Student>("students", STUDENTS), []);
 
   const filtered = useMemo<Enrollment[]>(() => {
     return enrollments.filter((e) => {

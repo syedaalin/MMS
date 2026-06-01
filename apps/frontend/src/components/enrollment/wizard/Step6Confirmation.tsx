@@ -3,6 +3,13 @@ import { User, BookOpen, Layers, DollarSign, CheckCircle2 } from "lucide-react";
 import { calcAge, Student } from "../../../lib/studentsData";
 import { Session, Class } from "../../../lib/sessionsData";
 import { CalculatedFee } from "../../../lib/enrollmentData";
+import { getObject } from "../../../lib/db";
+import {
+  type EnrollmentsSettings,
+  DEFAULT_ENROLLMENTS_SETTINGS,
+  DEFAULT_ENROLLMENTS_FIELD_DEFS,
+  getSortedFields,
+} from "@mms/shared";
 
 interface RowProps {
   label: string;
@@ -53,22 +60,34 @@ interface Step6ConfirmationProps {
   feeResult: CalculatedFee | null | undefined;
   notes: string;
   onNotesChange: (notes: string) => void;
+  customFieldValues: Record<string, any>;
+  onCustomFieldChange: (id: string, value: any) => void;
 }
 
 /**
  * Step 6 component for verifying all selected configuration details.
- *
- * @param props - Component props.
- * @param props.student - Selected student object.
- * @param props.session - Selected session object.
- * @param props.classInfo - Selected class object.
- * @param props.feeResult - Calculated fee result.
- * @param props.notes - Optional comments.
- * @param props.onNotesChange - Callback to adjust comments.
- * @returns The Step6Confirmation component.
  */
-export default function Step6Confirmation({ student, session, classInfo, feeResult, notes, onNotesChange }: Step6ConfirmationProps): React.ReactElement {
+export default function Step6Confirmation({
+  student,
+  session,
+  classInfo,
+  feeResult,
+  notes,
+  onNotesChange,
+  customFieldValues,
+  onCustomFieldChange,
+}: Step6ConfirmationProps): React.ReactElement {
   const age = student ? calcAge(student.dob) : null;
+
+  const settings = React.useMemo(() => getObject<EnrollmentsSettings>("enrollments_settings", DEFAULT_ENROLLMENTS_SETTINGS), []);
+  const fields = settings.fields || DEFAULT_ENROLLMENTS_SETTINGS.fields || {};
+  const customFields = settings.customFields || [];
+  const fieldOrder = settings.fieldOrder || DEFAULT_ENROLLMENTS_SETTINGS.fieldOrder || [];
+
+  const orderedFields = React.useMemo(() => {
+    return getSortedFields(DEFAULT_ENROLLMENTS_FIELD_DEFS, fieldOrder, fields, customFields)
+      .filter((f) => f.id === "notes" || f.isCustom);
+  }, [fieldOrder, fields, customFields]);
 
   return (
     <section className="space-y-4" aria-labelledby="step6-title">
@@ -109,17 +128,87 @@ export default function Step6Confirmation({ student, session, classInfo, feeResu
         </Section>
       </div>
 
-      {/* Notes */}
-      <div>
-        <label htmlFor="enrollment-notes" className="text-xs font-semibold text-foreground block mb-1.5">Notes (optional)</label>
-        <textarea
-          id="enrollment-notes"
-          value={notes}
-          onChange={(e) => onNotesChange(e.target.value)}
-          rows={3}
-          placeholder="Any additional notes about this enrollment…"
-          className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none placeholder:text-muted-foreground"
-        />
+      {/* Dynamic Render Notes & Custom Fields */}
+      <div className="space-y-4">
+        {orderedFields.map((field) => {
+          const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled !== false);
+          if (!isEnabled) return null;
+
+          if (field.id === "notes") {
+            return (
+              <div key="notes">
+                <label htmlFor="enrollment-notes" className="text-xs font-semibold text-foreground block mb-1.5">
+                  Notes {field.required ? "*" : ""}
+                </label>
+                <textarea
+                  id="enrollment-notes"
+                  value={notes}
+                  onChange={(e) => onNotesChange(e.target.value)}
+                  rows={3}
+                  placeholder="Any additional notes about this enrollment…"
+                  className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none placeholder:text-muted-foreground"
+                  required={field.required}
+                />
+              </div>
+            );
+          }
+
+          if (field.isCustom) {
+            const val = customFieldValues[field.id] ?? "";
+            return (
+              <div key={field.id}>
+                <label className="text-xs font-semibold text-foreground block mb-1.5">
+                  {field.label} {field.required ? "*" : ""}
+                </label>
+                {field.type === "textarea" ? (
+                  <textarea
+                    className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none placeholder:text-muted-foreground"
+                    rows={3}
+                    value={val}
+                    onChange={(e) => onCustomFieldChange(field.id, e.target.value)}
+                    placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}…`}
+                    required={field.required}
+                  />
+                ) : field.type === "select" ? (
+                  <select
+                    className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                    value={val}
+                    onChange={(e) => onCustomFieldChange(field.id, e.target.value)}
+                    required={field.required}
+                  >
+                    <option value="">Select option…</option>
+                    {field.options?.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                ) : field.type === "boolean" ? (
+                  <label className="flex items-center gap-2.5 py-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={!!val}
+                      onChange={(e) => onCustomFieldChange(field.id, e.target.checked)}
+                      className="w-4 h-4 rounded border border-border accent-primary cursor-pointer"
+                    />
+                    <span className="text-xs font-medium text-foreground">{field.label}</span>
+                  </label>
+                ) : (
+                  <input
+                    type={field.type === "number" ? "number" : field.type === "date" ? "date" : field.type === "email" ? "email" : field.type === "url" ? "url" : "text"}
+                    className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    value={val}
+                    onChange={(e) => onCustomFieldChange(field.id, e.target.value)}
+                    placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}…`}
+                    required={field.required}
+                  />
+                )}
+              </div>
+            );
+          }
+
+          return null;
+        })}
       </div>
 
       {/* What happens next */}

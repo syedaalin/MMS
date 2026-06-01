@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { UserRole } from "../../lib/dashboardData";
 import { getObject } from "../../lib/db";
-import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "../../lib/settingsTypes";
+import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "@mms/shared";
 
 interface ActionSetItem {
   label: string;

@@ -1,6 +1,7 @@
 import React from "react";
 import { useContactConfig } from "../../../lib/ContactConfigContext";
 import { Field, INPUT, SELECT } from "./FormPrimitives";
+import { DatePicker } from "../../ui/DatePicker";
 
 interface FieldDef {
   id: string;
@@ -67,7 +68,7 @@ export default function DynamicField({ fieldDef, value, onChange, required = fal
   if (fieldDef.type === "date") {
     return (
       <Field label={fieldDef.label} required={required}>
-        <input type="date" className={INPUT} value={typedValue} onChange={handleChange} />
+        <DatePicker value={typedValue} onChange={onChange} required={required} />
       </Field>
     );
   }

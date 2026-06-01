@@ -2,10 +2,12 @@ import React from "react";
 import { motion } from "framer-motion";
 import { MapPin, Plus, Trash2 } from "lucide-react";
 import { DEFAULT_TAB_FIELD_CONFIG } from "../../../lib/contactFields";
-import { Field, INPUT, FormEmptyState, RequiredBanner, CustomFieldInput, CustomFieldConfig } from "./FormPrimitives";
+import { Field, INPUT, FormEmptyState, RequiredBanner, CustomFieldInput, CustomFieldConfig, EditableSelect, LABEL } from "./FormPrimitives";
 import { useSortedFields } from "../../../hooks/useSortedFields";
+import { useContactConfig } from "../../../lib/ContactConfigContext";
 
 interface ContactAddress {
+  label?: string;
   line1?: string;
   city?: string;
   state?: string;
@@ -48,7 +50,8 @@ export default function AddressTab({
   customFields
 }: AddressTabProps): React.JSX.Element {
   const sortedCustomFields = useSortedFields("addresses").filter((f) => f.isCustom && f.showInForm !== false);
-  const addresses = data.addresses || [];
+  const { addressLabels, updateAddressLabels } = useContactConfig();
+  const addresses = data.addresses && data.addresses.length > 0 ? data.addresses : [{ label: addressLabels[0] || "Home", line1: "", city: defaultCity, state: defaultProvince, country: defaultCountry }];
 
   const upd = (list: ContactAddress[]): void => {
     onChange({ ...data, addresses: list });
@@ -61,6 +64,7 @@ export default function AddressTab({
   const en = tabFieldCfg?.enabled ?? DEFAULT_TAB_FIELD_CONFIG.addresses.enabled;
   const req = tabFieldCfg?.required ?? DEFAULT_TAB_FIELD_CONFIG.addresses.required;
 
+  const showLabel = en.includes("label");
   const showLine1 = en.includes("line1");
   const showCity = en.includes("city");
   const showState = en.includes("state");
@@ -89,9 +93,21 @@ export default function AddressTab({
             className="rounded-xl border border-border p-4 space-y-3 bg-muted/20 mb-3"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
-                Address {i + 1}
-              </span>
+              {showLabel ? (
+                <div className="flex items-center gap-2">
+                  <span className={LABEL + " !mb-0 text-[10px]"}>Type:</span>
+                  <EditableSelect
+                    options={addressLabels || []}
+                    value={a.label || "Home"}
+                    onChange={(val) => updateAddress(i, { label: val })}
+                    onUpdateOptions={updateAddressLabels}
+                    placeholder="Select label..."
+                    className="w-28"
+                  />
+                </div>
+              ) : (
+                <div />
+              )}
               <button
                 type="button"
                 onClick={() => upd(addresses.filter((_, j) => j !== i))}
@@ -149,7 +165,7 @@ export default function AddressTab({
         <button
           type="button"
           onClick={() =>
-            upd([...addresses, { line1: "", city: defaultCity, state: defaultProvince, country: defaultCountry }])
+            upd([...addresses, { label: addressLabels[0] || "Home", line1: "", city: defaultCity, state: defaultProvince, country: defaultCountry }])
           }
           className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors mt-1"
         >

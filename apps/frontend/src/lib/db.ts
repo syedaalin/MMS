@@ -1,6 +1,6 @@
 import { CONTACTS } from "./contactsData.js";
 import { validateSessions } from "./sessionsData";
-import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "./settingsTypes";
+import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "@mms/shared";
 
 interface StudentRecord extends Record<string, unknown> {
   contactId?: string | number;
@@ -137,7 +137,7 @@ function setSyncStatus(status: SyncStatus): void {
  * @returns {Record<string, string>} Headers dictionary.
  */
 function getHeaders(token?: string): Record<string, string> {
-  const t = token || localStorage.getItem("darul_quran_token");
+  const t = token || localStorage.getItem("mms_token");
   return {
     "Content-Type": "application/json",
     ...(t ? { "Authorization": `Bearer ${t}` } : {})
@@ -153,7 +153,7 @@ function getHeaders(token?: string): Record<string, string> {
  */
 async function syncToServer(url: string, body: unknown): Promise<void> {
   try {
-    const token = localStorage.getItem("darul_quran_token");
+    const token = localStorage.getItem("mms_token");
     if (!token) return; // Skip background writes if not authenticated yet
 
     setSyncStatus('syncing');
@@ -183,7 +183,7 @@ async function syncToServer(url: string, body: unknown): Promise<void> {
  */
 export async function syncDatabase(token?: string): Promise<void> {
   try {
-    const activeToken = token || localStorage.getItem("darul_quran_token");
+    const activeToken = token || localStorage.getItem("mms_token");
     if (!activeToken) return;
 
     const response = await fetch("/api/db/sync", {
@@ -199,14 +199,14 @@ export async function syncDatabase(token?: string): Promise<void> {
       // Update collections
       if (data.collections) {
         for (const [name, list] of Object.entries(data.collections)) {
-          localStorage.setItem(`darul_quran_${name}`, JSON.stringify(list));
+          localStorage.setItem(`mms_${name}`, JSON.stringify(list));
         }
       }
 
       // Update objects
       if (data.objects) {
         for (const [key, obj] of Object.entries(data.objects)) {
-          localStorage.setItem(`darul_quran_${key}`, JSON.stringify(obj));
+          localStorage.setItem(`mms_${key}`, JSON.stringify(obj));
         }
       }
 
@@ -233,7 +233,7 @@ export async function syncDatabase(token?: string): Promise<void> {
  */
 export function getCollection<T>(key: string, defaultData: T[]): T[] {
   try {
-    const saved = localStorage.getItem(`darul_quran_${key}`);
+    const saved = localStorage.getItem(`mms_${key}`);
     if (saved !== null) {
       const parsed = JSON.parse(saved) as unknown;
       if (Array.isArray(parsed)) {
@@ -253,7 +253,7 @@ export function getCollection<T>(key: string, defaultData: T[]): T[] {
     } else if (key === "sessions") {
       dataToSave = validateSessions(defaultData) as unknown as T[];
     }
-    localStorage.setItem(`darul_quran_${key}`, JSON.stringify(dataToSave));
+    localStorage.setItem(`mms_${key}`, JSON.stringify(dataToSave));
     
     // Sync to backend asynchronously
     void syncToServer(`/api/db/collections/${key}`, dataToSave);
@@ -285,7 +285,7 @@ export function saveCollection<T>(key: string, data: T[]): void {
     if (key === "students") {
       dataToSave = normalizeStudentsBeforeSave(data as unknown as StudentRecord[]) as unknown as T[];
     }
-    localStorage.setItem(`darul_quran_${key}`, JSON.stringify(dataToSave));
+    localStorage.setItem(`mms_${key}`, JSON.stringify(dataToSave));
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("local-database-update"));
     }
@@ -307,11 +307,11 @@ export function saveCollection<T>(key: string, data: T[]): void {
  */
 export function getObject<T>(key: string, defaultData: T): T {
   try {
-    const saved = localStorage.getItem(`darul_quran_${key}`);
+    const saved = localStorage.getItem(`mms_${key}`);
     if (saved !== null) {
       return JSON.parse(saved) as T;
     }
-    localStorage.setItem(`darul_quran_${key}`, JSON.stringify(defaultData));
+    localStorage.setItem(`mms_${key}`, JSON.stringify(defaultData));
 
     // Sync to backend asynchronously
     void syncToServer(`/api/db/objects/${key}`, defaultData);
@@ -333,7 +333,7 @@ export function getObject<T>(key: string, defaultData: T): T {
  */
 export function saveObject<T>(key: string, data: T): void {
   try {
-    localStorage.setItem(`darul_quran_${key}`, JSON.stringify(data));
+    localStorage.setItem(`mms_${key}`, JSON.stringify(data));
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("local-database-update"));
     }
@@ -346,7 +346,7 @@ export function saveObject<T>(key: string, data: T): void {
 }
 
 /**
- * Scans all keys in localStorage starting with "darul_quran_",
+ * Scans all keys in localStorage starting with "mms_",
  * and returns a JSON string representation of all matching key-value pairs.
  *
  * @returns {string} The serialized database JSON string.
@@ -356,7 +356,7 @@ export function exportDatabase(): string {
     const data: Record<string, string> = {};
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith("darul_quran_")) {
+      if (key && key.startsWith("mms_")) {
         const val = localStorage.getItem(key);
         if (val !== null) {
           data[key] = val;
@@ -371,7 +371,7 @@ export function exportDatabase(): string {
 }
 
 /**
- * Clears all existing "darul_quran_" keys from localStorage, parses
+ * Clears all existing "mms_" keys from localStorage, parses
  * the provided JSON string, imports the stored key-value pairs and pushes to backend.
  *
  * @param {string} jsonString - The serialized database JSON string.
@@ -387,7 +387,7 @@ export function importDatabase(jsonString: string): void {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith("darul_quran_")) {
+      if (key && key.startsWith("mms_")) {
         keysToRemove.push(key);
       }
     }
@@ -397,11 +397,11 @@ export function importDatabase(jsonString: string): void {
     const objects: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith("darul_quran_") && typeof value === "string") {
+      if (key.startsWith("mms_") && typeof value === "string") {
         localStorage.setItem(key, value);
 
         const parsedVal = JSON.parse(value) as unknown;
-        const name = key.replace("darul_quran_", "");
+        const name = key.replace("mms_", "");
         if (Array.isArray(parsedVal)) {
           collections[name] = parsedVal;
         } else {

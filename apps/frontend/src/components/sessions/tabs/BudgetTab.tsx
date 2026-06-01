@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, TrendingUp, TrendingDown, DollarSign, X, Save } from "lucide-react";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, Session, BudgetIncome, BudgetExpense } from "../../../lib/sessionsData";
+import { DatePicker } from "../../ui/DatePicker";
 
 const INPUT = "w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
 const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
@@ -55,7 +56,12 @@ function TransactionModal({ type, onClose, onSave }: TransactionModalProps) {
             </div>
             <div>
               <label className={LABEL} htmlFor="tx-date">Date</label>
-              <input id="tx-date" type="date" className={INPUT} value={data.date} onChange={(e) => upd("date", e.target.value)} required />
+              <DatePicker
+                id="tx-date"
+                value={data.date}
+                onChange={(val) => upd("date", val)}
+                required
+              />
             </div>
           </div>
           <div>

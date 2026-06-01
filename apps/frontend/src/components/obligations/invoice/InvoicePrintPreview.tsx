@@ -21,14 +21,14 @@ function getBranding(): Branding {
     const raw = localStorage.getItem("madrasa_branding");
     if (raw) {
       const parsed = JSON.parse(raw);
-      localStorage.setItem("darul_quran_branding", raw);
+      localStorage.setItem("mms_branding", raw);
       try {
         localStorage.removeItem("madrasa_branding");
       } catch (err) {}
       return parsed;
     }
   } catch {}
-  return { madrasaName: "Dar ul Quran", logoUrl: "https://media.base44.com/images/public/69e092979d7a1ef05dd05cfc/4d2d7305a_canva_logo.png", primaryColor: "#047857" };
+  return { madrasaName: "MMS", logoUrl: "", primaryColor: "#047857" };
 }
 
 export interface InvoicePrintPreviewProps {

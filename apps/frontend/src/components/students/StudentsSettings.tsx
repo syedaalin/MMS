@@ -8,8 +8,8 @@ import {
   type StudentCustomField,
   getSortedStudentFields,
   DEFAULT_STUDENT_FIELD_DEFS
-} from "../../lib/settingsTypes";
-import CustomFieldsBuilder, { CustomFieldConfig } from "../contacts/settings/CustomFieldsBuilder";
+} from "@mms/shared";
+import CustomFieldsBuilder, { CustomFieldConfig } from "../ui/CustomFieldsBuilder";
 
 const INPUT = "w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all";
 const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
@@ -52,7 +52,7 @@ function Toggle({ label, description, value, onChange }: ToggleProps): React.Rea
  *
  * @returns The StudentsSettings component.
  */
-export default function StudentsSettings(): React.ReactElement {
+export default function StudentsSettings({ mode }: { mode?: "fields" | "preferences" }): React.ReactElement {
   const [data, setData] = useState<StudentsSettings>(() => getObject<StudentsSettings>("students_settings", DEFAULT_STUDENTS_SETTINGS));
   const [saved, setSaved] = useState<boolean>(false);
 
@@ -117,6 +117,9 @@ export default function StudentsSettings(): React.ReactElement {
     setSaved(false);
   };
 
+  const showFields = !mode || mode === "fields";
+  const showPrefs = !mode || mode === "preferences";
+
   return (
     <section className="rounded-2xl border border-border/50 bg-card/40 backdrop-blur-xl p-5 space-y-5 shadow-sm" aria-labelledby="students-settings-title">
       <div className="flex items-center gap-2.5 pb-1 border-b border-border/60">
@@ -126,50 +129,85 @@ export default function StudentsSettings(): React.ReactElement {
         <h3 id="students-settings-title" className="text-[13px] font-bold text-foreground">Students Module Settings</h3>
       </div>
 
-      <div className="space-y-3">
-        <h4 className="text-[11px] font-bold text-foreground uppercase tracking-wider">General Register (GR) Number Settings</h4>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="gr-template" className={LABEL}>GR Number Template</label>
-            <input
-              id="gr-template"
-              className={INPUT}
-              value={data.grNumberTemplate || ""}
-              onChange={(e) => upd("grNumberTemplate", e.target.value)}
-              placeholder="e.g. {seq}-{year}"
+      {showPrefs && (
+        <>
+          <div className="space-y-3">
+            <h4 className="text-[11px] font-bold text-foreground uppercase tracking-wider">General Register (GR) Number Settings</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="gr-template" className={LABEL}>GR Number Template</label>
+                <input
+                  id="gr-template"
+                  className={INPUT}
+                  value={data.grNumberTemplate || ""}
+                  onChange={(e) => upd("grNumberTemplate", e.target.value)}
+                  placeholder="e.g. {seq}-{year}"
+                />
+                <span className="text-[9px] text-muted-foreground mt-1 block">Use placeholders: <code>{`{seq}`}</code>, <code>{`{year}`}</code></span>
+              </div>
+              <div>
+                <label htmlFor="gr-digits" className={LABEL}>Sequence Digits</label>
+                <input
+                  id="gr-digits"
+                  type="number"
+                  min="1"
+                  max="8"
+                  className={INPUT}
+                  value={data.grNumberDigits || 4}
+                  onChange={(e) => upd("grNumberDigits", Number(e.target.value))}
+                />
+                <span className="text-[9px] text-muted-foreground mt-1 block">e.g., 4 is "0001", 3 is "001"</span>
+              </div>
+            </div>
+            <Toggle
+              label="Restart Sequence Annually"
+              description="Reset GR number sequence to 0001 at the beginning of each calendar year"
+              value={data.grNumberRestartAnnually ?? true}
+              onChange={(v) => upd("grNumberRestartAnnually", v)}
             />
-            <span className="text-[9px] text-muted-foreground mt-1 block">Use placeholders: <code>{`{seq}`}</code>, <code>{`{year}`}</code></span>
           </div>
-          <div>
-            <label htmlFor="gr-digits" className={LABEL}>Sequence Digits</label>
-            <input
-              id="gr-digits"
-              type="number"
-              min="1"
-              max="8"
-              className={INPUT}
-              value={data.grNumberDigits || 4}
-              onChange={(e) => upd("grNumberDigits", Number(e.target.value))}
-            />
-            <span className="text-[9px] text-muted-foreground mt-1 block">e.g., 4 is "0001", 3 is "001"</span>
+
+          <div className="space-y-2 pt-1" role="group" aria-label="Student registry feature flags toggles">
+            <Toggle label="Auto-generate Student ID" description="System assigns unique ID on registration" value={data.autoGenerateId} onChange={(v) => upd("autoGenerateId", v)} />
+            <Toggle label="Require Guardian Contact" description="Student must have at least one guardian linked" value={data.requireGuardian} onChange={(v) => upd("requireGuardian", v)} />
+            <Toggle label="Require Photo" description="Student profile photo is mandatory" value={data.requirePhoto} onChange={(v) => upd("requirePhoto", v)} />
           </div>
-        </div>
-        <Toggle
-          label="Restart Sequence Annually"
-          description="Reset GR number sequence to 0001 at the beginning of each calendar year"
-          value={data.grNumberRestartAnnually ?? true}
-          onChange={(v) => upd("grNumberRestartAnnually", v)}
-        />
-      </div>
 
-      <div className="space-y-2 pt-1" role="group" aria-label="Student registry feature flags toggles">
-        <Toggle label="Auto-generate Student ID" description="System assigns unique ID on registration" value={data.autoGenerateId} onChange={(v) => upd("autoGenerateId", v)} />
-        <Toggle label="Require Guardian Contact" description="Student must have at least one guardian linked" value={data.requireGuardian} onChange={(v) => upd("requireGuardian", v)} />
-        <Toggle label="Require Photo" description="Student profile photo is mandatory" value={data.requirePhoto} onChange={(v) => upd("requirePhoto", v)} />
-      </div>
+          <div className="py-3 border-t border-border mt-3 flex items-center justify-between">
+            <div>
+              <p className="text-[13px] font-semibold text-foreground">Default View Layout</p>
+              <p className="text-[11px] text-muted-foreground">Select how students are displayed in operations view</p>
+            </div>
+            <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
+              <button
+                type="button"
+                onClick={() => upd("defaultViewLayout", "list")}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  (data.defaultViewLayout || "list") === "list"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                List View
+              </button>
+              <button
+                type="button"
+                onClick={() => upd("defaultViewLayout", "cards")}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  data.defaultViewLayout === "cards"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Card Grid
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
-      {/* Student Form Fields */}
-      <div className="space-y-3 pt-2">
+      {showFields && (
+        <div className="space-y-3 pt-2">
         <div className="flex items-center gap-2">
           <GraduationCap className="w-4 h-4 text-primary" />
           <h3 className="text-sm font-bold text-foreground">Student Form Fields</h3>
@@ -286,6 +324,7 @@ export default function StudentsSettings(): React.ReactElement {
           </div>
         </section>
       </div>
+      )}
 
       <div className="pt-2 border-t border-border/50">
         <button

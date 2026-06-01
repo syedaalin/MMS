@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { DISTRIBUTIONS, Distribution } from "../../lib/hasanatData";
 import { getCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import ReportSummaryCard from "./ReportSummaryCard";
 import ReportExportBar from "./ReportExportBar";
 import EmptyState from "../ui/EmptyState";
@@ -66,10 +67,7 @@ interface PieDatum {
  * @returns The HasanatReport component.
  */
 export default function HasanatReport({ filters }: HasanatReportProps): React.JSX.Element {
-  const distributions = useMemo<Distribution[]>(
-    () => getCollection("hasanat_distributions", DISTRIBUTIONS),
-    [],
-  );
+  const distributions = useLiveCollection<Distribution>("hasanat_distributions", DISTRIBUTIONS);
 
   const { distributionData, hasanatByFaculty } = useMemo(() => {
     const studentMap: Record<string, HasanatReportItem> = {};

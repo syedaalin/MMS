@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { DatePicker } from "../ui/DatePicker";
 import { SESSIONS_DATA, TEACHERS } from "../../lib/sessionsData";
 import { getCollection } from "../../lib/db";
 
@@ -163,12 +164,10 @@ export default function AttendanceFilters({ filters, onChange }: AttendanceFilte
               {/* Date */}
               <div className="flex flex-col gap-1">
                 <label htmlFor="filter-date" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Date</label>
-                <input 
+                <DatePicker
                   id="filter-date"
-                  type="date" 
-                  value={filters.date} 
-                  onChange={(e) => set("date", e.target.value)}
-                  className="text-sm rounded-lg border border-border bg-background px-2 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20" 
+                  value={filters.date}
+                  onChange={(val) => set("date", val)}
                 />
               </div>
             </div>

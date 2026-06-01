@@ -8,6 +8,7 @@ import { CONTACTS } from "../../lib/contactsData";
 import { SAMPLE_USERS } from "../../lib/usersData";
 import { getCollection } from "../../lib/db";
 import ObligationModal from "./ObligationModal";
+import { DatePicker } from "../ui/DatePicker";
 
 interface FormState {
   receipt_no: string;
@@ -156,8 +157,11 @@ export default function ObligationCollectionForm({ onClose, onSave, obligationTy
 
         <fieldset className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-0 p-0 m-0">
           {field("received_date", "Received Date", true,
-            <input type="date" value={form.received_date} onChange={(e) => setForm({ ...form, received_date: e.target.value })}
-              className={inputCls} />
+            <DatePicker
+              value={form.received_date}
+              onChange={(val) => setForm({ ...form, received_date: val })}
+              required
+            />
           )}
           {field("payment_mode", "Payment Mode", true,
             <select value={form.payment_mode} onChange={(e) => setForm({ ...form, payment_mode: e.target.value })} className={selectCls}>

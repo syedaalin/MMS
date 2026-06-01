@@ -9,6 +9,7 @@ import { ATTENDANCE_RECORDS } from "../../lib/attendanceData";
 import { DISTRIBUTIONS } from "../../lib/hasanatData";
 import { EXAM_RESULTS } from "../../lib/examinationData";
 import { getCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import { calculateProfileHealth } from "../../lib/ContactConfigContext";
 import { Contact } from "../../lib/contactFields";
 
@@ -130,6 +131,14 @@ interface CustomReportBuilderProps {
  * @returns The CustomReportBuilder component.
  */
 export default function CustomReportBuilder({ onClose, initialSource }: CustomReportBuilderProps): React.JSX.Element {
+  const contactsColl = useLiveCollection<Record<string, unknown>>("contacts", CONTACTS as unknown as Record<string, unknown>[]);
+  const studentsColl = useLiveCollection<Record<string, unknown>>("students", STUDENTS as unknown as Record<string, unknown>[]);
+  const sessionsColl = useLiveCollection<Record<string, unknown>>("sessions", SESSIONS_DATA as unknown as Record<string, unknown>[]);
+  const financialColl = useLiveCollection<Record<string, unknown>>("finance_invoices", INVOICES as unknown as Record<string, unknown>[]);
+  const attendanceColl = useLiveCollection<Record<string, unknown>>("attendance_records", ATTENDANCE_RECORDS as unknown as Record<string, unknown>[]);
+  const hasanatColl = useLiveCollection<Record<string, unknown>>("hasanat_distributions", DISTRIBUTIONS as unknown as Record<string, unknown>[]);
+  const academicColl = useLiveCollection<Record<string, unknown>>("exam_results", EXAM_RESULTS as unknown as Record<string, unknown>[]);
+
   const [source, setSource]               = useState<DataSource>(() => {
     if (initialSource === "financial") return "financial";
     if (initialSource === "attendance") return "attendance";
@@ -179,21 +188,21 @@ export default function CustomReportBuilder({ onClose, initialSource }: CustomRe
 
     let raw: Record<string, unknown>[] = [];
     if (source === "contacts") {
-      raw = getCollection<Record<string, unknown>>("contacts", CONTACTS as unknown as Record<string, unknown>[]);
+      raw = contactsColl;
     } else if (source === "students") {
-      raw = getCollection<Record<string, unknown>>("students", STUDENTS as unknown as Record<string, unknown>[]);
+      raw = studentsColl;
     } else if (source === "sessions") {
-      raw = getCollection<Record<string, unknown>>("sessions", SESSIONS_DATA as unknown as Record<string, unknown>[]);
+      raw = sessionsColl;
     } else if (source === "financial") {
-      raw = getCollection<Record<string, unknown>>("finance_invoices", INVOICES as unknown as Record<string, unknown>[]);
+      raw = financialColl;
     } else if (source === "attendance") {
-      raw = getCollection<Record<string, unknown>>("attendance_records", ATTENDANCE_RECORDS as unknown as Record<string, unknown>[]);
+      raw = attendanceColl;
     } else if (source === "hasanat") {
-      raw = getCollection<Record<string, unknown>>("hasanat_distributions", DISTRIBUTIONS as unknown as Record<string, unknown>[]);
+      raw = hasanatColl;
     } else if (source === "academic") {
-      raw = getCollection<Record<string, unknown>>("exam_results", EXAM_RESULTS as unknown as Record<string, unknown>[]);
+      raw = academicColl;
     } else if (source === "faculty") {
-      const sessionsList = getCollection<Record<string, unknown>>("sessions", SESSIONS_DATA as unknown as Record<string, unknown>[]);
+      const sessionsList = sessionsColl;
       const map: Record<string, { classes: Set<string>, sessions: Set<string>, students: number, hours: number }> = {};
       sessionsList.forEach((s) => {
         const classes = s.classes as { id: string; teacherName?: string; enrolled: number }[] | undefined;
@@ -345,7 +354,7 @@ export default function CustomReportBuilder({ onClose, initialSource }: CustomRe
     }
 
     setPreviewData(processed.slice(0, 20));
-  }, [source, selectedFields, aggregate, groupBy]);
+  }, [source, selectedFields, aggregate, groupBy, contactsColl, studentsColl, sessionsColl, financialColl, attendanceColl, hasanatColl, academicColl]);
 
   /** Appends a field to the selected columns list. */
   const addField = (f: string): void => {

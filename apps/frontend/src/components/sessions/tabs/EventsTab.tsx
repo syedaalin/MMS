@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, Calendar, Clock, MapPin, X, Save, Edit2 } from "lucide-react";
 import { EVENT_TYPES, Session, SessionEvent } from "../../../lib/sessionsData";
+import { DatePicker } from "../../ui/DatePicker";
 
 const INPUT = "w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
 const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
@@ -47,7 +48,12 @@ function EventModal({ event, onClose, onSave }: EventModalProps) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={LABEL} htmlFor="event-date">Date *</label>
-              <input id="event-date" type="date" className={INPUT} value={data.date || ""} onChange={(e) => upd("date", e.target.value)} required />
+              <DatePicker
+                id="event-date"
+                value={data.date || ""}
+                onChange={(val) => upd("date", val)}
+                required
+              />
             </div>
             <div>
               <label className={LABEL} htmlFor="event-time">Time</label>

@@ -1,10 +1,130 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { AlertCircle, X, LucideIcon, Upload, MapPin, BrainCircuit, FileText } from "lucide-react";
 
 // ── Shared style constants ─────────────────────────────────────────────────────
 export const INPUT = "w-full px-3.5 py-2.5 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
 export const SELECT = INPUT + " cursor-pointer";
 export const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
+
+interface EditableSelectProps {
+  options: string[];
+  value: string;
+  onChange: (val: string) => void;
+  onUpdateOptions: (opts: string[]) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+export function EditableSelect({
+  options,
+  value,
+  onChange,
+  onUpdateOptions,
+  placeholder = "Select...",
+  className = "w-28",
+}: EditableSelectProps): React.JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [customVal, setCustomVal] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    if (open) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [open]);
+
+  const handleAdd = () => {
+    const text = customVal.trim();
+    if (text && !options.includes(text)) {
+      const next = [...options, text];
+      onUpdateOptions(next);
+      onChange(text);
+      setCustomVal("");
+    }
+  };
+
+  const handleRemove = (opt: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = options.filter((o) => o !== opt);
+    onUpdateOptions(next);
+    if (value === opt) {
+      onChange(next[0] || "");
+    }
+  };
+
+  return (
+    <div ref={containerRef} className={`relative inline-block text-left ${className}`}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-lg border border-border bg-background text-foreground hover:bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-left"
+      >
+        <span className="truncate">{value || placeholder}</span>
+        <span className="ml-2 text-muted-foreground/60 text-[10px]">▼</span>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 mt-1 w-44 rounded-xl border border-border bg-card shadow-xl z-50 overflow-hidden divide-y divide-border/60">
+          <div className="max-h-40 overflow-y-auto py-1">
+            {options.map((opt) => (
+              <div
+                key={opt}
+                onClick={() => {
+                  onChange(opt);
+                  setOpen(false);
+                }}
+                className={`flex items-center justify-between px-3 py-2 text-xs cursor-pointer transition-colors hover:bg-muted/70 ${
+                  value === opt ? "bg-primary/5 text-primary font-bold" : "text-foreground"
+                }`}
+              >
+                <span className="truncate">{opt}</span>
+                <button
+                  type="button"
+                  onClick={(e) => handleRemove(opt, e)}
+                  className="p-0.5 rounded hover:bg-red-50 text-muted-foreground/60 hover:text-red-500 transition-colors"
+                  title={`Remove option ${opt}`}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            {options.length === 0 && (
+              <div className="px-3 py-2 text-xs text-muted-foreground italic">No options</div>
+            )}
+          </div>
+          <div className="p-2 flex gap-1 bg-muted/20">
+            <input
+              type="text"
+              value={customVal}
+              onChange={(e) => setCustomVal(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAdd();
+                }
+              }}
+              placeholder="Add new type..."
+              className="flex-1 min-w-0 px-2 py-1 text-[11px] rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/60"
+            />
+            <button
+              type="button"
+              onClick={handleAdd}
+              className="px-2 py-1 text-[10px] font-bold rounded bg-primary text-primary-foreground hover:bg-primary/95 flex-shrink-0"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface FieldProps {
   label: string;

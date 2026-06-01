@@ -10,7 +10,7 @@ import {
   DEFAULT_STUDENTS_SETTINGS,
   type StudentCustomField,
   getSortedStudentFields
-} from "../../lib/settingsTypes";
+} from "@mms/shared";
 import { SESSIONS_DATA } from "../../lib/sessionsData";
 import { CONTACTS } from "../../lib/contactsData";
 import { calcAge, type Student } from "../../lib/studentsData";
@@ -192,7 +192,7 @@ export default function StudentDetail({ student, onClose, onEdit }: StudentDetai
                   </div>
 
                   {/* Ordered Attributes & Connections list */}
-                  {orderedFields.some(f => f.isCustom ? ((student as any)[f.id] !== undefined && (student as any)[f.id] !== null && (student as any)[f.id] !== "" && (student as any)[f.id] !== false) : (fields[f.id]?.enabled !== false && (f.id === "fatherLink" ? (fatherContact || student.fatherName) : f.id === "motherLink" ? (motherContact || student.motherName) : true))) && (
+                  {orderedFields.some(f => f.isCustom ? ((student as unknown as Record<string, unknown>)[f.id] !== undefined && (student as unknown as Record<string, unknown>)[f.id] !== null && (student as unknown as Record<string, unknown>)[f.id] !== "" && (student as unknown as Record<string, unknown>)[f.id] !== false) : (fields[f.id]?.enabled !== false && (f.id === "fatherLink" ? (fatherContact || student.fatherName) : f.id === "motherLink" ? (motherContact || student.motherName) : true))) && (
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest pl-1">Student Details</h4>
                       <div className="space-y-2.5">
@@ -299,7 +299,7 @@ export default function StudentDetail({ student, onClose, onEdit }: StudentDetai
                           }
 
                           if (field.isCustom) {
-                            const val = (student as any)[field.id];
+                            const val = (student as unknown as Record<string, unknown>)[field.id];
                             if (val === undefined || val === null || val === "" || val === false) return null;
 
                             let displayVal = "";

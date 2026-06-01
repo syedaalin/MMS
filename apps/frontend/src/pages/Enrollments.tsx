@@ -30,7 +30,8 @@ const SUB_TABS = [
 const ROLE_OPTIONS = ["admin", "staff", "accountant"];
 
 const ENROLLMENT_SETTINGS_SUB_TABS = [
-  { id: "fields", label: "Fields & Preferences" },
+  { id: "fields", label: "Fields" },
+  { id: "preferences", label: "Preferences" },
 ];
 
 /**
@@ -240,7 +241,7 @@ export default function Enrollments() {
                     </button>
                   ))}
                 </div>
-                {subTab === "fields" && <EnrollmentsSettings />}
+                <EnrollmentsSettings mode={subTab as "fields" | "preferences"} />
               </div>
             </ErrorBoundary>
           )}

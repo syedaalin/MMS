@@ -7,6 +7,7 @@ import {
 import { SESSIONS_DATA, Session } from "../../lib/sessionsData";
 import { STUDENTS, Student } from "../../lib/studentsData";
 import { getCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import ReportSummaryCard from "./ReportSummaryCard";
 import ReportExportBar from "./ReportExportBar";
 import EmptyState from "../ui/EmptyState";
@@ -68,14 +69,8 @@ function utilisationColour(rate: number): string {
  * @returns The SessionReport component.
  */
 export default function SessionReport({ filters }: SessionReportProps): React.JSX.Element {
-  const sessions = useMemo<Session[]>(
-    () => getCollection("sessions", SESSIONS_DATA),
-    [],
-  );
-  const students = useMemo<Student[]>(
-    () => getCollection("students", STUDENTS),
-    [],
-  );
+  const sessions = useLiveCollection<Session>("sessions", SESSIONS_DATA);
+  const students = useLiveCollection<Student>("students", STUDENTS);
 
   const sessionCapacity = useMemo<SessionCapacityItem[]>(() => {
     const list: SessionCapacityItem[] = [];

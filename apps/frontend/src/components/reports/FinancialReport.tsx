@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { INVOICES, Invoice } from "../../lib/financeData";
 import { getCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import ReportSummaryCard from "./ReportSummaryCard";
 import ReportExportBar from "./ReportExportBar";
 import EmptyState from "../ui/EmptyState";
@@ -57,10 +58,7 @@ const STATUS_COLOR: Record<InvoiceStatus, string> = {
  * @returns The FinancialReport component.
  */
 export default function FinancialReport({ filters }: FinancialReportProps): React.JSX.Element {
-  const financeInvoices = useMemo<Invoice[]>(
-    () => getCollection("finance_invoices", INVOICES),
-    [],
-  );
+  const financeInvoices = useLiveCollection<Invoice>("finance_invoices", INVOICES);
 
   const feeCollection = useMemo(() => {
     // Generate monthly aggregation

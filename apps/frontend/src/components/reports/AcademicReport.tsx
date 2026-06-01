@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { EXAM_RESULTS, EXAMS, STUDENTS, ExamResult, Exam, ExamStudent } from "../../lib/examinationData";
 import { getCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import { getGrade } from "../examination/gradeUtils";
 import ReportSummaryCard from "./ReportSummaryCard";
 import ReportExportBar from "./ReportExportBar";
@@ -63,9 +64,9 @@ export interface ClassRankingItem {
  * @returns The AcademicReport component.
  */
 export default function AcademicReport({ filters }: AcademicReportProps): React.JSX.Element {
-  const examResults = useMemo<ExamResult[]>(() => getCollection("exam_results", EXAM_RESULTS), []);
-  const exams = useMemo<Exam[]>(() => getCollection("exams", EXAMS), []);
-  const students = useMemo<ExamStudent[]>(() => getCollection("exam_students", STUDENTS), []);
+  const examResults = useLiveCollection<ExamResult>("exam_results", EXAM_RESULTS);
+  const exams = useLiveCollection<Exam>("exams", EXAMS);
+  const students = useLiveCollection<ExamStudent>("exam_students", STUDENTS);
 
   const results = useMemo<AcademicResultItem[]>(() => {
     let list: AcademicResultItem[] = [];

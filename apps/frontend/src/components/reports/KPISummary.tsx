@@ -7,6 +7,7 @@ import {
   Plus, Trash2, ShieldCheck, Receipt, CalendarCheck
 } from "lucide-react";
 import { getCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import { CONTACTS } from "../../lib/contactsData";
 import { type Contact } from "../../lib/contactFields";
 import { ATTENDANCE_RECORDS, type AttendanceRecord } from "../../lib/attendanceData";
@@ -243,14 +244,14 @@ function getDefaultCardConfig(category: string, label: string): CustomCard {
 }
 
 export default function KPISummary({ category, role }: KPISummaryProps): React.JSX.Element {
-  const contacts = useMemo(() => getCollection("contacts", CONTACTS), []);
-  const records  = useMemo(() => getCollection("attendance_records", ATTENDANCE_RECORDS), []);
-  const invoices = useMemo(() => getCollection("finance_invoices", INVOICES), []);
-  const students = useMemo(() => getCollection("students", STUDENTS), []);
-  const exams = useMemo(() => getCollection("exams", EXAMS), []);
-  const examResults = useMemo(() => getCollection("exam_results", EXAM_RESULTS), []);
-  const sessions = useMemo(() => getCollection("sessions", SESSIONS_DATA), []);
-  const distributions = useMemo(() => getCollection("hasanat_distributions", DISTRIBUTIONS), []);
+  const contacts = useLiveCollection("contacts", CONTACTS);
+  const records = useLiveCollection("attendance_records", ATTENDANCE_RECORDS);
+  const invoices = useLiveCollection("finance_invoices", INVOICES);
+  const students = useLiveCollection("students", STUDENTS);
+  const exams = useLiveCollection("exams", EXAMS);
+  const examResults = useLiveCollection("exam_results", EXAM_RESULTS);
+  const sessions = useLiveCollection("sessions", SESSIONS_DATA);
+  const distributions = useLiveCollection("hasanat_distributions", DISTRIBUTIONS);
 
   const computedKPIs = useMemo(() => {
     // 1. Total Students

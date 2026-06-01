@@ -137,11 +137,16 @@ function ContactCard({ contact, onEdit, onDelete, onWhatsApp, onStageChange }: C
         </select>
       </div>
 
-      {hasWA && (
+      {contact.phones && contact.phones.length > 0 && (
         <button
+          disabled={!hasWA}
           onClick={handleWhatsApp}
-          className="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-semibold text-white transition-colors"
-          style={{ backgroundColor: "#075E54" }}
+          className={`w-full flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-semibold text-white transition-all ${
+            hasWA 
+              ? "opacity-100 cursor-pointer" 
+              : "opacity-40 cursor-not-allowed bg-muted/60 text-muted-foreground"
+          }`}
+          style={{ backgroundColor: hasWA ? "#075E54" : "hsl(var(--muted))" }}
           type="button"
         >
           <MessageCircle className="w-3 h-3" /> WhatsApp

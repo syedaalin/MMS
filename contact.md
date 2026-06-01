@@ -1,6 +1,6 @@
 # Contact Module Blueprint
 
-The **Contact Module** serves as the central directory and CRM (Customer Relationship Management) system for Darul Quran. It manages students, guardians, staff, donors, and volunteers dynamically, utilizing a highly customizable metadata-driven architecture.
+The **Contact Module** serves as the central directory and CRM (Customer Relationship Management) system for MMS. It manages students, guardians, staff, donors, and volunteers dynamically, utilizing a highly customizable metadata-driven architecture.
 
 ---
 
@@ -8,21 +8,44 @@ The **Contact Module** serves as the central directory and CRM (Customer Relatio
 
 The Contact Module spans the following files in the project workspace:
 
+### Page Entry Point (`frontend/src/pages/`)
+* **[Contacts.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/pages/Contacts.tsx)**: Main page wrapper that orchestrates tab routes: **Operations** (switching between List and Kanban views), **Analytics** (rendering live KPI summaries and reports), and **Configuration** (rendering field registries, preferences, and device synchronizers). Handles global triggers for deduplication, bulk actions, and modals.
+
 ### Frontend State & Utilities (`frontend/src/lib/`)
-* **[contactFields.ts](file:///Users/syedaalin/Downloads/darul-quran/frontend/src/lib/contactFields.ts)**: Declares all TypeScript interfaces (`Contact`, `PhoneNumber`, etc.), core fields, static metadata (genders, country codes, lifecycle stages), and legacy compat structures.
-* **[ContactConfigContext.tsx](file:///Users/syedaalin/Downloads/darul-quran/frontend/src/lib/ContactConfigContext.tsx)**: Global React context facilitating dynamic validation (via Zod), active columns representation, and profile completeness algorithms.
-* **[contactFieldsStore.ts](file:///Users/syedaalin/Downloads/darul-quran/frontend/src/lib/contactFieldsStore.ts)**: Handles synchronization of fields metadata with the local storage database.
-* **[contactConstants.ts](file:///Users/syedaalin/Downloads/darul-quran/frontend/src/lib/contactConstants.ts)**: Exposes formatting and parsing tools for telephone numbers.
+* **[contactFields.ts](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/lib/contactFields.ts)**: Declares all core TypeScript interfaces (`Contact`, `PhoneNumber`, `Address`, etc.), built-in field registries, default configs, and option lists.
+* **[ContactConfigContext.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/lib/ContactConfigContext.tsx)**: Global React context facilitating real-time field configuration changes, dynamic validation (via Zod), dynamic active columns representation, and profile completeness algorithms.
+* **[contactFieldsStore.ts](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/lib/contactFieldsStore.ts)**: Handles synchronization of field configuration metadata with the local storage database.
+* **[contactsData.ts](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/lib/contactsData.ts)**: Declares initial mock contact datasets and seed helper configurations.
+* **[contactConstants.ts](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/lib/contactConstants.ts)**: Exposes formatting and parsing tools for telephone numbers.
 
 ### Frontend Components (`frontend/src/components/contacts/`)
-* **[ContactsTable.tsx](file:///Users/syedaalin/Downloads/darul-quran/frontend/src/components/contacts/ContactsTable.tsx)**: Tabular layout supporting dynamic visible columns, quick search, rating edits, and direct row selection.
-* **[ContactKanban.tsx](file:///Users/syedaalin/Downloads/darul-quran/frontend/src/components/contacts/ContactKanban.tsx)**: Drag-and-drop board organized by **Lifecycle Stage** (Lead, Active Student, Alumnus, Staff, Donor, Volunteer, Parent).
-* **[ContactDetailDrawer.tsx](file:///Users/syedaalin/Downloads/darul-quran/frontend/src/components/contacts/ContactDetailDrawer.tsx)**: Rich slide-out panel containing complete tabs, activity feeds (calls, notes, WhatsApp logs), document attachments, and relationships.
-* **[ContactForm.tsx](file:///Users/syedaalin/Downloads/darul-quran/frontend/src/components/contacts/ContactForm.tsx)**: Adaptive form that renders fields based on selected Persona and active configurations.
-* **[DuplicateDetection.tsx](file:///Users/syedaalin/Downloads/darul-quran/frontend/src/components/contacts/DuplicateDetection.tsx)**: Runs deduplication heuristics comparing phones, emails, and names.
-* **[WhatsAppPanel.tsx](file:///Users/syedaalin/Downloads/darul-quran/frontend/src/components/contacts/WhatsAppPanel.tsx)**: Contextual panel containing messaging templates for parent updates and alerts.
-* **[ContactSyncPanel.tsx](file:///Users/syedaalin/Downloads/darul-quran/frontend/src/components/contacts/ContactSyncPanel.tsx)**: Bridges browser clients with local devices (CSV and VCF import/export).
-* **[ContactsSettingsPanel.tsx](file:///Users/syedaalin/Downloads/darul-quran/frontend/src/components/contacts/ContactsSettingsPanel.tsx)**: Dashboard configuration allowing administrators to toggle tabs, configure fields required status, and register new custom attributes.
+* **[ContactsTable.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactsTable.tsx)**: Tabular layout supporting dynamic visible columns, quick search, rating edits, and direct row selection.
+* **[ContactKanban.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactKanban.tsx)**: Drag-and-drop board organized by **Lifecycle Stage** (Lead, Active Student, Alumnus, Staff, Donor, Volunteer, Parent).
+* **[ContactDetailDrawer.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactDetailDrawer.tsx)**: Rich slide-out panel containing complete tabs, activity feeds (calls, notes, WhatsApp logs), document attachments, and relationships.
+* **[ContactForm.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactForm.tsx)**: Adaptive modal form that handles layout structure and tab navigation (Identity, Phones, Emails, Addresses, Socials, Emergency, Relationships).
+* **[DuplicateDetection.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/DuplicateDetection.tsx)**: Runs deduplication heuristics comparing phones, emails, and names.
+* **[WhatsAppPanel.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/WhatsAppPanel.tsx)**: Contextual panel containing messaging templates for parent updates and alerts.
+* **[ContactSyncPanel.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactSyncPanel.tsx)**: Bridges browser clients with local devices (CSV and VCF import/export).
+* **[ContactsSettingsPanel.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactsSettingsPanel.tsx)**: Dashboard configuration allowing administrators to toggle tabs, configure fields required status, and register new custom attributes.
+* **[AvatarCropper.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/AvatarCropper.tsx)**: Circular modal crop UI offering zoom, rotation, and drag translation on a canvas to format profile pictures.
+* **[ColumnCustomizer.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ColumnCustomizer.tsx)**: Drag-and-drop column picker popover enabling visible column toggles and layout ordering.
+* **[ContactStatsBar.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactStatsBar.tsx)**: Displays metrics counts (Total, Active, Verified phones) and database profile health breakdowns (Complete, Partial, Stale).
+* **[ContactsToolbar.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactsToolbar.tsx)**: Toolbar container for text search, sorting selectors, dynamic filters, and column customization triggers.
+
+### Form Subcomponents (`frontend/src/components/contacts/form/`)
+* **[FormPrimitives.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/FormPrimitives.tsx)**: Shared CSS variables, labels, warning banners, and generic inputs for tags, custom files, location, and AI summaries.
+* **[DynamicField.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/DynamicField.tsx)**: Dynamic wrapper for standard input controls based on field type registry (select, checkbox, text, text area, date).
+* **[TabCustomFields.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/TabCustomFields.tsx)**: Dynamic grid injection rendering custom field values registered under secondary tabs.
+* **[BasicTab.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/BasicTab.tsx)**: Form inputs for identity attributes, DOB, gender, and avatar triggers.
+* **[PhoneTab.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/PhoneTab.tsx)**: Form inputs for phone numbers, WhatsApp status toggles, and country dial code selectors.
+* **[EmailTab.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/EmailTab.tsx)**: Form inputs for email addresses and custom label assignments.
+* **[AddressTab.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/AddressTab.tsx)**: Form inputs for locations (Street, City, State, Country).
+* **[SocialTab.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/SocialTab.tsx)**: Form inputs for social media profile names and platform categories.
+* **[EmergencyTab.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/EmergencyTab.tsx)**: Form inputs for emergency contacts, utilizing a contact picker to link records.
+* **[RelationshipsTab.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/RelationshipsTab.tsx)**: Form inputs to define family or CRM links between contacts.
+
+### Settings Subcomponents (`frontend/src/components/contacts/settings/`)
+* **[DraggableFieldList.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/settings/DraggableFieldList.tsx)**: Drag-and-drop list container using `@hello-pangea/dnd` to reorder built-in or custom fields, toggle optional/required constraints, and toggle enabling.
 
 ---
 
@@ -143,8 +166,19 @@ Each contact belongs to a **Persona** (such as Student, Donor, or Staff). The `P
 
 ### Custom Fields Schema
 Administrators can register new custom fields dynamically with variables like:
-* **Type**: `text` | `textarea` | `number` | `date` | `url` | `email` | `select` | `multiselect` | `tags` | `boolean`.
+* **Type**: `text` | `textarea` | `number` | `date` | `url` | `email` | `select` | `multiselect` | `tags` | `boolean` | `file` | `location` | `ai_summary`.
 * **Constraints**: Required, Unique, character limits (Min/Max length), and numeric limits.
+
+### Form Rendering & Validation Pipeline
+1. **Context Broadcasting**: `ContactForm` reads current configurations via the `useContactConfig` hook to decide which tabs are displayed, which fields are required, and what custom properties must render.
+2. **Schema Compiling**: The context generates a dynamic Zod validator using `buildDynamicContactSchema`. If a field is optional, empty input strings are preprocessed into `undefined` to prevent validation triggers.
+3. **Error Routing**: When validation fails, `formatZodIssues` translates raw Zod errors into human-readable strings (e.g., mapping array index errors to `Phone #1: number cannot be empty.`) and directs the user to the correct form tab.
+
+### Draggable Reordering Engine
+Administrators can reorder fields within any tab.
+1. The **Settings Panel** renders lists in `DraggableFieldList` using `@hello-pangea/dnd`.
+2. Drag events modify the `order` array inside `tabFieldConfig`.
+3. The custom order is stored, prompting `ContactForm` to render inputs in that layout and `ContactConfigContext` to order table columns identically.
 
 ---
 
@@ -170,16 +204,29 @@ To ensure data quality, the context computes a completeness percentage based on 
 | **Notes** | 5% | Miscellaneous documentation |
 | **Attachments** | 5% | Supplementary documents |
 
-### B. Normalization & Hydration
+### B. Circular Avatar Cropper Canvas Pipeline
+The `AvatarCropper` provides a precision circular modal crop UI using HTML5 Canvas:
+1. **Interactive Transforms**: Enables translation offsets, rotational increments of 90 degrees, and decimal-based scaling.
+2. **Clipping & Masking**: Clips the active image to a centered circle while drawing a dim overlay outside the border.
+3. **WebP Compression**: Exports the cropped selection onto a secondary output canvas, translating details to a square `webp` data URL at `0.78` quality to optimize storage limits.
+
+### C. Dynamic Column Builder
+Table headers automatically adapt to configuration state changes:
+1. Column configurations are parsed in `availableColumns` under `ContactConfigContext`.
+2. Checks ensure only enabled fields/tabs are built.
+3. Custom fields are appended to the columns list.
+4. Users check, uncheck, or drag columns inside `ColumnCustomizer` to update `visibleColumns` dynamically.
+
+### D. Normalization & Hydration
 To prevent data duplication and inconsistencies, linked modules (like the **Student Module**) reference contacts via `contactId`.
 * **Hydration**: When retrieving list arrays, the system injects contact details (name, phone, email, gender, dob) dynamically from the matching contact record.
 * **Normalization**: Before saving records, redundant details from the student object are stripped away to keep the database normalized.
 
-### C. Duplicate Detection
+### E. Duplicate Detection
 The duplicate detection engine evaluates contacts to identify potential matches using:
 1. **Direct Matches**: Checks for identical email addresses or normalized phone numbers.
 2. **Fuzzy Matches**: Uses basic Jaro-Winkler or Levenshtein distance metrics on names to suggest merging options when spellings are slightly different.
 
-### D. Communication Integrations
+### F. Communication Integrations
 * **WhatsApp Panel**: Direct API endpoints let teachers and administrators construct messages with placeholder variables (e.g. `{{name}}`, `{{class}}`) and launch them in the browser via WhatsApp Web protocols.
 * **Synchronization Manager**: Supports formatting standard VCARD format payloads (.vcf) and CSV templates, allowing contacts to be moved to and from smart devices seamlessly.

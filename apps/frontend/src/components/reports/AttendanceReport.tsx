@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { ATTENDANCE_RECORDS, AttendanceRecord } from "../../lib/attendanceData";
 import { Session } from "../../lib/sessionsData";
 import { getCollection } from "../../lib/db";
+import { useLiveCollection } from "../../hooks/useLiveCollection";
 import ReportSummaryCard from "./ReportSummaryCard";
 import ReportExportBar from "./ReportExportBar";
 import EmptyState from "../ui/EmptyState";
@@ -46,12 +47,9 @@ export interface StudentAttendanceItem {
  * @returns React.JSX.Element
  */
 export default function AttendanceReport({ filters }: AttendanceReportProps): React.JSX.Element {
-  const records = useMemo<AttendanceRecord[]>(
-    () => getCollection("attendance_records", ATTENDANCE_RECORDS),
-    []
-  );
+  const records = useLiveCollection<AttendanceRecord>("attendance_records", ATTENDANCE_RECORDS);
 
-  const sessions = useMemo<Session[]>(() => getCollection<Session>("sessions", []), []);
+  const sessions = useLiveCollection<Session>("sessions", []);
   const allClasses = useMemo(() => sessions.flatMap(s => s.classes || []), [sessions]);
 
   const studentAtt = useMemo<StudentAttendanceItem[]>(() => {

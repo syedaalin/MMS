@@ -2,27 +2,33 @@
 trigger: always_on
 ---
 
-1. Architectural Boundaries**
+# MMS Workspace Directives
 
-* Treat every module as an independent micro-application.
-* Enforce absolute strictness on imports: a module may only import from its own directory or a designated `core/shared` directory.
-* Prohibit direct cross-module imports.
+## Architecture
+- Monorepo: pnpm workspaces. Shared logic → `packages/shared` (`workspace:*`). No cross-module imports.
+- Frontend ↔ Backend: zero direct imports. API contracts only.
+- Turbo: clean `turbo.json` cache inputs/outputs. Never bypass.
 
-2. Settings Isolation**
+## Config & Communication
+- Config: local to modules. DI at entry points. No global singletons.
+- Inter-module: Event Bus or strict DTO interfaces. Primitives only — no class instances.
 
-* Keep all configuration local. Each module must contain its own `settings` or `config` file.
-* Do not construct global configuration singletons that require continuous context window updates.
-* Inject module-specific settings via environment variables or a tightly scoped dependency injection container at the module's entry point.
+## Data Layer
+- Backend: Drizzle ORM + PostgreSQL `pg` pool. Zero raw SQL. Strict pg-core types in `schema.ts`.
+- Migrations: atomic, generated via `drizzle-kit` on every schema change.
+- Frontend: React 19, Radix, Tailwind v4, `@tanstack/react-query`. Lazy-import `jspdf`/`xlsx`/`html2canvas`.
 
-3. Inter-Module Communication**
+## UI/UX
+- SPA: zero full-page reloads. WebSockets for real-time.
+- Glassmorphism layout. Recharts animations. Semantic color taxonomy (Active, Overdue, Paid).
+- Date Fields: Every date field must use the DRY `DatePicker` component. Never use native `<input type="date">`.
+- Date Formatting: Every date shown in the UI (tables, lists, text labels, reports, exports) must be formatted using the custom `formatDate` utility from `@/lib/utils` to guarantee it respects the user's localized `dateFormat` setting.
+- Contacts Module: The `persona` field is deprecated and removed from all forms, databases, and configuration settings.
+- Image Uploads: All user image uploads must be optimized on the client-side using the `optimizeImage` utility from `@/lib/utils` to resize and compress them into WebP format before being processed or uploaded.
+- Dynamic Form & Field Configuration: Bind all module forms directly to their respective 'Fields' configuration tab. Render only the enabled fields in the configured order. Render Phone, Email, Address, and Social type selectors using the dynamic `EditableSelect` component, and synchronize changes back to the global option configuration state.
+- PageHeader Action Buttons: The `actions` prop on `PageHeader` must **always** render unconditionally regardless of which tab (Operations / Analytics / Configuration) is active. Never gate top-level CTA buttons (e.g. "Add Contact", "New Session") behind an `activeTab === "operations"` check.
+- WhatsApp Verification: WhatsApp registration status is determined exclusively by the backend `PuppeteerWhatsAppProvider` (`whatsapp-web.js` + `getNumberId`). Never use manual checkboxes or mock heuristics to determine WhatsApp status. The `whatsapp` boolean field is removed from contact phone forms and field configuration. Phone numbers are normalized to international format (country code + local number with leading zeros stripped) before checking.
 
-* Implement an Event Bus (Publish/Subscribe pattern) or strict API interfaces for all inter-module communication.
-* Pass primitives or basic data transfer objects (DTOs) in event payloads.
-* Do not pass complex class instances or stateful objects between modules.
-
-4. Token Optimisation (AI Directives)**
-
-* Generate terse, functional code. Omit all boilerplate and standard explanatory comments.
-* Rely on semantic, highly descriptive variable and function naming to provide context instead of inline documentation.
-* When modifying existing code, output only the specific functions or classes being altered, not the entire file.
-* Assume standard library knowledge. Do not explain standard framework behaviours in the output.
+## AI Cost & Token Economy
+- Keep edits localized and use targeted diffs (replace_file_content) instead of rewriting full files.
+- Minimize file reads to only in-scope files to optimize context window usage.

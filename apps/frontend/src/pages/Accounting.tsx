@@ -43,6 +43,7 @@ const SUB_TABS = [
 export default function Accounting() {
   const [activeTab, setActiveTab]     = useState("operations");
   const [activeSubTab, setActiveSubTab] = useState("overview");
+  const [configSubTab, setConfigSubTab] = useState<"fields" | "preferences">("fields");
   const [accounts,   setAccounts]    = useState(() => getCollection("accounting_accounts", CHART_OF_ACCOUNTS));
   const [entries,    setEntries]     = useState(() => getCollection("accounting_entries", JOURNAL_ENTRIES));
   const [settings,   setSettings]    = useState(() => getObject("accounting_settings", DEFAULT_SETTINGS));
@@ -159,13 +160,36 @@ export default function Accounting() {
             <ChartOfAccounts accounts={accounts} onChange={setAccounts} />
           )}
           {activeTab === "configuration" && (
-            <AccountingSettings
-              accounts={accounts}
-              settings={settings}
-              onSaveSettings={setSettings}
-              fiscalYears={fiscalYears}
-              onSaveFiscalYears={setFiscalYears}
-            />
+            <div className="space-y-4">
+              <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit border border-border/30">
+                <button
+                  type="button"
+                  onClick={() => setConfigSubTab("fields")}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    configSubTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Fields
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfigSubTab("preferences")}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    configSubTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Preferences
+                </button>
+              </div>
+              <AccountingSettings
+                accounts={accounts}
+                settings={settings}
+                onSaveSettings={setSettings}
+                fiscalYears={fiscalYears}
+                onSaveFiscalYears={setFiscalYears}
+                mode={configSubTab}
+              />
+            </div>
           )}
         </motion.div>
       </AnimatePresence>

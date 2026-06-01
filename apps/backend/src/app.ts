@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { initDb } from './db/database.js';
 import authRoutes from './routes/auth.js';
 import dbRoutes from './routes/db.js';
+import contactRoutes from './routes/contacts.js';
 
 dotenv.config();
 
@@ -50,6 +51,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Register routes
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(dbRoutes, { prefix: '/api/db' });
+  await app.register(contactRoutes, { prefix: '/api/contacts' });
 
   // Basic health check route
   app.get('/health', async () => {

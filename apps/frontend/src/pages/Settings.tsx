@@ -1,30 +1,34 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Settings as SettingsIcon, Globe, Palette, Database,
   Users, GraduationCap, ClipboardList, Calendar, UserCheck,
-  DollarSign, FileText,
+  DollarSign, FileText, Shield, Star,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 
 // System settings panels
-import GlobalSettings from "../components/settings/GlobalSettings";
-import BrandingSettings from "../components/settings/BrandingSettings";
-import BackupRestore from "../components/settings/BackupRestore";
+const GlobalSettings = lazy(() => import("../components/settings/GlobalSettings"));
+const BrandingSettings = lazy(() => import("../components/settings/BrandingSettings"));
+const BackupRestore = lazy(() => import("../components/settings/BackupRestore"));
 
 // Module settings panels
 import { ContactConfigProvider, useContactConfig } from "../lib/ContactConfigContext";
-import ContactsSettingsPanel from "../components/contacts/ContactsSettingsPanel";
-import StudentsSettings from "../components/students/StudentsSettings";
-import EnrollmentsSettings from "../components/enrollment/EnrollmentsSettings";
-import SessionsSettings from "../components/sessions/SessionsSettings";
-import AttendanceSettings from "../components/attendance/AttendanceSettings";
-import FinanceSettings from "../components/finance/FinanceSettings";
-import ExaminationsSettings from "../components/examination/ExaminationsSettings";
+const ContactsSettingsPanel = lazy(() => import("../components/contacts/ContactsSettingsPanel"));
+const StudentsSettings = lazy(() => import("../components/students/StudentsSettings"));
+const EnrollmentsSettings = lazy(() => import("../components/enrollment/EnrollmentsSettings"));
+const SessionsSettings = lazy(() => import("../components/sessions/SessionsSettings"));
+const AttendanceSettings = lazy(() => import("../components/attendance/AttendanceSettings"));
+const FinanceSettings = lazy(() => import("../components/finance/FinanceSettings"));
+const ExaminationsSettings = lazy(() => import("../components/examination/ExaminationsSettings"));
+const AccountingSettings = lazy(() => import("../components/accounting/AccountingSettings"));
+const HasanatSettings = lazy(() => import("../components/hasanat/HasanatSettings"));
+const UsersSettingsPanel = lazy(() => import("../components/users/UsersSettingsPanel"));
 
 // Attendance helper
 import { DEFAULT_ATT_SETTINGS } from "../lib/attendanceData";
-import { getObject, saveObject } from "../lib/db";
+import { CHART_OF_ACCOUNTS, DEFAULT_SETTINGS, DEFAULT_FISCAL_YEARS } from "../lib/accountingData";
+import { getObject, saveObject, getCollection, saveCollection } from "../lib/db";
 
 /**
  * Context wrapper for ContactsSettingsPanel.
@@ -39,7 +43,61 @@ function ContactsSettingsWrapper(): React.JSX.Element {
 
 function ContactsSettingsConsumer(): React.JSX.Element {
   const { fieldConfig, updateConfig } = useContactConfig();
-  return <ContactsSettingsPanel config={fieldConfig} onConfigChange={updateConfig} />;
+  const [subTab, setSubTab] = useState<"fields" | "preferences">("fields");
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setSubTab("fields")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Fields
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("preferences")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Preferences
+        </button>
+      </div>
+      <ContactsSettingsPanel config={fieldConfig} onConfigChange={updateConfig} mode={subTab} />
+    </div>
+  );
+}
+
+function StudentsSettingsWrapper(): React.JSX.Element {
+  const [subTab, setSubTab] = useState<"fields" | "preferences">("fields");
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setSubTab("fields")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Fields
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("preferences")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Preferences
+        </button>
+      </div>
+      <StudentsSettings mode={subTab} />
+    </div>
+  );
 }
 
 /**
@@ -50,8 +108,255 @@ function AttendanceSettingsWrapper(): React.JSX.Element {
   useEffect(() => {
     saveObject("attendance_settings", settings);
   }, [settings]);
+  const [subTab, setSubTab] = useState<"fields" | "preferences">("fields");
 
-  return <AttendanceSettings role="admin" settings={settings} setSettings={setSettings} />;
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setSubTab("fields")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Fields
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("preferences")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Preferences
+        </button>
+      </div>
+      <AttendanceSettings role="admin" settings={settings} setSettings={setSettings} mode={subTab} />
+    </div>
+  );
+}
+
+function EnrollmentsSettingsWrapper(): React.JSX.Element {
+  const [subTab, setSubTab] = useState<"fields" | "preferences">("fields");
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setSubTab("fields")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Fields
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("preferences")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Preferences
+        </button>
+      </div>
+      <EnrollmentsSettings mode={subTab} />
+    </div>
+  );
+}
+
+function SessionsSettingsWrapper(): React.JSX.Element {
+  const [subTab, setSubTab] = useState<"fields" | "preferences">("fields");
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setSubTab("fields")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Fields
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("preferences")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Preferences
+        </button>
+      </div>
+      <SessionsSettings mode={subTab} />
+    </div>
+  );
+}
+
+function FinanceSettingsWrapper(): React.JSX.Element {
+  const [subTab, setSubTab] = useState<"fields" | "preferences">("fields");
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setSubTab("fields")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Fields
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("preferences")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Preferences
+        </button>
+      </div>
+      <FinanceSettings mode={subTab} />
+    </div>
+  );
+}
+
+function ExaminationsSettingsWrapper(): React.JSX.Element {
+  const [subTab, setSubTab] = useState<"fields" | "preferences">("fields");
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setSubTab("fields")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Fields
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("preferences")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Preferences
+        </button>
+      </div>
+      <ExaminationsSettings mode={subTab} />
+    </div>
+  );
+}
+
+function AccountingSettingsWrapper(): React.JSX.Element {
+  const [accounts, setAccounts] = useState(() => getCollection("accounting_accounts", CHART_OF_ACCOUNTS));
+  const [settings, setSettings] = useState(() => getObject("accounting_settings", DEFAULT_SETTINGS));
+  const [fiscalYears, setFiscalYears] = useState(() => getCollection("accounting_fiscal_years", DEFAULT_FISCAL_YEARS));
+  const [subTab, setSubTab] = useState<"fields" | "preferences">("fields");
+
+  useEffect(() => {
+    saveObject("accounting_settings", settings);
+  }, [settings]);
+
+  useEffect(() => {
+    saveCollection("accounting_fiscal_years", fiscalYears);
+  }, [fiscalYears]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setSubTab("fields")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Fields
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("preferences")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Preferences
+        </button>
+      </div>
+      <AccountingSettings
+        accounts={accounts}
+        settings={settings}
+        onSaveSettings={setSettings}
+        fiscalYears={fiscalYears}
+        onSaveFiscalYears={setFiscalYears}
+        mode={subTab}
+      />
+    </div>
+  );
+}
+
+function HasanatSettingsWrapper(): React.JSX.Element {
+  const [subTab, setSubTab] = useState<"fields" | "preferences">("fields");
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setSubTab("fields")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Fields
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("preferences")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Preferences
+        </button>
+      </div>
+      <HasanatSettings mode={subTab} />
+    </div>
+  );
+}
+
+function UsersSettingsWrapper(): React.JSX.Element {
+  const [subTab, setSubTab] = useState<"fields" | "preferences">("fields");
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setSubTab("fields")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Fields
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("preferences")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            subTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Preferences
+        </button>
+      </div>
+      <UsersSettingsPanel mode={subTab} />
+    </div>
+  );
 }
 
 const NAV = [
@@ -73,6 +378,9 @@ const NAV = [
       { id: "attendance",   label: "Attendance Settings",   icon: UserCheck,      description: "Cutoff times, grace periods & alerts" },
       { id: "finance",      label: "Finance Settings",      icon: DollarSign,     description: "Currency, prefixes & payment methods" },
       { id: "examinations", label: "Examinations Settings", icon: FileText,       description: "Passing marks, grading & certificates" },
+      { id: "accounting",   label: "Accounting Settings",   icon: SettingsIcon,   description: "Chart of Accounts, journal entry options" },
+      { id: "hasanat",      label: "Hasanat Settings",      icon: Star,           description: "Points per card, distribution preferences" },
+      { id: "users",        label: "Users Settings",        icon: Shield,         description: "Self-registration, verification, attributes" },
     ],
   },
 ];
@@ -82,12 +390,15 @@ const CONTENT_MAP = {
   branding:     <BrandingSettings />,
   backup:       <BackupRestore />,
   contacts:     <ContactsSettingsWrapper />,
-  students:     <StudentsSettings />,
-  enrollments:  <EnrollmentsSettings />,
-  sessions:     <SessionsSettings />,
+  students:     <StudentsSettingsWrapper />,
+  enrollments:  <EnrollmentsSettingsWrapper />,
+  sessions:     <SessionsSettingsWrapper />,
   attendance:   <AttendanceSettingsWrapper />,
-  finance:      <FinanceSettings />,
-  examinations: <ExaminationsSettings />,
+  finance:      <FinanceSettingsWrapper />,
+  examinations: <ExaminationsSettingsWrapper />,
+  accounting:   <AccountingSettingsWrapper />,
+  hasanat:      <HasanatSettingsWrapper />,
+  users:        <UsersSettingsWrapper />,
 };
 
 /**
@@ -158,7 +469,13 @@ export default function Settings() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
             >
-              {CONTENT_MAP[tab as keyof typeof CONTENT_MAP]}
+              <Suspense fallback={
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                </div>
+              }>
+                {CONTENT_MAP[tab as keyof typeof CONTENT_MAP]}
+              </Suspense>
             </motion.div>
           </AnimatePresence>
         </div>

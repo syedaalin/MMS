@@ -15,7 +15,8 @@ const TEMPLATES: Template[] = [
   { id: "custom", label: "Custom Message", body: "" },
 ];
 
-import { Contact, PhoneNumber as ContactPhone } from "../../lib/contactFields";
+import { Contact } from "../../lib/contactFields";
+import { hasWhatsApp, getPrimaryPhone } from "../../lib/contactConstants";
 
 interface WhatsAppPanelProps {
   contacts: Contact[];
@@ -35,7 +36,7 @@ export default function WhatsAppPanel({ contacts, onClose }: WhatsAppPanelProps)
   const [sending, setSending] = useState<boolean>(false);
   const [sent, setSent] = useState<boolean>(false);
 
-  const waContacts = contacts.filter((c) => c.phones?.some((p) => p.whatsapp));
+  const waContacts = contacts.filter((c) => hasWhatsApp(c));
 
   const handleTemplateChange = (id: string): void => {
     setTemplate(id);
@@ -44,16 +45,10 @@ export default function WhatsAppPanel({ contacts, onClose }: WhatsAppPanelProps)
   };
 
   const buildWaUrl = (contact: Contact): string => {
-    const p = contact.phones?.find((ph) => ph.whatsapp);
-    if (!p) return "";
-    const code = p.countryCode ? p.countryCode.replace(/\D/g, "") : "";
-    const num = p.number ? p.number.replace(/\D/g, "") : "";
-    let cleanNum = num;
-    if (code && cleanNum.startsWith("0")) {
-      cleanNum = cleanNum.slice(1);
-    }
-    const fullPhone = `${code}${cleanNum}`;
-    return `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
+    const phone = getPrimaryPhone(contact);
+    if (!phone) return "";
+    const cleanNum = phone.replace(/\D/g, "");
+    return `https://wa.me/${cleanNum}?text=${encodeURIComponent(message)}`;
   };
 
   const handleSend = async (): Promise<void> => {
@@ -88,11 +83,7 @@ export default function WhatsAppPanel({ contacts, onClose }: WhatsAppPanelProps)
               <p className="text-[11px] text-white/70">
                 {isBulk
                   ? `${waContacts.length} of ${contacts.length} contacts have WhatsApp`
-                  : (() => {
-                      const p = contacts[0]?.phones?.find((ph) => ph.whatsapp);
-                      if (!p) return "";
-                      return p.countryCode ? `${p.countryCode} ${p.number}` : p.number;
-                    })()}
+                  : getPrimaryPhone(contacts[0]) || ""}
               </p>
             </div>
           </div>
@@ -113,7 +104,7 @@ export default function WhatsAppPanel({ contacts, onClose }: WhatsAppPanelProps)
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Recipients</span>
               <div className="rounded-xl border border-border bg-muted/20 divide-y divide-border/50 max-h-32 overflow-y-auto">
                 {contacts.map((c) => {
-                  const hasWa = c.phones?.some((p) => p.whatsapp);
+                  const hasWa = hasWhatsApp(c);
                   return (
                     <div key={c.id} className="flex items-center gap-2.5 px-3 py-2">
                       <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">

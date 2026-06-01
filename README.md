@@ -1,13 +1,13 @@
-# Madrasa Management System (Monorepo)
+# MMS - Madrasa Management System (Monorepo)
 
-This repository contains the decoupled and modernized codebase for the Dar ul Quran application. It is structured as an NPM Workspace (monorepo) with separate frontend and backend directories.
+This repository contains the decoupled and modernized codebase for the MMS application. It is structured as a pnpm Workspace (monorepo) with separate frontend and backend directories.
 
 ---
 
 ## Directory Structure
 
 ```text
-darul-quran/
+mms/
 ├── package.json          # Root orchestration package configuration
 ├── README.md             # This documentation
 ├── backend/              # Standalone REST API service
@@ -41,7 +41,7 @@ npm install
 ### 2. Configure Environment Variables
 Inside the `frontend/` directory, verify or create the `.env.local` file:
 ```env
-VITE_BASE44_APP_ID=your_app_id
+VITE_API_URL=http://localhost:3000
 ```
 
 ### 3. Run Development Servers
@@ -59,10 +59,10 @@ npm run dev
 To build and run the backend service container:
 ```bash
 # Build the Docker image
-docker build -t darul-quran-backend ./backend
+docker build -t mms-backend ./backend
 
 # Run the container (binds port 3000 and mounts volume for sqlite data persistence)
-docker run -p 3000:3000 -v $(pwd)/backend/data:/app/data darul-quran-backend
+docker run -p 3000:3000 -v $(pwd)/backend/data:/app/data mms-backend
 ```
 
 ### Production Build

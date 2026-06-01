@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { TrendingUp, TrendingDown, Scale, DollarSign, Download } from "lucide-react";
 import { computeFinancials, Account, JournalEntry, FiscalYear, AccountingSettings } from "../../lib/accountingData";
+import { DatePicker } from "../ui/DatePicker";
 
 interface StatCardProps {
   label: string;
@@ -152,13 +153,21 @@ export default function FinancialReports({ accounts, entries, fiscalYears, setti
       <nav aria-label="Report Date Range" className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-border bg-muted/20">
         <div className="flex items-center gap-2">
           <label htmlFor="report-from" className="text-xs font-semibold text-muted-foreground uppercase">From</label>
-          <input id="report-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-            className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+          <DatePicker
+            id="report-from"
+            value={dateFrom}
+            onChange={setDateFrom}
+            className="px-3 py-1.5 w-40"
+          />
         </div>
         <div className="flex items-center gap-2">
           <label htmlFor="report-to" className="text-xs font-semibold text-muted-foreground uppercase">To</label>
-          <input id="report-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-            className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+          <DatePicker
+            id="report-to"
+            value={dateTo}
+            onChange={setDateTo}
+            className="px-3 py-1.5 w-40"
+          />
         </div>
         {activeFY && (
           <button type="button" onClick={() => { setDateFrom(activeFY.startDate); setDateTo(activeFY.endDate); }}

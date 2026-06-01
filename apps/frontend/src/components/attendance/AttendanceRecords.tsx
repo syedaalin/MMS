@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Search, Pencil, Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { DatePicker } from "../ui/DatePicker";
 import { ATTENDANCE_STATUSES, AttendanceRecord } from "../../lib/attendanceData";
 import { SESSIONS_DATA } from "../../lib/sessionsData";
 import { getCollection } from "../../lib/db";
@@ -122,22 +123,18 @@ export default function AttendanceRecords({ filters, role, records, setRecords }
           ))}
         </div>
 
-        <label htmlFor="date-from" className="sr-only">Date From</label>
-        <input 
+        <DatePicker
           id="date-from"
-          type="date" 
-          value={dateFrom} 
-          onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-          className="text-sm rounded-xl border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20" 
+          value={dateFrom}
+          onChange={(val) => { setDateFrom(val); setPage(1); }}
+          className="text-sm rounded-xl border border-border bg-background px-3 py-2 max-w-[150px]"
         />
         
-        <label htmlFor="date-to" className="sr-only">Date To</label>
-        <input 
+        <DatePicker
           id="date-to"
-          type="date" 
-          value={dateTo} 
-          onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-          className="text-sm rounded-xl border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20" 
+          value={dateTo}
+          onChange={(val) => { setDateTo(val); setPage(1); }}
+          className="text-sm rounded-xl border border-border bg-background px-3 py-2 max-w-[150px]"
         />
       </div>
 

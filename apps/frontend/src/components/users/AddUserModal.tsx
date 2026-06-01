@@ -9,6 +9,13 @@ import { DEFAULT_ROLES, type Role, type SystemUser } from "../../lib/usersData";
 import { toTitleCase } from "../../lib/utils";
 import { CONTACTS } from "../../lib/contactsData";
 import type { Contact } from "../../lib/contactFields";
+import { getObject, getCollection } from "../../lib/db";
+import {
+  DEFAULT_USERS_SETTINGS,
+  DEFAULT_USERS_FIELD_DEFS,
+  getSortedFields,
+} from "@mms/shared";
+import { DatePicker } from "../ui/DatePicker";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -259,9 +266,12 @@ function Step1({ form, setForm, errors, existingEmails }: Step1Props): JSX.Eleme
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
 
+  // Use live contacts collection — stays in sync with ContactForm additions
+  const contacts = useMemo(() => getCollection<Contact>("contacts", CONTACTS), []);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return CONTACTS.filter((c) => {
+    return contacts.filter((c) => {
       const emailVal = (c.email as string | undefined) || c.emails?.[0]?.address || "";
       const phoneVal = (c.phone as string | undefined) || c.phones?.[0]?.number || "";
       return (
@@ -270,9 +280,9 @@ function Step1({ form, setForm, errors, existingEmails }: Step1Props): JSX.Eleme
         phoneVal.includes(q)
       );
     }).slice(0, 8);
-  }, [search]);
+  }, [search, contacts]);
 
-  const selected = form.contactId ? CONTACTS.find((c) => String(c.id) === String(form.contactId)) : null;
+  const selected = form.contactId ? contacts.find((c) => String(c.id) === String(form.contactId)) : null;
 
   const selectContact = (c: Contact) => {
     const primaryEmail = c.emails?.[0]?.address || (c.email as string | undefined) || "";
@@ -419,6 +429,18 @@ function Step2({ form, setForm, errors }: Step2Props): JSX.Element {
 
   const isTeacher = form.roles.includes("teacher") || form.roles.includes("assistant_teacher");
 
+  const settings = getObject("users_settings", DEFAULT_USERS_SETTINGS);
+  const customFields = settings.customFields || [];
+  const fieldOrder = settings.fieldOrder || DEFAULT_USERS_SETTINGS.fieldOrder || [];
+  const fields = settings.fields || DEFAULT_USERS_SETTINGS.fields || {};
+
+  const orderedFields = getSortedFields(
+    DEFAULT_USERS_FIELD_DEFS,
+    fieldOrder,
+    fields,
+    customFields
+  );
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -462,7 +484,6 @@ function Step2({ form, setForm, errors }: Step2Props): JSX.Element {
           </motion.div>
         )}
       </AnimatePresence>
-
       {/* Temporary role */}
       <div>
         <label className="flex items-center gap-2 cursor-pointer">
@@ -477,14 +498,89 @@ function Step2({ form, setForm, errors }: Step2Props): JSX.Element {
         <AnimatePresence>
           {form.temporaryRole && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mt-2">
-              <input type="date" value={form.roleExpiry || ""}
+              <DatePicker value={form.roleExpiry || ""}
                 min={new Date().toISOString().split("T")[0]}
-                onChange={(e) => setForm((f) => ({ ...f, roleExpiry: e.target.value }))}
+                onChange={(val) => setForm((f) => ({ ...f, roleExpiry: val }))}
                 className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      {/* Dynamic custom fields */}
+      {orderedFields.filter(f => f.isCustom).length > 0 && (
+        <div className="space-y-3 pt-3 border-t border-border mt-3">
+          <p className="text-xs font-semibold text-foreground uppercase tracking-wide">Additional Attributes</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {orderedFields.filter(f => f.isCustom).map((field) => {
+              const value = (form as any)[field.id] ?? "";
+              const upd = (val: any) => setForm((f) => ({ ...f, [field.id]: val }));
+              return (
+                <div key={field.id} className={field.type === "textarea" ? "sm:col-span-2" : ""}>
+                  <Label required={field.required}>{field.label}</Label>
+                  {field.type === "textarea" ? (
+                    <textarea
+                      className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[60px]"
+                      value={value as string}
+                      onChange={(e) => upd(e.target.value)}
+                      placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}…`}
+                      required={field.required}
+                    />
+                  ) : field.type === "select" ? (
+                    <select
+                      className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                      value={value as string}
+                      onChange={(e) => upd(e.target.value)}
+                      required={field.required}
+                    >
+                      <option value="">Select option…</option>
+                      {field.options?.map((opt: string) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : field.type === "boolean" ? (
+                    <label className="flex items-center gap-2.5 py-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={!!value}
+                        onChange={(e) => upd(e.target.checked)}
+                        className="w-4 h-4 rounded border border-border accent-primary cursor-pointer"
+                      />
+                      <span className="text-xs font-medium text-foreground">{field.label}</span>
+                    </label>
+                  ) : field.type === "number" ? (
+                    <input
+                      type="number"
+                      className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      value={value}
+                      onChange={(e) => upd(e.target.value)}
+                      placeholder={field.placeholder || `Enter number…`}
+                      required={field.required}
+                    />
+                  ) : field.type === "date" ? (
+                    <DatePicker
+                      value={value as string}
+                      onChange={(val) => upd(val)}
+                      required={field.required}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      value={value as string}
+                      onChange={(e) => upd(e.target.value)}
+                      placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}…`}
+                      required={field.required}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -657,6 +753,17 @@ export default function AddUserModal({ onClose, onAdd, existingEmails = [] }: Ad
     }
     if (step === 2) {
       if (form.roles.length === 0) e.roles = "Please assign at least one role.";
+      
+      const settings = getObject("users_settings", DEFAULT_USERS_SETTINGS);
+      const customFields = settings.customFields || [];
+      for (const cf of customFields) {
+        if (cf.required) {
+          const val = (form as any)[cf.id];
+          if (val === undefined || val === null || val === "") {
+            e.roles = `Field "${cf.label}" is required.`;
+          }
+        }
+      }
     }
     if (step === 3 && form.setupMethod === "password") {
       if (!form.password) e.password = "Password is required.";
@@ -681,6 +788,8 @@ export default function AddUserModal({ onClose, onAdd, existingEmails = [] }: Ad
     if (!validate()) return;
     setSubmitting(true);
     await new Promise((r) => setTimeout(r, 900)); // simulate async
+    const settings = getObject("users_settings", DEFAULT_USERS_SETTINGS);
+    const customFields = settings.customFields || [];
     const newUser: SystemUser = {
       id: `u${Date.now()}`,
       name: toTitleCase(form.name.trim()) as string,
@@ -694,6 +803,9 @@ export default function AddUserModal({ onClose, onAdd, existingEmails = [] }: Ad
       failedLoginAttempts: 0,
       activeSessions: 0,
       avatarInitials: form.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
+      ...Object.fromEntries(
+        customFields.map((cf) => [cf.id, (form as any)[cf.id] ?? cf.defaultValue ?? ""])
+      ),
     };
     setSubmitting(false);
     setSuccess(true);

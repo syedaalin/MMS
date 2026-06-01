@@ -9,7 +9,7 @@ import {
 } from "../../lib/contactFields";
 import { saveDefaultConfig } from "../../lib/contactFieldsStore";
 import { useContactConfig } from "../../lib/ContactConfigContext";
-import CustomFieldsBuilder, { CustomFieldConfig } from "./settings/CustomFieldsBuilder";
+import CustomFieldsBuilder, { CustomFieldConfig } from "../ui/CustomFieldsBuilder";
 import DraggableFieldList, { FieldDefinition } from "./settings/DraggableFieldList";
 
 const INPUT = "w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all";
@@ -71,6 +71,7 @@ function syncOrder(prevOrder: string[], coreFieldIds: string[], newCustomIds: st
 interface ContactsSettingsPanelProps {
   config: FieldConfig;
   onConfigChange: (config: FieldConfig) => void;
+  mode?: "fields" | "preferences";
 }
 
 interface ContactPrefs extends ContactPreferences {
@@ -83,7 +84,7 @@ interface ContactPrefs extends ContactPreferences {
  * @param props Component properties.
  * @returns React element.
  */
-export default function ContactsSettingsPanel({ config, onConfigChange }: ContactsSettingsPanelProps): React.JSX.Element {
+export default function ContactsSettingsPanel({ config, onConfigChange, mode }: ContactsSettingsPanelProps): React.JSX.Element {
   const {
     updatePrefs,
     genders,
@@ -207,7 +208,7 @@ export default function ContactsSettingsPanel({ config, onConfigChange }: Contac
 
   const [prefs, setPrefs] = useState<ContactPrefs>(() => {
     try {
-      const storedRaw = localStorage.getItem("darul_quran_contact_prefs") ||
+      const storedRaw = localStorage.getItem("mms_contact_prefs") ||
         localStorage.getItem("madrasa_contact_prefs");
       const stored = storedRaw ? (JSON.parse(storedRaw) as Partial<ContactPrefs>) : {};
       return { defaultCountry: "Pakistan", defaultProvince: "Sindh", defaultCity: "Karachi", ...stored } as ContactPrefs;
@@ -324,8 +325,6 @@ export default function ContactsSettingsPanel({ config, onConfigChange }: Contac
       tabFieldConfig: buildTabFieldConfig(),
       customFields,
       tabCustomFields,
-      personas: config.personas || [],
-      defaultPersonaId: config.defaultPersonaId || "general",
     };
     onConfigChange(cfg);
     updatePrefs(prefs);
@@ -358,350 +357,390 @@ export default function ContactsSettingsPanel({ config, onConfigChange }: Contac
 
   const isUniqueField = (tabId: string, fieldId: string): boolean => tabId === "emails" && fieldId === "address";
 
+  const showFields = !mode || mode === "fields";
+  const showPrefs = !mode || mode === "preferences";
+
   return (
     <div className="space-y-6 max-w-3xl text-left">
-      {/* Info */}
-      <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-800 dark:bg-blue-950/20 dark:border-blue-900/50 dark:text-blue-400">
-        <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
-        <div>
-          <h3 className="font-semibold">Dynamic Contact Fields — Configured Per Madrasa</h3>
-          <p className="text-xs mt-0.5 text-blue-700 dark:text-blue-300">
-            Toggle fields on/off, mark as required, and <strong>drag the grip handle</strong> to reorder fields.
-            Order is reflected instantly in the Contact Form and Contact List.
-          </p>
-        </div>
-      </div>
-
-      {/* General prefs */}
-      <section className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="flex items-center gap-2.5 px-4 py-3 bg-muted/30 border-b border-border">
-          <Users className="w-4 h-4 text-primary" />
-          <span className="text-sm font-bold text-foreground">General Preferences</span>
-        </div>
-        <div className="p-4 space-y-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+      {showFields && (
+        <>
+          {/* Info */}
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-800 dark:bg-blue-950/20 dark:border-blue-900/50 dark:text-blue-400">
+            <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
             <div>
-              <label className={LABEL} htmlFor="defaultCountry">Default Country</label>
-              <input
-                id="defaultCountry"
-                className={INPUT}
-                value={prefs.defaultCountry || ""}
-                onChange={(e) => updPref("defaultCountry", e.target.value)}
-                placeholder="e.g. Pakistan"
-              />
-            </div>
-            <div>
-              <label className={LABEL} htmlFor="defaultProvince">Default Province / State</label>
-              <input
-                id="defaultProvince"
-                className={INPUT}
-                value={prefs.defaultProvince || ""}
-                onChange={(e) => updPref("defaultProvince", e.target.value)}
-                placeholder="e.g. Sindh"
-              />
-            </div>
-            <div>
-              <label className={LABEL} htmlFor="defaultCity">Default City</label>
-              <input
-                id="defaultCity"
-                className={INPUT}
-                value={prefs.defaultCity || ""}
-                onChange={(e) => updPref("defaultCity", e.target.value)}
-                placeholder="e.g. Karachi"
-              />
+              <h3 className="font-semibold">Dynamic Contact Fields — Configured Per Madrasa</h3>
+              <p className="text-xs mt-0.5 text-blue-700 dark:text-blue-300">
+                Toggle fields on/off, mark as required, and <strong>drag the grip handle</strong> to reorder fields.
+                Order is reflected instantly in the Contact Form and Contact List.
+              </p>
             </div>
           </div>
-          <Toggle
-            label="Auto-suggest Merges"
-            description="Show merge suggestions for likely duplicates"
-            value={prefs.autoMergeSuggestions !== false}
-            onChange={(v) => updPref("autoMergeSuggestions", v)}
-          />
-          <Toggle
-            label="Show WhatsApp Actions"
-            description="Enable WhatsApp messaging buttons"
-            value={prefs.showWhatsApp !== false}
-            onChange={(v) => updPref("showWhatsApp", v)}
-          />
-        </div>
-      </section>
 
-      {/* Contact Form Fields by Tab */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Layout className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-bold text-foreground">Contact Form Fields by Tab</h3>
-          <span className="text-xs text-muted-foreground ml-1 flex items-center gap-1">
-            <span>— drag </span>
-            <GripIcon />
-            <span> to reorder</span>
-          </span>
-        </div>
-
-        {/* ── Identity tab (basic) ── */}
-        <section className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="flex items-center gap-2.5 px-4 py-3 bg-muted/30 border-b border-border">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-foreground">Identity</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Always On</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Core identity fields + your custom fields</p>
+          {/* Contact Form Fields by Tab */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Layout className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-bold text-foreground">Contact Form Fields by Tab</h3>
+              <span className="text-xs text-muted-foreground ml-1 flex items-center gap-1">
+                <span>— drag </span>
+                <GripIcon />
+                <span> to reorder</span>
+              </span>
             </div>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary whitespace-nowrap">
-              {TAB_FIELD_DEFINITIONS.basic.filter((f) => f.alwaysOn || tabFieldEnabled["basic"]?.has(f.id)).length}/
-              {TAB_FIELD_DEFINITIONS.basic.length}
-            </span>
-          </div>
-          <div className="p-4 space-y-4">
-            <DraggableFieldList
-              tabId="basic"
-              fields={getOrderedFields("basic", tabFieldOrder["basic"], customFields)}
-              enabledSet={tabFieldEnabled["basic"] || new Set()}
-              requiredSet={tabFieldRequired["basic"] || new Set()}
-              onToggleEnabled={(fieldId) => toggleFieldEnabled("basic", fieldId)}
-              onToggleRequired={(fieldId) => toggleFieldRequired("basic", fieldId)}
-              onReorder={(reordered) => handleReorder("basic", reordered)}
-              isUniqueField={isUniqueField}
-            />
-            <div className="border-t border-border pt-4">
-              <CustomFieldsBuilder
-                fields={customFields as unknown as CustomFieldConfig[]}
-                droppableId="custom-fields-basic"
-                onChange={(f) => handleCustomFieldsChange("basic", f)}
-              />
-            </div>
-          </div>
-        </section>
 
-        {/* ── Other tabs ── */}
-        {TAB_REGISTRY.map((tab) => {
-          const tabId = tab.id;
-          const tabLabel = tab.label.charAt(0).toUpperCase() + tab.label.slice(1);
-          const tabDesc = tabId === "addresses" ? "Manage address records" : tab.description;
-          const tabDefs = TAB_FIELD_DEFINITIONS[tabId] || [];
-          const enabledSet = tabFieldEnabled[tabId] || new Set();
-          const requiredSet = tabFieldRequired[tabId] || new Set();
-          const isOn = tab.alwaysOn || enabledTabs.has(tabId);
-          const isReq = tab.alwaysOn || requiredTabs.has(tabId);
-
-          return (
-            <section key={tabId} className="rounded-xl border border-border bg-card overflow-hidden">
+            {/* ── Identity tab (basic) ── */}
+            <section className="rounded-xl border border-border bg-card overflow-hidden">
               <div className="flex items-center gap-2.5 px-4 py-3 bg-muted/30 border-b border-border">
-                <button
-                  type="button"
-                  disabled={tab.alwaysOn}
-                  onClick={() => toggleTabEnabled(tabId)}
-                  className={`w-5 h-5 rounded flex-shrink-0 border-2 flex items-center justify-center transition-all
-                    ${isOn ? "bg-primary border-primary" : "border-border bg-background"}
-                    ${tab.alwaysOn ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-                  aria-label={`Enable ${tabLabel} tab`}
-                >
-                  {isOn && <Check className="w-3 h-3 text-primary-foreground" />}
-                </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-foreground">{tabLabel}</span>
-                    {tab.alwaysOn && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                        Always On
-                      </span>
-                    )}
+                    <span className="text-sm font-bold text-foreground">Identity</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Always On</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{tabDesc}</p>
+                  <p className="text-xs text-muted-foreground">Core identity fields + your custom fields</p>
                 </div>
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary whitespace-nowrap">
-                  {tabDefs.filter((f) => f.alwaysOn || enabledSet.has(f.id)).length}/{tabDefs.length}
+                  {TAB_FIELD_DEFINITIONS.basic.filter((f) => f.alwaysOn || tabFieldEnabled["basic"]?.has(f.id)).length}/
+                  {TAB_FIELD_DEFINITIONS.basic.length}
                 </span>
-                {isOn && !tab.alwaysOn && (
-                  <button
-                    type="button"
-                    onClick={() => toggleTabRequired(tabId)}
-                    className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all
-                      ${
-                        isReq
-                          ? "bg-red-50 border-red-200 text-red-600 dark:bg-red-950/20 dark:border-red-900/50 dark:text-red-400"
-                          : "bg-muted border-border text-muted-foreground hover:text-foreground"
-                      }`}
-                  >
-                    {isReq ? "Required" : "Optional"}
-                  </button>
-                )}
               </div>
-
-              {isOn && (
-                <div className="p-3 space-y-3">
-                  <DraggableFieldList
-                    tabId={tabId}
-                    fields={getOrderedFields(tabId, tabFieldOrder[tabId], tabCustomFields[tabId] || [])}
-                    enabledSet={enabledSet}
-                    requiredSet={requiredSet}
-                    onToggleEnabled={(fieldId) => toggleFieldEnabled(tabId, fieldId)}
-                    onToggleRequired={(fieldId) => toggleFieldRequired(tabId, fieldId)}
-                    onReorder={(reordered) => handleReorder(tabId, reordered)}
-                    isUniqueField={isUniqueField}
+              <div className="p-4 space-y-4">
+                <DraggableFieldList
+                  tabId="basic"
+                  fields={getOrderedFields("basic", tabFieldOrder["basic"], customFields)}
+                  enabledSet={tabFieldEnabled["basic"] || new Set()}
+                  requiredSet={tabFieldRequired["basic"] || new Set()}
+                  onToggleEnabled={(fieldId) => toggleFieldEnabled("basic", fieldId)}
+                  onToggleRequired={(fieldId) => toggleFieldRequired("basic", fieldId)}
+                  onReorder={(reordered) => handleReorder("basic", reordered)}
+                  isUniqueField={isUniqueField}
+                />
+                <div className="border-t border-border pt-4">
+                  <CustomFieldsBuilder
+                    fields={customFields as unknown as CustomFieldConfig[]}
+                    droppableId="custom-fields-basic"
+                    onChange={(f) => handleCustomFieldsChange("basic", f)}
                   />
-                  <div className="border-t border-border pt-3">
-                    <CustomFieldsBuilder
-                      fields={(tabCustomFields[tabId] || []) as unknown as CustomFieldConfig[]}
-                      droppableId={`custom-fields-${tabId}`}
-                      onChange={(f) => handleCustomFieldsChange(tabId, f)}
-                    />
-                  </div>
                 </div>
-              )}
+              </div>
             </section>
-          );
-        })}
-      </div>
 
-      {/* Option Lists Management */}
-      <section className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="flex items-center gap-2.5 px-4 py-3 bg-muted/30 border-b border-border">
-          <List className="w-4 h-4 text-primary" />
-          <span className="text-sm font-bold text-foreground">Predefined Options Management</span>
-        </div>
-        <div className="p-4 space-y-4">
-          <p className="text-xs text-muted-foreground">
-            Configure dropdown menus and lists used globally in contact fields (e.g. gender options, relationship labels, dial prefixes).
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="w-full sm:w-1/3 text-left">
-              <label className={LABEL} htmlFor="list-selector">Select List to Configure</label>
-              <select
-                id="list-selector"
-                className={INPUT + " cursor-pointer"}
-                value={listKey}
-                onChange={(e) => {
-                  setListKey(e.target.value);
-                  setNewItemText("");
-                  setNewCountryName("");
-                  setNewCountryCode("");
-                }}
-              >
-                <option value="genders">Genders</option>
-                <option value="lifecycleStages">Lifecycle Stages</option>
-                <option value="socialPlatforms">Social Platforms</option>
-                <option value="relationships">Relationships</option>
-                <option value="phoneLabels">Phone Labels</option>
-                <option value="emailLabels">Email Labels</option>
-                <option value="addressLabels">Address Labels</option>
-                <option value="countryCodes">Country Dial Codes</option>
-              </select>
-            </div>
+            {/* ── Other tabs ── */}
+            {TAB_REGISTRY.map((tab) => {
+              const tabId = tab.id;
+              const tabLabel = tab.label.charAt(0).toUpperCase() + tab.label.slice(1);
+              const tabDesc = tabId === "addresses" ? "Manage address records" : tab.description;
+              const tabDefs = TAB_FIELD_DEFINITIONS[tabId] || [];
+              const enabledSet = tabFieldEnabled[tabId] || new Set();
+              const requiredSet = tabFieldRequired[tabId] || new Set();
+              const isOn = tab.alwaysOn || enabledTabs.has(tabId);
+              const isReq = tab.alwaysOn || requiredTabs.has(tabId);
 
-            <div className="flex-1 space-y-3 text-left">
-              {listKey === "countryCodes" ? (
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1 text-left">
-                    <label className={LABEL} htmlFor="new-country-name">Country Name</label>
-                    <input
-                      id="new-country-name"
-                      className={INPUT}
-                      value={newCountryName}
-                      onChange={(e) => setNewCountryName(e.target.value)}
-                      placeholder="e.g. Turkey"
-                    />
-                  </div>
-                  <div className="w-24 text-left">
-                    <label className={LABEL} htmlFor="new-country-code">Dial Code</label>
-                    <input
-                      id="new-country-code"
-                      className={INPUT}
-                      value={newCountryCode}
-                      onChange={(e) => setNewCountryCode(e.target.value)}
-                      placeholder="e.g. +90"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddCountry}
-                    className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center h-9"
-                    title="Add Country"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1 text-left">
-                    <label className={LABEL} htmlFor="new-item-text">Add New Option</label>
-                    <input
-                      id="new-item-text"
-                      className={INPUT}
-                      value={newItemText}
-                      onChange={(e) => setNewItemText(e.target.value)}
-                      placeholder="Type a new label..."
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddItem}
-                    className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center h-9"
-                    title="Add Option"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              {/* Items Display */}
-              <div className="border border-border rounded-lg max-h-[200px] overflow-y-auto divide-y divide-border bg-card">
-                {listKey === "countryCodes" ? (
-                  countryCodes.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">No countries configured.</p>
-                  ) : (
-                    countryCodes.map((c) => (
-                      <div key={c.country} className="flex items-center justify-between px-3 py-2 text-xs">
-                        <span className="font-semibold text-foreground">{c.country}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-muted-foreground">{c.code}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveCountry(c.country)}
-                            className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500"
-                            title={`Remove ${c.country}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+              return (
+                <section key={tabId} className="rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="flex items-center gap-2.5 px-4 py-3 bg-muted/30 border-b border-border">
+                    <button
+                      type="button"
+                      disabled={tab.alwaysOn}
+                      onClick={() => toggleTabEnabled(tabId)}
+                      className={`w-5 h-5 rounded flex-shrink-0 border-2 flex items-center justify-center transition-all
+                        ${isOn ? "bg-primary border-primary" : "border-border bg-background"}
+                        ${tab.alwaysOn ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                      aria-label={`Enable ${tabLabel} tab`}
+                    >
+                      {isOn && <Check className="w-3 h-3 text-primary-foreground" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-foreground">{tabLabel}</span>
+                        {tab.alwaysOn && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                            Always On
+                          </span>
+                        )}
                       </div>
-                    ))
-                  )
-                ) : (
-                  (() => {
-                    const items =
-                      listKey === "genders" ? genders :
-                      listKey === "lifecycleStages" ? lifecycleStages :
-                      listKey === "socialPlatforms" ? socialPlatforms :
-                      listKey === "relationships" ? relationships :
-                      listKey === "phoneLabels" ? phoneLabels :
-                      listKey === "emailLabels" ? emailLabels :
-                      addressLabels;
-                    return items.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-4">No options configured.</p>
+                      <p className="text-xs text-muted-foreground">{tabDesc}</p>
+                    </div>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary whitespace-nowrap">
+                      {tabDefs.filter((f) => f.alwaysOn || enabledSet.has(f.id)).length}/{tabDefs.length}
+                    </span>
+                    {isOn && !tab.alwaysOn && (
+                      <button
+                        type="button"
+                        onClick={() => toggleTabRequired(tabId)}
+                        className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all
+                          ${
+                            isReq
+                              ? "bg-red-50 border-red-200 text-red-600 dark:bg-red-950/20 dark:border-red-900/50 dark:text-red-400"
+                              : "bg-muted border-border text-muted-foreground hover:text-foreground"
+                          }`}
+                      >
+                        {isReq ? "Required" : "Optional"}
+                      </button>
+                    )}
+                  </div>
+
+                  {isOn && (
+                    <div className="p-3 space-y-3">
+                      <DraggableFieldList
+                        tabId={tabId}
+                        fields={getOrderedFields(tabId, tabFieldOrder[tabId], tabCustomFields[tabId] || [])}
+                        enabledSet={enabledSet}
+                        requiredSet={requiredSet}
+                        onToggleEnabled={(fieldId) => toggleFieldEnabled(tabId, fieldId)}
+                        onToggleRequired={(fieldId) => toggleFieldRequired(tabId, fieldId)}
+                        onReorder={(reordered) => handleReorder(tabId, reordered)}
+                        isUniqueField={isUniqueField}
+                      />
+                      <div className="border-t border-border pt-3">
+                        <CustomFieldsBuilder
+                          fields={(tabCustomFields[tabId] || []) as unknown as CustomFieldConfig[]}
+                          droppableId={`custom-fields-${tabId}`}
+                          onChange={(f) => handleCustomFieldsChange(tabId, f)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+          {/* Option Lists Management */}
+          <section className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="flex items-center gap-2.5 px-4 py-3 bg-muted/30 border-b border-border">
+              <List className="w-4 h-4 text-primary" />
+              <span className="text-sm font-bold text-foreground">Predefined Options Management</span>
+            </div>
+            <div className="p-4 space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Configure dropdown menus and lists used globally in contact fields (e.g. gender options, relationship labels, dial prefixes).
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="w-full sm:w-1/3 text-left">
+                  <label className={LABEL} htmlFor="list-selector">Select List to Configure</label>
+                  <select
+                    id="list-selector"
+                    className={INPUT + " cursor-pointer"}
+                    value={listKey}
+                    onChange={(e) => {
+                      setListKey(e.target.value);
+                      setNewItemText("");
+                      setNewCountryName("");
+                      setNewCountryCode("");
+                    }}
+                  >
+                    <option value="genders">Genders</option>
+                    <option value="lifecycleStages">Lifecycle Stages</option>
+                    <option value="socialPlatforms">Social Platforms</option>
+                    <option value="relationships">Relationships</option>
+                    <option value="phoneLabels">Phone Labels</option>
+                    <option value="emailLabels">Email Labels</option>
+                    <option value="addressLabels">Address Labels</option>
+                    <option value="countryCodes">Country Dial Codes</option>
+                  </select>
+                </div>
+
+                <div className="flex-1 space-y-3 text-left">
+                  {listKey === "countryCodes" ? (
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1 text-left">
+                        <label className={LABEL} htmlFor="new-country-name">Country Name</label>
+                        <input
+                          id="new-country-name"
+                          className={INPUT}
+                          value={newCountryName}
+                          onChange={(e) => setNewCountryName(e.target.value)}
+                          placeholder="e.g. Turkey"
+                        />
+                      </div>
+                      <div className="w-24 text-left">
+                        <label className={LABEL} htmlFor="new-country-code">Dial Code</label>
+                        <input
+                          id="new-country-code"
+                          className={INPUT}
+                          value={newCountryCode}
+                          onChange={(e) => setNewCountryCode(e.target.value)}
+                          placeholder="e.g. +90"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddCountry}
+                        className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center h-9"
+                        title="Add Country"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1 text-left">
+                        <label className={LABEL} htmlFor="new-item-text">Add New Option</label>
+                        <input
+                          id="new-item-text"
+                          className={INPUT}
+                          value={newItemText}
+                          onChange={(e) => setNewItemText(e.target.value)}
+                          placeholder="Type a new label..."
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddItem}
+                        className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center h-9"
+                        title="Add Option"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Items Display */}
+                  <div className="border border-border rounded-lg max-h-[200px] overflow-y-auto divide-y divide-border bg-card">
+                    {listKey === "countryCodes" ? (
+                      countryCodes.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-4">No countries configured.</p>
+                      ) : (
+                        countryCodes.map((c) => (
+                          <div key={c.country} className="flex items-center justify-between px-3 py-2 text-xs">
+                            <span className="font-semibold text-foreground">{c.country}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-muted-foreground">{c.code}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCountry(c.country)}
+                                className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500"
+                                title={`Remove ${c.country}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )
                     ) : (
-                      items.map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between px-3 py-2 text-xs font-semibold">
-                          <span className="text-foreground">{item}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(idx)}
-                            className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500"
-                            title={`Remove ${item}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))
-                    );
-                  })()
-                )}
+                      (() => {
+                        const items =
+                          listKey === "genders" ? genders :
+                          listKey === "lifecycleStages" ? lifecycleStages :
+                          listKey === "socialPlatforms" ? socialPlatforms :
+                          listKey === "relationships" ? relationships :
+                          listKey === "phoneLabels" ? phoneLabels :
+                          listKey === "emailLabels" ? emailLabels :
+                          addressLabels;
+                        return items.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-4">No options configured.</p>
+                        ) : (
+                          items.map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between px-3 py-2 text-xs font-semibold">
+                              <span className="text-foreground">{item}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(idx)}
+                                className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500"
+                                title={`Remove ${item}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))
+                        );
+                      })()
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
+        </>
+      )}
+
+      {showPrefs && (
+        <>
+          {/* General prefs */}
+          <section className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="flex items-center gap-2.5 px-4 py-3 bg-muted/30 border-b border-border">
+              <Users className="w-4 h-4 text-primary" />
+              <span className="text-sm font-bold text-foreground">General Preferences</span>
+            </div>
+            <div className="p-4 space-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className={LABEL} htmlFor="defaultCountry">Default Country</label>
+                  <input
+                    id="defaultCountry"
+                    className={INPUT}
+                    value={prefs.defaultCountry || ""}
+                    onChange={(e) => updPref("defaultCountry", e.target.value)}
+                    placeholder="e.g. Pakistan"
+                  />
+                </div>
+                <div>
+                  <label className={LABEL} htmlFor="defaultProvince">Default Province / State</label>
+                  <input
+                    id="defaultProvince"
+                    className={INPUT}
+                    value={prefs.defaultProvince || ""}
+                    onChange={(e) => updPref("defaultProvince", e.target.value)}
+                    placeholder="e.g. Sindh"
+                  />
+                </div>
+                <div>
+                  <label className={LABEL} htmlFor="defaultCity">Default City</label>
+                  <input
+                    id="defaultCity"
+                    className={INPUT}
+                    value={prefs.defaultCity || ""}
+                    onChange={(e) => updPref("defaultCity", e.target.value)}
+                    placeholder="e.g. Karachi"
+                  />
+                </div>
+              </div>
+              <Toggle
+                label="Auto-suggest Merges"
+                description="Show merge suggestions for likely duplicates"
+                value={prefs.autoMergeSuggestions !== false}
+                onChange={(v) => updPref("autoMergeSuggestions", v)}
+              />
+              <Toggle
+                label="Show WhatsApp Actions"
+                description="Enable WhatsApp messaging buttons"
+                value={prefs.showWhatsApp !== false}
+                onChange={(v) => updPref("showWhatsApp", v)}
+              />
+              <div className="py-3 border-t border-border mt-3 flex items-center justify-between">
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">Default View Layout</p>
+                  <p className="text-[11px] text-muted-foreground">Select how contacts are displayed in operations view</p>
+                </div>
+                <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
+                  <button
+                    type="button"
+                    onClick={() => updPref("defaultViewLayout", "list")}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      (prefs.defaultViewLayout || "list") === "list"
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    List View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updPref("defaultViewLayout", "kanban")}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      prefs.defaultViewLayout === "kanban"
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Kanban Board
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
 
       {/* Save / reset */}
       <div className="flex items-center gap-3 pt-2 border-t border-border sticky bottom-0 bg-background pb-2 flex-wrap">
@@ -725,8 +764,6 @@ export default function ContactsSettingsPanel({ config, onConfigChange }: Contac
               tabFieldConfig: buildTabFieldConfig(),
               customFields,
               tabCustomFields,
-              personas: config.personas || [],
-              defaultPersonaId: config.defaultPersonaId || "general",
             });
             setSavedDefault(true);
             setTimeout(() => setSavedDefault(false), 2500);

@@ -29,3 +29,10 @@ dist-ssr
 
 .env
 .vite
+
+# Turbo build cache
+.turbo
+
+# WhatsApp Web session data
+.wwebjs_auth
+.wwebjs_cache

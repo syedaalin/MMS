@@ -91,7 +91,7 @@ function toVCard(contact: Contact): string {
 
 // ── Google Contacts OAuth Setup Panel ─────────────────────────────────────────
 
-const GOOGLE_STORAGE_KEY = "darul_quran_google_contacts_config";
+const GOOGLE_STORAGE_KEY = "mms_google_contacts_config";
 
 interface GoogleOauthConfig {
   clientId?: string;

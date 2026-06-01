@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Mail, Plus, Trash2 } from "lucide-react";
 import { DEFAULT_TAB_FIELD_CONFIG } from "../../../lib/contactFields";
-import { INPUT, SELECT, LABEL, Field, FormEmptyState, RequiredBanner, CustomFieldInput, CustomFieldConfig } from "./FormPrimitives";
+import { INPUT, SELECT, LABEL, Field, FormEmptyState, RequiredBanner, CustomFieldInput, CustomFieldConfig, EditableSelect } from "./FormPrimitives";
 import { useSortedFields } from "../../../hooks/useSortedFields";
 import { useContactConfig } from "../../../lib/ContactConfigContext";
 
@@ -40,8 +40,8 @@ export default function EmailTab({
   customFields
 }: EmailTabProps): React.JSX.Element {
   const sortedCustomFields = useSortedFields("emails").filter((f) => f.isCustom && f.showInForm !== false);
-  const { emailLabels } = useContactConfig();
-  const emails = data.emails || [];
+  const { emailLabels, updateEmailLabels } = useContactConfig();
+  const emails = data.emails && data.emails.length > 0 ? data.emails : [{ label: "Personal", address: "" }];
 
   const upd = (list: ContactEmail[]): void => {
     onChange({ ...data, emails: list });
@@ -76,18 +76,17 @@ export default function EmailTab({
         >
           <div className="flex items-center justify-between">
             {showLabel ? (
-              <select
-                className={`${SELECT} w-28`}
-                value={e.label}
-                onChange={(ev) => updateEmail(i, { label: ev.target.value })}
-                aria-label={`Email label ${i + 1}`}
-              >
-                {(emailLabels || []).map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <span className={LABEL + " !mb-0 text-[10px]"}>Type:</span>
+                <EditableSelect
+                  options={emailLabels || []}
+                  value={e.label}
+                  onChange={(val) => updateEmail(i, { label: val })}
+                  onUpdateOptions={updateEmailLabels}
+                  placeholder="Select label..."
+                  className="w-28"
+                />
+              </div>
             ) : (
               <div />
             )}

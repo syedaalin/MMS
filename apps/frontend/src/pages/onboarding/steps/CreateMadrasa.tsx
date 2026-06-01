@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { Upload, X, Globe, Check } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import { OnboardingData } from "../OnboardingWizard";
+import { optimizeImage } from "@/lib/utils";
 
 export interface CreateMadrasaData {
   logo?: string | null;
@@ -45,9 +46,10 @@ export default function CreateMadrasa({ data, onChange }: CreateMadrasaProps) {
     onChange((prev) => ({ ...prev, [field]: val } as OnboardingData));
   };
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const optimized = await optimizeImage(file);
     const reader = new FileReader();
     reader.onload = (ev) => {
       const base64Url = ev.target?.result;
@@ -56,7 +58,7 @@ export default function CreateMadrasa({ data, onChange }: CreateMadrasaProps) {
         updateField("logo", base64Url);
       }
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(optimized);
   };
 
   const slugify = (val: string): string =>

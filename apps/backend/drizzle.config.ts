@@ -5,6 +5,6 @@ export default defineConfig({
   out: './src/db/migrations_drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/darul_quran',
+    url: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/mms',
   },
 });

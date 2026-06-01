@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { ClipboardList, RefreshCw } from "lucide-react";
+import { DatePicker } from "../ui/DatePicker";
 // @ts-ignore - Assuming this will be converted to TSX later
 import { getAuditLog } from "./MarkAttendance";
 import { SESSIONS_DATA } from "../../lib/sessionsData";
@@ -134,13 +135,11 @@ export default function AuditLog({ filters }: AuditLogProps) {
           {allClasses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         
-        <label htmlFor="audit-date-select" className="sr-only">Filter by Date</label>
-        <input 
+        <DatePicker
           id="audit-date-select"
-          type="date" 
-          value={date} 
-          onChange={(e) => setDate(e.target.value)}
-          className="text-sm rounded-xl border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20" 
+          value={date}
+          onChange={setDate}
+          className="text-sm rounded-xl border border-border bg-background px-3 py-2"
         />
       </div>
 

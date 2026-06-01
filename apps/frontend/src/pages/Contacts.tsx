@@ -31,7 +31,7 @@ import { useToast } from "@/components/ui/use-toast";
 import {
   ContactConfigProvider, useContactConfig, useContactColumns, calculateProfileHealth
 } from "../lib/ContactConfigContext";
-import { parsePhoneNumber, getPrimaryPhone } from "../lib/contactConstants";
+import { parsePhoneNumber, getPrimaryPhone, hasWhatsApp } from "../lib/contactConstants";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_TABS = [
@@ -41,8 +41,9 @@ const PAGE_TABS = [
 ];
 
 const SETTINGS_SUB_TABS = [
-  { id: "fields", label: "Fields & Preferences" },
-  { id: "sync",   label: "Sync (Google / Apple)" },
+  { id: "fields",      label: "Fields" },
+  { id: "preferences", label: "Preferences" },
+  { id: "sync",        label: "Sync (Google / Apple)" },
 ];
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -95,9 +96,15 @@ function SettingsPanel({ contacts, onImport }: SettingsPanelProps) {
         ))}
       </div>
       <Suspense fallback={<LazyFallback />}>
-        {sub === "fields"
-          ? <ContactsSettingsPanel config={fieldConfig} onConfigChange={updateConfig as (config: object) => void} />
-          : <ContactSyncPanel contacts={contacts} onImport={onImport as (contacts: object[]) => void} />}
+        {sub === "fields" && (
+          <ContactsSettingsPanel config={fieldConfig} onConfigChange={updateConfig as (config: object) => void} mode="fields" />
+        )}
+        {sub === "preferences" && (
+          <ContactsSettingsPanel config={fieldConfig} onConfigChange={updateConfig as (config: object) => void} mode="preferences" />
+        )}
+        {sub === "sync" && (
+          <ContactSyncPanel contacts={contacts} onImport={onImport as (contacts: object[]) => void} />
+        )}
       </Suspense>
     </div>
   );
@@ -153,6 +160,11 @@ function ContactsInner() {
   const [filterGender,    setFilterGender]    = useState("");
   const [filterStage,     setFilterStage]     = useState("");
   const [viewMode,        setViewMode]        = useState<"list" | "kanban">("list");
+  useEffect(() => {
+    if (prefs.defaultViewLayout === "list" || prefs.defaultViewLayout === "kanban") {
+      setViewMode(prefs.defaultViewLayout);
+    }
+  }, [prefs.defaultViewLayout]);
   const [sortField,       setSortField]       = useState("name");
   const [sortDir,         setSortDir]         = useState<"asc" | "desc">("asc");
   const [selected,        setSelected]        = useState<(string | number)[]>([]);
@@ -279,7 +291,7 @@ function ContactsInner() {
         icon={Users}
         title="Contacts"
         subtitle={`${contacts.length} total · ${filtered.length} shown`}
-        actions={activeTab === "operations" ? (
+        actions={
           <>
             <ActionButton variant="ghost" icon={AlertTriangle} onClick={() => setShowDuplicates(true)}>Duplicates</ActionButton>
             <button onClick={handleExportCSV} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
@@ -287,7 +299,7 @@ function ContactsInner() {
             </button>
             <ActionButton variant="primary" icon={UserPlus} onClick={handleNew}>Add Contact</ActionButton>
           </>
-        ) : null}
+        }
       />
 
       <div className="space-y-4">
@@ -313,19 +325,10 @@ function ContactsInner() {
         {activeTab === "operations" ? (
           <motion.div key="operations" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
             <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between bg-card/40 backdrop-blur-xl border border-border/50 p-3 rounded-2xl shadow-sm">
-              <div className="flex gap-1.5 bg-muted/60 p-1 rounded-xl w-fit">
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${viewMode === "list" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  List View
-                </button>
-                <button
-                  onClick={() => setViewMode("kanban")}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${viewMode === "kanban" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Kanban Board
-                </button>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-2">
+                  Operations ({viewMode === "kanban" ? "Kanban Board" : "List View"})
+                </span>
               </div>
 
               <div className="flex items-center gap-3">
@@ -384,11 +387,23 @@ function ContactsInner() {
                     <span className="text-sm font-semibold text-foreground">{selected.length} selected</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setWhatsappTargets(contacts.filter((c) => selected.includes(c.id)))}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-white"
-                      style={{ background: "#075E54" }}>
-                      <MessageCircle className="w-3.5 h-3.5" /> WhatsApp ({selected.length})
-                    </button>
+                    {(() => {
+                      const targets = contacts.filter((c) => selected.includes(c.id));
+                      const waTargets = targets.filter((c) => hasWhatsApp(c));
+                      const isClickable = waTargets.length > 0;
+                      return (
+                        <button
+                          disabled={!isClickable}
+                          onClick={() => setWhatsappTargets(waTargets)}
+                          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-white transition-all ${
+                            isClickable ? "hover:scale-[1.02] active:scale-[0.98]" : "opacity-40 cursor-not-allowed"
+                          }`}
+                          style={{ background: "#075E54" }}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" /> WhatsApp ({waTargets.length})
+                        </button>
+                      );
+                    })()}
                     <button onClick={() => setSelected([])} className="px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                       Deselect
                     </button>
