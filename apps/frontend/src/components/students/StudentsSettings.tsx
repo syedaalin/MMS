@@ -103,7 +103,7 @@ export default function StudentsSettings({ mode }: { mode?: "fields" | "preferen
 
   const handleCustomFieldsChange = (newFields: CustomFieldConfig[]) => {
     const coreIds = DEFAULT_STUDENT_FIELD_DEFS.map(f => f.id);
-    const newIds = newFields.map(f => f.id);
+    const newIds = newFields.map(f => f.key);
     
     // Sync fieldOrder
     const kept = fieldOrder.filter((id) => coreIds.includes(id) || newIds.includes(id));
@@ -111,7 +111,7 @@ export default function StudentsSettings({ mode }: { mode?: "fields" | "preferen
     
     setData(d => ({
       ...d,
-      customFields: newFields as unknown as StudentCustomField[],
+      customFields: newFields.map(f => ({ ...f, id: f.key })) as unknown as StudentCustomField[],
       fieldOrder: [...kept, ...added]
     }));
     setSaved(false);
@@ -229,7 +229,7 @@ export default function StudentsSettings({ mode }: { mode?: "fields" | "preferen
               <p className="text-xs text-muted-foreground">Core student fields + your custom fields</p>
             </div>
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary whitespace-nowrap">
-              {orderedFields.filter(f => f.isCustom ? true : (fields[f.id]?.enabled ?? true)).length}/{orderedFields.length}
+              {orderedFields.filter(f => fields[f.id]?.enabled ?? true).length}/{orderedFields.length}
             </span>
           </div>
 
@@ -239,8 +239,9 @@ export default function StudentsSettings({ mode }: { mode?: "fields" | "preferen
                 {(provided) => (
                   <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-1.5">
                     {orderedFields.map((field, index) => {
-                      const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled ?? true);
-                      const isRequired = field.isCustom ? !!field.required : (fields[field.id]?.required ?? false);
+                      const isCustom = !DEFAULT_STUDENT_FIELD_DEFS.some(df => df.id === field.id);
+                      const isEnabled = fields[field.id]?.enabled ?? true;
+                      const isRequired = fields[field.id]?.required ?? false;
 
                       return (
                         <Draggable key={field.id} draggableId={field.id} index={index}>
@@ -266,20 +267,20 @@ export default function StudentsSettings({ mode }: { mode?: "fields" | "preferen
                               </span>
 
                               {/* Enable Toggle */}
-                              <button
-                                type="button"
-                                onClick={() => handleToggleEnabled(field.id)}
-                                disabled={field.isCustom}
-                                className={`w-4 h-4 rounded flex-shrink-0 border-2 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed
-                                  ${isEnabled ? "bg-primary border-primary" : "border-border bg-background"}`}
-                              >
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleEnabled(field.id)}
+                                  disabled={isCustom}
+                                  className={`w-4 h-4 rounded flex-shrink-0 border-2 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed
+                                    ${isEnabled ? "bg-primary border-primary" : "border-border bg-background"}`}
+                                >
                                 {isEnabled && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
                               </button>
 
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="font-semibold text-foreground">{field.label}</p>
-                                  {field.isCustom && field.type && (
+                                  {isCustom && field.type && (
                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-950/20 dark:text-violet-400 dark:border-violet-900/50">
                                       Custom · {field.type}
                                     </span>

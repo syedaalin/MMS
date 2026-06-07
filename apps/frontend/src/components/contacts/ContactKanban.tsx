@@ -1,41 +1,26 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Phone, Mail, Edit2, Trash2, MessageCircle, Star } from "lucide-react";
-import { AVATAR_COLORS, getInitials, getPrimaryPhone, getPrimaryEmail, hasWhatsApp, getDisplayName } from "@/lib/contactConstants";
+import { Phone, Mail, Edit2, Trash2, MessageCircle, MessageSquare, Star } from "lucide-react";
+import { getPrimaryPhone, getPrimaryEmail, hasWhatsApp, getDisplayName, Contact, FieldConfig } from "@mms/shared";
 import { useContactConfig, calculateProfileHealth } from "../../lib/ContactConfigContext";
-import { Contact, FieldConfig, LIFECYCLE_COLORS } from "../../lib/contactFields";
+import { EditableSelect } from "./form/FormPrimitives";
 
-interface AvatarProps {
-  contact: Contact;
-}
-
-/**
- * Avatar component displaying contact initials.
- */
-function Avatar({ contact }: AvatarProps): React.JSX.Element {
-  const initials = getInitials(contact.name || contact.firstName);
-  const numericId = typeof contact.id === "number" ? contact.id : 0;
-  const color = AVATAR_COLORS[numericId % AVATAR_COLORS.length];
-  return (
-    <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center text-xs font-bold flex-shrink-0`}>
-      {initials}
-    </div>
-  );
-}
+import ContactAvatar from "./ContactAvatar";
 
 interface ContactCardProps {
   contact: Contact;
   onEdit: (contact: Contact) => void;
   onDelete: (id: string | number) => void;
   onWhatsApp: (contacts: Contact[]) => void;
+  onSms: (contacts: Contact[]) => void;
   onStageChange: (id: string | number, newStage: string) => void;
 }
 
 /**
  * Individual ContactCard component.
  */
-function ContactCard({ contact, onEdit, onDelete, onWhatsApp, onStageChange }: ContactCardProps): React.JSX.Element {
-  const { lifecycleStages } = useContactConfig();
+function ContactCard({ contact, onEdit, onDelete, onWhatsApp, onSms, onStageChange }: ContactCardProps): React.JSX.Element {
+  const { lifecycleStages, updateLifecycleStages, uiStrings } = useContactConfig();
   const phone = getPrimaryPhone(contact);
   const email = getPrimaryEmail(contact);
   const hasWA = hasWhatsApp(contact);
@@ -69,17 +54,17 @@ function ContactCard({ contact, onEdit, onDelete, onWhatsApp, onStageChange }: C
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <Avatar contact={contact} />
+          <ContactAvatar contact={contact} />
           <div>
             <p className="text-[13px] font-semibold text-foreground leading-tight">{getDisplayName(contact)}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border`}>
-                Health: {health}%
+                {uiStrings.profileHealth}: {health}%
               </span>
               {rating > 0 && (
                 <div className="flex items-center gap-0.5">
-                  <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
-                  <span className="text-[9px] font-bold text-amber-600">{rating}</span>
+                  <Star className={`w-2.5 h-2.5 ${uiStrings?.starActiveClass?.replace(/[wh]-\d+(\.\d+)?/g, "") || "text-amber-500 fill-amber-500"}`} />
+                  <span className={`text-[9px] font-bold ${uiStrings?.starActiveClass?.includes("text-") ? uiStrings.starActiveClass.match(/text-[a-z0-9-]+/)?.[0] : "text-amber-600"}`}>{rating}</span>
                 </div>
               )}
             </div>
@@ -88,17 +73,17 @@ function ContactCard({ contact, onEdit, onDelete, onWhatsApp, onStageChange }: C
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={handleEdit}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             type="button"
-            aria-label="Edit contact"
+            aria-label={uiStrings.editContactAria}
           >
             <Edit2 className="w-3 h-3" />
           </button>
           <button
             onClick={handleDelete}
-            className="p-1 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
+            className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${uiStrings?.deleteActionClass || "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"}`}
             type="button"
-            aria-label="Delete contact"
+            aria-label={uiStrings.deleteContactAria}
           >
             <Trash2 className="w-3 h-3" />
           </button>
@@ -122,35 +107,40 @@ function ContactCard({ contact, onEdit, onDelete, onWhatsApp, onStageChange }: C
 
       {/* Stage Mover Selector */}
       <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-1.5">
-        <label htmlFor={`stage-select-${contact.id}`} className="text-[9px] font-semibold text-muted-foreground uppercase">Move to:</label>
-        <select
-          id={`stage-select-${contact.id}`}
-          value={contact.lifecycleStage || "Lead"}
-          onChange={handleStageSelect}
-          className="text-[10px] font-bold border border-border/80 rounded bg-background px-1.5 py-0.5 text-foreground hover:border-primary/40 focus:outline-none"
-        >
-          {(lifecycleStages || []).map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+        <span className="text-[9px] font-semibold text-muted-foreground uppercase">{uiStrings.moveToLabel}</span>
+        <EditableSelect
+          options={lifecycleStages || []}
+          value={contact.lifecycleStage || uiStrings.defaultLifecycleStage}
+          onChange={(val) => onStageChange(contact.id, val)}
+          onUpdateOptions={updateLifecycleStages}
+          placeholder={uiStrings.moveToPlaceholder}
+          className="w-28"
+        />
       </div>
 
-      {contact.phones && contact.phones.length > 0 && (
-        <button
-          disabled={!hasWA}
-          onClick={handleWhatsApp}
-          className={`w-full flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-semibold text-white transition-all ${
-            hasWA 
-              ? "opacity-100 cursor-pointer" 
-              : "opacity-40 cursor-not-allowed bg-muted/60 text-muted-foreground"
-          }`}
-          style={{ backgroundColor: hasWA ? "#075E54" : "hsl(var(--muted))" }}
-          type="button"
-        >
-          <MessageCircle className="w-3 h-3" /> WhatsApp
-        </button>
+      {phone && (
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            disabled={!hasWA}
+            onClick={handleWhatsApp}
+            className={`flex min-h-[44px] items-center justify-center gap-1 rounded-lg text-[11px] font-semibold text-white transition-all ${
+              hasWA
+                ? "cursor-pointer opacity-100"
+                : "cursor-not-allowed bg-muted/60 text-muted-foreground opacity-40"
+            }`}
+            style={{ backgroundColor: hasWA ? (uiStrings.whatsappColor || "#075E54") : "hsl(var(--muted))" }}
+            type="button"
+          >
+            <MessageCircle className="w-3 h-3" /> {uiStrings.whatsapp}
+          </button>
+          <button
+            onClick={() => onSms([contact])}
+            className="flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-violet-200 bg-violet-50 text-[11px] font-semibold text-violet-700 transition-all hover:bg-violet-100 dark:border-violet-900/50 dark:bg-violet-950/20 dark:text-violet-400"
+            type="button"
+          >
+            <MessageSquare className="w-3 h-3" /> {uiStrings.sms}
+          </button>
+        </div>
       )}
     </motion.div>
   );
@@ -161,6 +151,7 @@ interface ContactKanbanProps {
   onEdit: (contact: Contact) => void;
   onDelete: (id: string | number) => void;
   onWhatsApp: (contacts: Contact[]) => void;
+  onSms: (contacts: Contact[]) => void;
   onStageChange: (id: string | number, newStage: string) => void;
   fieldConfig?: FieldConfig;
 }
@@ -175,19 +166,20 @@ export default function ContactKanban({
   onEdit,
   onDelete,
   onWhatsApp,
+  onSms,
   onStageChange,
   fieldConfig,
 }: ContactKanbanProps): React.JSX.Element {
-  const { lifecycleStages } = useContactConfig();
+  const { lifecycleStages, lifecycleColors, uiStrings } = useContactConfig();
   const grouped = (lifecycleStages || []).reduce<Record<string, Contact[]>>((acc, stage) => {
-    acc[stage] = contacts.filter((c) => (c.lifecycleStage || "Lead") === stage);
+    acc[stage] = contacts.filter((c) => (c.lifecycleStage || uiStrings.defaultLifecycleStage || "Lead") === stage);
     return acc;
   }, {});
 
   return (
     <div className="flex gap-4 overflow-x-auto pb-4 pt-2">
       {(lifecycleStages || []).map((stage) => {
-        const colors = LIFECYCLE_COLORS[stage] || { bg: "bg-muted text-muted-foreground border-border", text: "text-muted-foreground", border: "border-border" };
+        const colors = lifecycleColors[stage] || { bg: "bg-muted text-muted-foreground border-border", text: "text-muted-foreground", border: "border-border" };
         const list = grouped[stage] || [];
         return (
           <div key={stage} className="flex-shrink-0 w-72 flex flex-col bg-card/30 backdrop-blur-xl border border-border/50 rounded-2xl p-3 min-h-[500px] shadow-sm">
@@ -203,7 +195,7 @@ export default function ContactKanban({
             <div className="flex-1 space-y-2 overflow-y-auto pr-0.5 max-h-[calc(100vh-320px)]">
               {list.length === 0 ? (
                 <div className="h-28 flex flex-col items-center justify-center border-2 border-dashed border-border/60 rounded-xl text-muted-foreground text-[11px]">
-                  No contacts in this stage
+                  {uiStrings.noContactsInStage}
                 </div>
               ) : (
                 list.map((c) => (
@@ -213,6 +205,7 @@ export default function ContactKanban({
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onWhatsApp={onWhatsApp}
+                    onSms={onSms}
                     onStageChange={onStageChange}
                   />
                 ))

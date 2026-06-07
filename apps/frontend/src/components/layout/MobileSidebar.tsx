@@ -1,64 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import {
-  X,
-  LayoutDashboard,
-  Users,
-  GraduationCap,
-  ClipboardList,
-  Calendar,
-  UserCheck,
-  DollarSign,
-  TrendingUp,
-  Star,
-  FileText,
-  Scale,
-  UserCog,
-  Settings,
-  BookOpen,
-  ChevronRight,
-  type LucideIcon,
-} from "lucide-react";
+import { X, ChevronRight, LogOut } from "lucide-react";
 import useBranding from "@/hooks/useBranding";
+import { useAuth } from "@/lib/AuthContext";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { getObject } from "@/lib/db";
-import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "@mms/shared";
-
-interface MenuItem {
-  label: string;
-  icon: LucideIcon;
-  path?: string;
-  moduleId?: string;
-  subItems?: {
-    label: string;
-    icon: LucideIcon;
-    path: string;
-    moduleId?: string;
-  }[];
-}
-
-const menuItems: MenuItem[] = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/", moduleId: "dashboard" },
-  { label: "Contacts", icon: Users, path: "/contacts", moduleId: "contacts" },
-  {
-    label: "Academics",
-    icon: BookOpen,
-    subItems: [
-      { label: "Students", icon: GraduationCap, path: "/students", moduleId: "students" },
-      { label: "Sessions", icon: Calendar, path: "/sessions", moduleId: "sessions" },
-      { label: "Enrollments", icon: ClipboardList, path: "/enrollments", moduleId: "enrollment" },
-      { label: "Hasanat Cards", icon: Star, path: "/hasanat-cards", moduleId: "hasanat" },
-      { label: "Examinations", icon: FileText, path: "/examinations", moduleId: "examination" },
-    ]
-  },
-  { label: "Attendance", icon: UserCheck, path: "/attendance", moduleId: "attendance" },
-  { label: "Finance", icon: DollarSign, path: "/finance", moduleId: "finance" },
-  { label: "Accounting", icon: TrendingUp, path: "/accounting", moduleId: "accounting" },
-  { label: "Obligations", icon: Scale, path: "/obligations", moduleId: "finance" },
-  { label: "Users", icon: UserCog, path: "/users", moduleId: "users" },
-  { label: "Settings", icon: Settings, path: "/settings" },
-];
+import useGlobalSettings from "@/hooks/useGlobalSettings";
+import useTranslation from "@/hooks/useTranslation";
+import { NAV_ITEMS } from "@/lib/navConfig";
+import { isNavPathActive, ROUTES } from "@/lib/routes";
 
 export interface MobileSidebarProps {
   /** Boolean indicating if the mobile sidebar drawer is currently visible. */
@@ -70,29 +22,31 @@ export interface MobileSidebarProps {
 export default function MobileSidebar({ open, onClose }: MobileSidebarProps): React.JSX.Element | null {
   const location = useLocation();
   const branding = useBranding();
+  const { user, logout } = useAuth();
   const [openedAt, setOpenedAt] = useState<number>(0);
 
-  const settings = getObject<GlobalSettings>("global_settings", DEFAULT_GLOBAL_SETTINGS);
+  const settings = useGlobalSettings();
+  const { t } = useTranslation();
   const enabledModules = settings.enabledModules || {};
 
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
-    menuItems.forEach(item => {
-      if (item.subItems && item.subItems.some(sub => location.pathname === sub.path)) {
-        initial[item.label] = true;
+    NAV_ITEMS.forEach(item => {
+      if (item.subItems && item.subItems.some(sub => isNavPathActive(location.pathname, sub.path))) {
+        initial[item.labelKey] = true;
       }
     });
     return initial;
   });
 
-  const toggleMenu = (label: string) => {
-    setOpenMenus(prev => ({ ...prev, [label]: !prev[label] }));
+  const toggleMenu = (labelKey: string) => {
+    setOpenMenus(prev => ({ ...prev, [labelKey]: !prev[labelKey] }));
   };
 
   useEffect(() => {
-    menuItems.forEach(item => {
-      if (item.subItems && item.subItems.some(sub => location.pathname === sub.path)) {
-        setOpenMenus(prev => ({ ...prev, [item.label]: true }));
+    NAV_ITEMS.forEach(item => {
+      if (item.subItems && item.subItems.some(sub => isNavPathActive(location.pathname, sub.path))) {
+        setOpenMenus(prev => ({ ...prev, [item.labelKey]: true }));
       }
     });
   }, [location.pathname]);
@@ -105,7 +59,11 @@ export default function MobileSidebar({ open, onClose }: MobileSidebarProps): Re
 
   if (!open) return null;
 
-  const visibleMenuItems = menuItems.map(item => {
+  const initials = user?.name
+    ? user.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()
+    : "AK";
+
+  const visibleMenuItems = NAV_ITEMS.map(item => {
     if (item.subItems) {
       const visibleSubItems = item.subItems.filter(sub => {
         if (!sub.moduleId) return true;
@@ -164,14 +122,14 @@ export default function MobileSidebar({ open, onClose }: MobileSidebarProps): Re
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
           {visibleMenuItems.map((item) => {
             if (item.subItems) {
-              const isMenuOpen = !!openMenus[item.label];
-              const hasActiveSub = item.subItems.some(sub => location.pathname === sub.path);
+              const isMenuOpen = !!openMenus[item.labelKey];
+              const hasActiveSub = item.subItems.some(sub => isNavPathActive(location.pathname, sub.path));
               const Icon = item.icon;
 
               return (
-                <div key={item.label} className="space-y-1">
+                <div key={item.labelKey} className="space-y-1">
                   <button
-                    onClick={() => toggleMenu(item.label)}
+                    onClick={() => toggleMenu(item.labelKey)}
                     className={`group flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-all duration-200 ${
                       hasActiveSub
                         ? "bg-sidebar-accent/30 text-sidebar-foreground"
@@ -180,7 +138,7 @@ export default function MobileSidebar({ open, onClose }: MobileSidebarProps): Re
                   >
                     <div className="flex items-center gap-3">
                       <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${hasActiveSub ? "text-sidebar-primary" : ""}`} />
-                      <span className="text-[13px] font-medium">{item.label}</span>
+                      <span className="text-[13px] font-medium">{t(item.labelKey)}</span>
                     </div>
                     <ChevronRight
                       className={`w-3.5 h-3.5 transition-transform duration-200 ${
@@ -199,7 +157,7 @@ export default function MobileSidebar({ open, onClose }: MobileSidebarProps): Re
                         className="overflow-hidden pl-7 space-y-1 border-l border-sidebar-border/40 ml-[21px]"
                       >
                         {item.subItems.map((sub) => {
-                          const isSubActive = location.pathname === sub.path;
+                          const isSubActive = isNavPathActive(location.pathname, sub.path);
                           const SubIcon = sub.icon;
 
                           return (
@@ -215,7 +173,7 @@ export default function MobileSidebar({ open, onClose }: MobileSidebarProps): Re
                             >
                               <SubIcon className={`w-4 h-4 flex-shrink-0 ${isSubActive ? "text-sidebar-primary" : ""}`} />
                               <span className="text-[12.5px] font-medium">
-                                {sub.label}
+                                {t(sub.labelKey)}
                               </span>
                             </Link>
                           );
@@ -227,7 +185,7 @@ export default function MobileSidebar({ open, onClose }: MobileSidebarProps): Re
               );
             }
 
-            const isActive = location.pathname === item.path;
+            const isActive = isNavPathActive(location.pathname, item.path ?? ROUTES.home);
             const Icon = item.icon;
             return (
               <Link
@@ -241,11 +199,38 @@ export default function MobileSidebar({ open, onClose }: MobileSidebarProps): Re
                 }`}
               >
                 <Icon className={`w-[18px] h-[18px] ${isActive ? "text-sidebar-primary" : ""}`} />
-                <span className="text-[13px] font-medium">{item.label}</span>
+                <span className="text-[13px] font-medium">{t(item.labelKey)}</span>
               </Link>
             );
           })}
         </nav>
+
+        <div className="shrink-0 border-t border-sidebar-border p-4">
+          <div className="mb-3 flex items-center gap-3">
+            <Avatar className="h-9 w-9">
+              <AvatarFallback className="bg-sidebar-primary/20 text-sidebar-primary text-xs font-semibold">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-sidebar-foreground">{user?.name ?? "User"}</p>
+              <p className="truncate text-xs text-sidebar-muted-foreground">{user?.email ?? ""}</p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full border-sidebar-border bg-sidebar-accent/30 text-sidebar-foreground hover:bg-sidebar-accent/50"
+            onClick={() => {
+              onClose();
+              logout(true);
+            }}
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </Button>
+        </div>
       </div>
     </>
   );

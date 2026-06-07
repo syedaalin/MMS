@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { UserPlus, AlertTriangle, MessageCircle, Download, Users, Settings, UserX, RefreshCw, X, Loader2, LayoutDashboard, BarChart2 } from "lucide-react";
+import { UserPlus, AlertTriangle, MessageCircle, MessageSquare, Download, Users, UserX, RefreshCw, X, Loader2 } from "lucide-react";
+import useModuleTierTabs from "@/hooks/useModuleTierTabs";
+import useTranslation from "@/hooks/useTranslation";
 import ModuleReports from "../components/reports/ModuleReports";
 import KPISummary from "../components/reports/KPISummary";
 import PageHeader from "../components/ui/PageHeader";
+import ResponsiveAccordionTabs from "@/components/ui/ResponsiveAccordionTabs";
+import SubTabBar from "@/components/ui/SubTabBar";
 import ActionButton from "../components/ui/ActionButton";
 import ContactsTable from "../components/contacts/ContactsTable";
 import ContactsToolbar from "../components/contacts/ContactsToolbar";
@@ -13,6 +17,7 @@ import ErrorBoundary from "../components/ui/ErrorBoundary";
 const ContactForm          = lazy(() => import("../components/contacts/ContactForm"));
 const DuplicateDetection   = lazy(() => import("../components/contacts/DuplicateDetection"));
 const WhatsAppPanel        = lazy(() => import("../components/contacts/WhatsAppPanel"));
+const SmsPanel             = lazy(() => import("../components/contacts/SmsPanel"));
 const ContactsSettingsPanel = lazy(() => import("../components/contacts/ContactsSettingsPanel"));
 const ContactSyncPanel     = lazy(() => import("../components/contacts/ContactSyncPanel"));
 const ContactKanban        = lazy(() => import("../components/contacts/ContactKanban"));
@@ -25,26 +30,20 @@ function LazyFallback() {
   );
 }
 import { CONTACTS } from "../lib/contactsData";
-import { Contact, PhoneNumber } from "../lib/contactFields";
-import { getCollection, saveCollection } from "../lib/db";
-import { useToast } from "@/components/ui/use-toast";
+import { saveCollection } from "../lib/db";
+import { useLiveCollection } from "../hooks/useLiveCollection";
+import { notify } from "@/lib/notify";
 import {
-  ContactConfigProvider, useContactConfig, useContactColumns, calculateProfileHealth
+  useContactConfig, useContactColumns, calculateProfileHealth
 } from "../lib/ContactConfigContext";
-import { parsePhoneNumber, getPrimaryPhone, hasWhatsApp } from "../lib/contactConstants";
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-const PAGE_TABS = [
-  { id: "operations",    label: "Operations",    icon: LayoutDashboard },
-  { id: "analytics",     label: "Analytics",     icon: BarChart2 },
-  { id: "configuration", label: "Configuration", icon: Settings },
-];
-
-const SETTINGS_SUB_TABS = [
-  { id: "fields",      label: "Fields" },
-  { id: "preferences", label: "Preferences" },
-  { id: "sync",        label: "Sync (Google / Apple)" },
-];
+import {
+  parsePhoneNumber,
+  getPrimaryPhone,
+  hasWhatsApp,
+  Contact,
+  PhoneNumber,
+} from "@mms/shared";
+import { EditableSelect } from "../components/contacts/form/FormPrimitives";
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function TableSkeleton({ rows = 6, cols = 5 }) {
@@ -84,23 +83,35 @@ interface SettingsPanelProps {
 // ── Settings sub-panel ────────────────────────────────────────────────────────
 function SettingsPanel({ contacts, onImport }: SettingsPanelProps) {
   const { fieldConfig, updateConfig } = useContactConfig();
-  const [sub, setSub] = useState("fields");
+  const settingsSubTabs = useMemo(() => {
+    const tabsFromConfig = fieldConfig.settingsSubTabs || [];
+    const sorted = [...tabsFromConfig]
+      .sort((a, b) => a.order - b.order)
+      .filter((t) => t.enabled);
+
+    return sorted.map((t) => ({
+      key: t.key,
+      label: t.label,
+    }));
+  }, [fieldConfig.settingsSubTabs]);
+
+  const [sub, setSub] = useState(() => settingsSubTabs[0]?.key || "fields");
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
-        {SETTINGS_SUB_TABS.map((t) => (
-          <button key={t.id} onClick={() => setSub(t.id)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${sub === t.id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SubTabBar
+        tabs={settingsSubTabs.map((tab) => ({ key: tab.key, label: tab.label }))}
+        value={sub}
+        onChange={setSub}
+      />
       <Suspense fallback={<LazyFallback />}>
         {sub === "fields" && (
           <ContactsSettingsPanel config={fieldConfig} onConfigChange={updateConfig as (config: object) => void} mode="fields" />
         )}
         {sub === "preferences" && (
           <ContactsSettingsPanel config={fieldConfig} onConfigChange={updateConfig as (config: object) => void} mode="preferences" />
+        )}
+        {sub === "uistrings" && (
+          <ContactsSettingsPanel config={fieldConfig} onConfigChange={updateConfig as (config: object) => void} mode="uistrings" />
         )}
         {sub === "sync" && (
           <ContactSyncPanel contacts={contacts} onImport={onImport as (contacts: object[]) => void} />
@@ -112,37 +123,30 @@ function SettingsPanel({ contacts, onImport }: SettingsPanelProps) {
 
 // ── Inner page (must be inside ContactConfigProvider) ─────────────────────────
 function ContactsInner() {
-  const { fieldConfig, prefs, countryCodesMap, updateVisibleColumns, lifecycleStages } = useContactConfig();
+  const PAGE_TABS = useModuleTierTabs();
+  const { t } = useTranslation();
+  const { fieldConfig, prefs, countryCodesMap, updateVisibleColumns, lifecycleStages, updateLifecycleStages, defaultContactRating, uiStrings } = useContactConfig();
   const tableColumns = useContactColumns(); // ← dynamic, auto-updates with config
 
   const [isLoading,       setIsLoading]       = useState(true);
-  const DELETED_CONTACT_KEYS = useMemo(() => [
-    "cnic", "tag", "bloodGroup", "maritalStatus", "education",
-    "nationality", "religion", "occupation", "designation",
-    "website", "notes", "relationship", "preferredName",
-    "fatherName", "grandfatherName", "isActive",
-    "area", "district", "postalCode", "timezone", "mapLink",
-  ], []);
 
-  const [contacts,        setContacts]        = useState<Contact[]>(() => {
-    const raw = getCollection("contacts", CONTACTS);
-    const country = prefs?.defaultCountry || "Pakistan";
-    const defaultCode = countryCodesMap[country] || "+92";
-    return raw.map(c => {
-      const sanitized = {
-        lifecycleStage: "Lead",
-        rating: 3,
+  const rawContacts = useLiveCollection("contacts", CONTACTS);
+
+  const contacts = useMemo(() => {
+    const country = prefs?.defaultCountry || "";
+    const defaultCode = countryCodesMap[country] || "";
+    return rawContacts.map((c) => {
+      const base = {
+        lifecycleStage: lifecycleStages[0] || "",
+        rating: defaultContactRating,
         relationships: [],
         activities: [],
-        ...c
-      } as Record<string, unknown>;
-      DELETED_CONTACT_KEYS.forEach(k => {
-        delete sanitized[k];
-      });
-      if (sanitized.phones && Array.isArray(sanitized.phones)) {
+        ...c,
+      } as Contact;
+      if (base.phones && Array.isArray(base.phones)) {
         return {
-          ...sanitized,
-          phones: sanitized.phones.map((p: PhoneNumber) => {
+          ...base,
+          phones: base.phones.map((p: PhoneNumber) => {
             if (p.countryCode) return p;
             const parsed = parsePhoneNumber(p.number, defaultCode);
             return {
@@ -150,12 +154,17 @@ function ContactsInner() {
               countryCode: parsed.countryCode,
               number: parsed.number,
             };
-          })
-        } as unknown as Contact;
+          }),
+        };
       }
-      return sanitized as unknown as Contact;
+      return base;
     });
-  });
+  }, [rawContacts, prefs?.defaultCountry, countryCodesMap, lifecycleStages, defaultContactRating]);
+
+  const saveContacts = useCallback((updater: Contact[] | ((prev: Contact[]) => Contact[])) => {
+    const next = typeof updater === "function" ? updater(contacts) : updater;
+    saveCollection("contacts", next);
+  }, [contacts]);
   const [search,          setSearch]          = useState("");
   const [filterGender,    setFilterGender]    = useState("");
   const [filterStage,     setFilterStage]     = useState("");
@@ -172,17 +181,12 @@ function ContactsInner() {
   const [editContact,     setEditContact]     = useState<Contact | null>(null);
   const [showDuplicates,  setShowDuplicates]  = useState(false);
   const [whatsappTargets, setWhatsappTargets] = useState<Contact[] | null>(null);
+  const [smsTargets, setSmsTargets] = useState<Contact[] | null>(null);
   const [activeTab,       setActiveTab]       = useState("operations");
 
-  const { toast } = useToast();
-
-  const defaultCountry  = prefs.defaultCountry  || "Pakistan";
-  const defaultCity     = prefs.defaultCity     || "Karachi";
-  const defaultProvince = prefs.defaultProvince || "Sindh";
-
-  useEffect(() => {
-    saveCollection("contacts", contacts);
-  }, [contacts]);
+  const defaultCountry  = prefs.defaultCountry  || "";
+  const defaultCity     = prefs.defaultCity     || "";
+  const defaultProvince = prefs.defaultProvince || "";
 
   useEffect(() => {
     const t = setTimeout(() => setIsLoading(false), 400);
@@ -245,36 +249,46 @@ function ContactsInner() {
   const handleNew  = useCallback(() => { setEditContact(null); setShowForm(true); }, []);
 
   const handleSave = useCallback((data: Contact) => {
-    setContacts((cs) => editContact
+    saveContacts((cs) => editContact
       ? cs.map((c) => c.id === editContact.id ? { ...c, ...data } : c)
       : [...cs, { ...data, id: Date.now() }]
     );
     setShowForm(false);
     setEditContact(null);
-  }, [editContact]);
+  }, [editContact, saveContacts]);
 
   const handleDelete = useCallback((id: string | number) => {
-    setContacts((cs) => {
-      const c = cs.find((x) => x.id === id);
-      toast({ title: "Contact deleted", description: c?.name ? `"${c.name}" has been removed.` : "Contact removed." });
-      return cs.filter((x) => x.id !== id);
+    const c = contacts.find((x) => x.id === id);
+    notify.info(t("contacts.deletedTitle"), {
+      description: c?.name
+        ? t("contacts.deletedDescription", { name: c.name })
+        : t("contacts.deletedDescriptionDefault"),
     });
-  }, [toast]);
+    saveContacts((cs) => cs.filter((x) => x.id !== id));
+  }, [contacts, t, saveContacts]);
 
   const handleExportCSV = () => {
-    const rows = [["Name","Gender","DOB","Phone","Email","City","State","Country"]];
+    const headers = visibleColumns.map((c) => c.label);
+    const rows = [headers];
     filtered.forEach((c) => {
-      const phone = getPrimaryPhone(c) || "";
-      const email = (c.emails || [])[0]?.address || (c.email as string) || "";
-      const city = (c.city as string) || "";
-      const state = (c.state as string) || "";
-      const country = (c.country as string) || "";
-      rows.push([c.name, c.gender || "", c.dob || "", phone, email, city, state, country]);
+      const row = visibleColumns.map(({ id }) => {
+        if (id === "name") return c.name || "";
+        if (id === "phone") return getPrimaryPhone(c) || "";
+        if (id === "email") return (c.emails || [])[0]?.address || (c.email as string) || "";
+        if (id === "whatsapp") return hasWhatsApp(c) ? "Yes" : "No";
+        if (id === "city") return (c.addresses || [])[0]?.city || (c.city as string) || "";
+        if (id === "state") return (c.addresses || [])[0]?.state || (c.state as string) || "";
+        if (id === "country") return (c.addresses || [])[0]?.country || (c.country as string) || "";
+        const val = c[id];
+        if (val === undefined || val === null) return "";
+        return String(val);
+      });
+      rows.push(row);
     });
-    const csv = rows.map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = "contacts.csv";
+    a.download = uiStrings.exportFilename || "contacts.csv";
     a.click();
   };
 
@@ -285,64 +299,49 @@ function ContactsInner() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-7xl mx-auto space-y-4">
-      <title>MMS - Contacts Directory</title>
-      <meta name="description" content="View and manage the contacts directory, trace registration leads, and configure customized columns." />
+      <title>MMS - {t("nav.contacts")}</title>
+      <meta name="description" content={t("contacts.pageDescription")} />
       <PageHeader
         icon={Users}
-        title="Contacts"
-        subtitle={`${contacts.length} total · ${filtered.length} shown`}
+        title={t("nav.contacts")}
+        subtitle={t("contacts.subtitleCount", { total: contacts.length, shown: filtered.length })}
         actions={
           <>
-            <ActionButton variant="ghost" icon={AlertTriangle} onClick={() => setShowDuplicates(true)}>Duplicates</ActionButton>
+            <ActionButton variant="ghost" icon={AlertTriangle} onClick={() => setShowDuplicates(true)}>{t("contacts.duplicates")}</ActionButton>
             <button onClick={handleExportCSV} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-              <Download className="w-3.5 h-3.5" /> Export
+              <Download className="w-3.5 h-3.5" /> {t("common.export")}
             </button>
-            <ActionButton variant="primary" icon={UserPlus} onClick={handleNew}>Add Contact</ActionButton>
+            <ActionButton variant="primary" icon={UserPlus} onClick={handleNew}>{t("contacts.addContact")}</ActionButton>
           </>
         }
       />
 
-      <div className="space-y-4">
-        <ErrorBoundary>
-          <KPISummary category="contacts" />
-        </ErrorBoundary>
-      </div>
-
-      {/* Page tab bar */}
-      <div className="flex border-b border-border">
-        {PAGE_TABS.map((t) => {
-          const Icon = t.icon;
-          return (
-            <button key={t.id} onClick={() => setActiveTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all ${activeTab === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-              <Icon className="w-4 h-4" /> {t.label}
-            </button>
-          );
-        })}
-      </div>
-
+      <ResponsiveAccordionTabs
+        tabs={PAGE_TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        panelIdPrefix="contacts-tab"
+      >
       <AnimatePresence mode="wait">
         {activeTab === "operations" ? (
           <motion.div key="operations" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
             <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between bg-card/40 backdrop-blur-xl border border-border/50 p-3 rounded-2xl shadow-sm">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-2">
-                  Operations ({viewMode === "kanban" ? "Kanban Board" : "List View"})
+                  {t("module.operations")} ({viewMode === "kanban" ? (uiStrings.kanbanBoard || "Kanban Board") : (uiStrings.listView || "List View")})
                 </span>
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Stage:</span>
-                <select
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{uiStrings.stageLabel || "Stage:"}</span>
+                <EditableSelect
+                  options={lifecycleStages || []}
                   value={filterStage}
-                  onChange={(e) => setFilterStage(e.target.value)}
-                  className="px-3.5 py-2 rounded-xl border border-border text-xs bg-background text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="">All Stages</option>
-                  {(lifecycleStages || []).map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setFilterStage(val)}
+                  onUpdateOptions={updateLifecycleStages}
+                  placeholder={uiStrings.allStages || "All Stages"}
+                  className="w-40"
+                />
               </div>
             </div>
 
@@ -351,8 +350,6 @@ function ContactsInner() {
                 search={search}             onSearchChange={setSearch}
                 filterGender={filterGender} onGenderChange={setFilterGender}
                 sortField={sortField}       onSort={handleSort}
-                tableColumns={visibleColumns}
-                onColumnsChange={updateVisibleColumns as (columns: object[]) => void}   /* columns are now config-driven */
                 hasActiveFilters={hasActiveFilters}
                 activeFilterCount={activeFilterCount}
                 onClearFilters={clearFilters}
@@ -365,12 +362,12 @@ function ContactsInner() {
                 <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="flex flex-wrap gap-1.5">
                   {filterGender && (
                     <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold border border-primary/20">
-                      Gender: {filterGender} <button onClick={() => setFilterGender("")} className="hover:opacity-70"><X className="w-3 h-3" /></button>
+                      {uiStrings.genderFilterLabel || "Gender"}: {filterGender} <button onClick={() => setFilterGender("")} className="hover:opacity-70"><X className="w-3 h-3" /></button>
                     </span>
                   )}
                   {filterStage && (
                     <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold border border-primary/20">
-                      Stage: {filterStage} <button onClick={() => setFilterStage("")} className="hover:opacity-70"><X className="w-3 h-3" /></button>
+                      {uiStrings.stageLabel || "Stage:"} {filterStage} <button onClick={() => setFilterStage("")} className="hover:opacity-70"><X className="w-3 h-3" /></button>
                     </span>
                   )}
                 </motion.div>
@@ -384,28 +381,41 @@ function ContactsInner() {
                   className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-primary/[0.05] border border-primary/20 backdrop-blur-md">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold text-foreground">{selected.length} selected</span>
+                    <span className="text-sm font-semibold text-foreground">{selected.length} {uiStrings.selectedCount || "selected"}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {(() => {
                       const targets = contacts.filter((c) => selected.includes(c.id));
                       const waTargets = targets.filter((c) => hasWhatsApp(c));
-                      const isClickable = waTargets.length > 0;
+                      const smsReady = targets.filter((c) => Boolean(getPrimaryPhone(c)));
+                      const waClickable = waTargets.length > 0;
+                      const smsClickable = smsReady.length > 0;
                       return (
-                        <button
-                          disabled={!isClickable}
-                          onClick={() => setWhatsappTargets(waTargets)}
-                          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-white transition-all ${
-                            isClickable ? "hover:scale-[1.02] active:scale-[0.98]" : "opacity-40 cursor-not-allowed"
-                          }`}
-                          style={{ background: "#075E54" }}
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" /> WhatsApp ({waTargets.length})
-                        </button>
+                        <>
+                          <button
+                            disabled={!waClickable}
+                            onClick={() => setWhatsappTargets(waTargets)}
+                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-white transition-all ${
+                              waClickable ? "hover:scale-[1.02] active:scale-[0.98]" : "opacity-40 cursor-not-allowed"
+                            }`}
+                            style={{ background: uiStrings.whatsappColor || "#075E54" }}
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" /> WhatsApp ({waTargets.length})
+                          </button>
+                          <button
+                            disabled={!smsClickable}
+                            onClick={() => setSmsTargets(smsReady)}
+                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-violet-300 bg-violet-50 text-sm font-semibold text-violet-800 transition-all dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-300 ${
+                              smsClickable ? "hover:scale-[1.02] active:scale-[0.98]" : "opacity-40 cursor-not-allowed"
+                            }`}
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" /> {uiStrings.sms || "SMS"} ({smsReady.length})
+                          </button>
+                        </>
                       );
                     })()}
                     <button onClick={() => setSelected([])} className="px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                      Deselect
+                      {uiStrings.deselect || "Deselect"}
                     </button>
                   </div>
                 </motion.div>
@@ -423,11 +433,11 @@ function ContactsInner() {
                   {filtered.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 rounded-xl border-2 border-dashed border-border text-muted-foreground gap-3">
                       <UserX className="w-8 h-8 opacity-30" />
-                      <p className="text-sm font-semibold">{hasActiveFilters ? "No contacts match your filters" : "No contacts yet"}</p>
-                      <p className="text-xs text-center max-w-xs">{hasActiveFilters ? "Try adjusting your search or filters." : "Click \"Add Contact\" to create your first contact."}</p>
+                      <p className="text-sm font-semibold">{hasActiveFilters ? (uiStrings.noContactsMatchFilters || "No contacts match your filters") : (uiStrings.noContactsYet || "No contacts yet")}</p>
+                      <p className="text-xs text-center max-w-xs">{hasActiveFilters ? (uiStrings.tryAdjustingFilters || "Try adjusting your search or filters.") : (uiStrings.clickAddContact || "Click \"Add Contact\" to create your first contact.")}</p>
                       {hasActiveFilters && (
                         <button onClick={clearFilters} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors">
-                          <RefreshCw className="w-3 h-3" /> Clear Filters
+                          <RefreshCw className="w-3 h-3" /> {uiStrings.clearFiltersBtn || "Clear Filters"}
                         </button>
                       )}
                     </div>
@@ -439,10 +449,11 @@ function ContactsInner() {
                           onSelect={handleSelect} onSelectAll={handleSelectAll}
                           onEdit={handleEdit as (contact: object) => void} onDelete={handleDelete}
                           onWhatsApp={(targets) => setWhatsappTargets(targets as Contact[])}
+                          onSms={(targets) => setSmsTargets(targets as Contact[])}
                           sortField={sortField} sortDir={sortDir} onSort={handleSort}
                           columns={visibleColumns}
                           allContacts={contacts}
-                          onUpdateContact={(updated) => setContacts((cs) => cs.map((x) => x.id === updated.id ? updated : x))}
+                          onUpdateContact={(updated) => saveContacts((cs) => cs.map((x) => x.id === updated.id ? updated : x))}
                         />
                       </ErrorBoundary>
                     ) : (
@@ -453,14 +464,15 @@ function ContactsInner() {
                             onEdit={handleEdit}
                             onDelete={handleDelete}
                             onWhatsApp={(targets: Contact[]) => setWhatsappTargets(targets)}
+                            onSms={(targets: Contact[]) => setSmsTargets(targets)}
                             onStageChange={(id: string | number, newStage: string) => {
-                              setContacts((cs) => cs.map((c) => {
+                              saveContacts((cs) => cs.map((c) => {
                                 if (c.id === id) {
                                   const oldStage = c.lifecycleStage || "Lead";
                                   const stageActivity = {
                                     id: `act-${Date.now()}`,
                                     type: "stage_change" as const,
-                                    content: `Lifecycle stage updated from ${oldStage} to ${newStage}`,
+                                    content: `${uiStrings.lifecycleStageUpdatedFrom || "Lifecycle stage updated from"} ${oldStage} ${uiStrings.to || "to"} ${newStage}`,
                                     date: new Date().toISOString().slice(0, 10),
                                     by: "System"
                                   };
@@ -472,9 +484,8 @@ function ContactsInner() {
                                 }
                                 return c;
                               }));
-                              toast({
-                                title: "Stage updated",
-                                description: `Contact stage updated to ${newStage}`
+                              notify.success(uiStrings.stageUpdatedTitle || "Stage updated", {
+                                description: `${uiStrings.contactStageUpdatedTo || "Contact stage updated to"} ${newStage}`
                               });
                             }}
                             fieldConfig={fieldConfig}
@@ -491,7 +502,10 @@ function ContactsInner() {
         ) : activeTab === "analytics" ? (
           <motion.div key="analytics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
             <ErrorBoundary>
-              <ModuleReports category="contacts" />
+              <div className="space-y-4">
+                <KPISummary category="contacts" />
+                <ModuleReports category="contacts" />
+              </div>
             </ErrorBoundary>
           </motion.div>
         ) : (
@@ -500,20 +514,21 @@ function ContactsInner() {
               <SettingsPanel
                 contacts={contacts}
                 onImport={(list: Contact[]) => {
-                  setContacts((cs) => [...cs, ...list]);
-                  toast({ title: `${list.length} contact${list.length !== 1 ? "s" : ""} imported successfully` });
+                  saveContacts((cs) => [...cs, ...list]);
+                  notify.success(`${list.length} ${list.length !== 1 ? (uiStrings.contactsImportedSuccessfully || "contacts imported successfully") : (uiStrings.contactImportedSuccessfully || "contact imported successfully")}`);
                 }}
               />
             </ErrorBoundary>
           </motion.div>
         )}
       </AnimatePresence>
+      </ResponsiveAccordionTabs>
 
       {/* Modals — lazy loaded, only mounted when needed */}
       <Suspense fallback={null}>
         <AnimatePresence>
-          {showForm && (
-            <ContactForm
+          <ContactForm
+              open={showForm}
               key={editContact?.id || "new"}
               contact={editContact ?? undefined}
               allContacts={contacts}
@@ -523,39 +538,28 @@ function ContactsInner() {
               onClose={() => { setShowForm(false); setEditContact(null); }}
               onSave={handleSave as (contact: object) => void}
             />
-          )}
           {showDuplicates && (
             <DuplicateDetection
               contacts={contacts}
               onClose={() => setShowDuplicates(false)}
               onMerge={(keepId, deleteId, mergedData) => {
-                setContacts((cs) =>
+                saveContacts((cs) =>
                   cs
                     .map((c) => (c.id === keepId ? { ...c, ...mergedData } : c))
                     .filter((c) => c.id !== deleteId)
                 );
-                toast({
-                  title: "Contacts merged",
-                  description: "The duplicate contact was merged successfully.",
+                notify.success(uiStrings.contactsMergedTitle || "Contacts merged", {
+                  description: uiStrings.duplicateContactMergedSuccess || "The duplicate contact was merged successfully.",
                 });
               }}
             />
           )}
           {whatsappTargets && <WhatsAppPanel contacts={whatsappTargets} onClose={() => setWhatsappTargets(null)} />}
+          {smsTargets && <SmsPanel contacts={smsTargets} onClose={() => setSmsTargets(null)} />}
         </AnimatePresence>
       </Suspense>
     </div>
   );
 }
 
-/**
- * Contacts page component wrapping the ContactsInner page with the configuration provider.
- * @returns {React.ReactElement}
- */
-export default function Contacts() {
-  return (
-    <ContactConfigProvider>
-      <ContactsInner />
-    </ContactConfigProvider>
-  );
-}
+export default ContactsInner;

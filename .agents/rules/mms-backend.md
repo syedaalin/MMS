@@ -1,0 +1,69 @@
+---
+trigger: model_decision
+---
+
+# MMS Backend API
+
+## Routes
+
+| Prefix | Auth | Role |
+|--------|------|------|
+| `/api/auth` | Mixed | Login, onboard, me |
+| `/api/db` | JWT | Sync, collections, objects, reset (admin) — `rbacService` on writes |
+| `/api/contacts` | JWT | Save + WhatsApp pipeline |
+| `/api/workspace` | Mixed | Apex workspace registry, tenant workspace metadata (`mms-tenant.md`) |
+| `/health` | Public | Liveness |
+
+Most domain CRUD: `/api/db/collections/:name` — sync protocol, not per-entity REST yet.
+
+### API evolution (target)
+
+| Stage | Pattern |
+|-------|---------|
+| Current | `GET/POST /api/db/collections/:name`, `objects/:key` |
+| New domains | Dedicated routes e.g. `POST /api/students`, `GET /api/students/:id` with JSON Schema per resource |
+| Versioning | Prefix `/api/v1/` when breaking changes ship (target) |
+
+## Layering
+
+```
+routes/*.ts → services/*.ts → db/database.ts
+```
+
+## Errors
+
+```json
+{ "type": "validation_error", "message": "…" }
+```
+
+Types: `auth_required`, `invalid_credentials`, `forbidden`, `not_found`, `validation_error`, `database_error`, `server_error`, `conflict`.
+
+Validate bodies with Fastify JSON Schema. Prefer `unknown` + narrowing over `any`.
+
+## Contacts + WhatsApp
+
+`POST /api/contacts`: E.164 phones, `toTitleCase` names, enqueue WhatsApp check per preferences.
+
+`GET /api/contacts/:id/whatsapp-status`: UI indicator metadata.
+
+WhatsApp: `PuppeteerWhatsAppProvider.getNumberId` only. Mock provider behind env flag for dev.
+
+## Security & observability
+
+Full checklist → **`mms-security.md`**, logging → **`mms-observability.md`**.
+
+- [ ] `JWT_SECRET` set
+- [ ] CORS `ALLOWED_ORIGIN` in production
+- [ ] `rbacService` on every write route
+- [ ] **Rate limit** `POST /api/auth/login` and `POST /api/auth/onboard` (required when touching auth)
+- [ ] No passwords/tokens in logs
+- [ ] DTO validation on all write endpoints
+- [ ] Stable error `type` codes — no stack traces to clients in production
+
+## Dev
+
+```bash
+cd apps/backend && pnpm dev
+```
+
+Dockerfile: needs PostgreSQL + pnpm monorepo fix before production.

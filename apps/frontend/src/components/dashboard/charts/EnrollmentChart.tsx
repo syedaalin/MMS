@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useBrandedDashboardChartColors } from "@/hooks/useBrandedDashboardChartColors";
 import {
   ComposedChart, Area, Line, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, TooltipContentProps
@@ -22,28 +23,13 @@ const CustomTooltip = ({ active = false, payload = [], label = "" }: Partial<Too
   );
 };
 
-interface ColorConfig {
-  stroke: string;
-  stop: string;
-  text: string;
-  bg: string;
-  fill: string;
-}
-
-const COLOR_MAP: Record<string, ColorConfig> = {
-  emerald: { stroke: "#047857", stop: "#047857", text: "text-emerald-500", bg: "bg-emerald-50/70", fill: "url(#enrollGrad-emerald)" },
-  blue:    { stroke: "#2563eb", stop: "#2563eb", text: "text-blue-500",    bg: "bg-blue-50/70",    fill: "url(#enrollGrad-blue)"    },
-  violet:  { stroke: "#7c3aed", stop: "#7c3aed", text: "text-violet-500",  bg: "bg-violet-50/70",  fill: "url(#enrollGrad-violet)"  },
-  amber:   { stroke: "#d97706", stop: "#d97706", text: "text-amber-500",   bg: "bg-amber-50/70",   fill: "url(#enrollGrad-amber)"   },
-  red:     { stroke: "#dc2626", stop: "#dc2626", text: "text-red-500",     bg: "bg-red-50/70",     fill: "url(#enrollGrad-red)"     }
-};
-
 /**
  * Enrollment Chart component.
  * Displays student growth over time with customisable layout settings.
  * @returns {React.ReactElement}
  */
 export default function EnrollmentChart({ isEditMode = false }: { isEditMode?: boolean }) {
+  const { enrollment: COLOR_MAP } = useBrandedDashboardChartColors();
   const students = getCollection<Student>("students", STUDENTS);
 
   const [chartType, setChartType] = useState<"area" | "bar" | "line">(() => {
@@ -90,7 +76,7 @@ export default function EnrollmentChart({ isEditMode = false }: { isEditMode?: b
   const end = enrollmentData[enrollmentData.length - 1]?.students || 0;
   const growth = start > 0 ? (((end - start) / start) * 100).toFixed(1) : "0";
 
-  const activeColor = COLOR_MAP[colorTheme] || COLOR_MAP.emerald;
+  const activeColor = COLOR_MAP[colorTheme] || COLOR_MAP.brand;
 
   return (
     <section aria-labelledby="enrollment-chart-heading" className="bg-card rounded-xl border border-border p-5">

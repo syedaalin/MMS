@@ -129,13 +129,13 @@ export default function EnrollmentsSettings({ mode }: EnrollmentsSettingsProps):
 
   const handleCustomFieldsChange = (newFields: CustomFieldConfig[]) => {
     const coreIds = DEFAULT_ENROLLMENTS_FIELD_DEFS.map(f => f.id);
-    const newIds = newFields.map(f => f.id);
+    const newIds = newFields.map(f => f.key);
     const kept = fieldOrder.filter((id) => coreIds.includes(id) || newIds.includes(id));
     const added = newIds.filter((id) => !kept.includes(id));
 
     setData((d) => ({
       ...d,
-      customFields: newFields as unknown as ModuleCustomField[],
+      customFields: newFields.map(f => ({ ...f, id: f.key })) as unknown as ModuleCustomField[],
       fieldOrder: [...kept, ...added]
     }));
     setSaved(false);

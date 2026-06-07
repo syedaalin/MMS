@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import { useBrandPalette } from "@/lib/BrandingPaletteContext";
 import { motion } from "framer-motion";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -8,15 +9,6 @@ import { TrendingUp, AlertCircle } from "lucide-react";
 import { MONTHLY_REVENUE, INVOICES } from "../../lib/financeData";
 
 const fmt = (n: number) => `PKR ${Number(n).toLocaleString()}`;
-
-const CHART_COLORS = ["hsl(160 84% 22%)", "hsl(42 60% 70%)", "hsl(160 40% 40%)"];
-
-const STATUS_DIST = [
-  { name: "Paid",    value: INVOICES.filter((i) => i.status === "paid").length,      color: "#10b981" },
-  { name: "Pending", value: INVOICES.filter((i) => i.status === "pending").length,   color: "#f59e0b" },
-  { name: "Overdue", value: INVOICES.filter((i) => i.status === "overdue").length,   color: "#ef4444" },
-  { name: "Partial", value: INVOICES.filter((i) => i.status === "partial").length,   color: "#3b82f6" },
-];
 
 /**
  * CustomTooltip for Reports Panel.
@@ -108,6 +100,17 @@ function StudentPaymentHistory() {
  * @returns {React.ReactElement}
  */
 export default function ReportsPanel() {
+  const { primary, secondary, charts } = useBrandPalette();
+  const CHART_COLORS = useMemo(() => [primary, secondary, charts[2]], [primary, secondary, charts]);
+  const STATUS_DIST = useMemo(
+    () => [
+      { name: "Paid", value: INVOICES.filter((i) => i.status === "paid").length, color: primary },
+      { name: "Pending", value: INVOICES.filter((i) => i.status === "pending").length, color: secondary },
+      { name: "Overdue", value: INVOICES.filter((i) => i.status === "overdue").length, color: "#ef4444" },
+      { name: "Partial", value: INVOICES.filter((i) => i.status === "partial").length, color: charts[3] },
+    ],
+    [primary, secondary, charts],
+  );
   const [period, setPeriod] = useState(6);
   const data = MONTHLY_REVENUE.slice(-period);
 

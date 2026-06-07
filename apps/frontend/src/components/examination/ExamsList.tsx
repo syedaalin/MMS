@@ -30,13 +30,6 @@ export default function ExamsList({ exams, onNew, onEdit }: ExamsListProps): Rea
     <section className="space-y-4" aria-label="Examinations list page">
       <div className="flex items-center justify-between">
         <p className="text-[13px] text-muted-foreground" role="status">{exams.length} exam{exams.length !== 1 ? "s" : ""}</p>
-        <button
-          type="button"
-          onClick={onNew}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90"
-        >
-          <Plus className="w-3.5 h-3.5" aria-hidden="true" /> New Exam
-        </button>
       </div>
 
       {exams.length === 0 && (

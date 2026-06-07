@@ -60,46 +60,29 @@ const FieldItem = memo(
         </span>
 
         {/* Enable toggle */}
-        {field.alwaysOn ? (
-          <div className="w-4 h-4 rounded flex-shrink-0 border-2 flex items-center justify-center bg-primary border-primary opacity-70 cursor-not-allowed">
-            <Check className="w-2.5 h-2.5 text-primary-foreground" />
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={onToggleEnabled}
-            className={`w-4 h-4 rounded flex-shrink-0 border-2 flex items-center justify-center transition-all cursor-pointer
-              ${isEnabled ? "bg-primary border-primary" : "border-border bg-background"}`}
-          >
-            {isEnabled && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onToggleEnabled}
+          className={`w-4 h-4 rounded flex-shrink-0 border-2 flex items-center justify-center transition-all cursor-pointer
+            ${isEnabled ? "bg-primary border-primary" : "border-border bg-background"}`}
+        >
+          {isEnabled && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+        </button>
 
         {/* Label + description */}
         <div className="flex-1 min-w-0 text-left">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold text-foreground">{field.label}</p>
-            {field.isCustom && field.type && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-950/20 dark:text-violet-400 dark:border-violet-900/50">
-                Custom · {FIELD_TYPE_LABELS[field.type] || field.type}
-              </span>
-            )}
-            {field.alwaysOn && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                Pre-selected
-              </span>
-            )}
           </div>
           {field.description && <p className="text-[11px] text-muted-foreground">{field.description}</p>}
         </div>
 
         {/* Required toggle */}
         {isEnabled && (
-          <button
-            type="button"
-            onClick={onToggleRequired}
-            disabled={field.alwaysOn && field.required}
-            className={`flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold border transition-all disabled:opacity-75 disabled:cursor-not-allowed
+            <button
+              type="button"
+              onClick={onToggleRequired}
+              className={`flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold border transition-all disabled:opacity-75 disabled:cursor-not-allowed
               ${
                 isRequired
                   ? "bg-red-50 border-red-200 text-red-600 dark:bg-red-950/20 dark:border-red-900/50 dark:text-red-400"
@@ -165,8 +148,8 @@ export default function DraggableFieldList({
                   <div ref={drag.innerRef} {...drag.draggableProps}>
                     <FieldItem
                       field={field}
-                      isEnabled={!!field.alwaysOn || enabledSet.has(field.id)}
-                      isRequired={!!field.alwaysOn || requiredSet.has(field.id)}
+                      isEnabled={enabledSet.has(field.id)}
+                      isRequired={requiredSet.has(field.id)}
                       onToggleEnabled={() => onToggleEnabled(field.id)}
                       onToggleRequired={() => onToggleRequired(field.id)}
                       dragHandleProps={drag.dragHandleProps}

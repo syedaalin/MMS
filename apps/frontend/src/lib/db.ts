@@ -1,6 +1,34 @@
 import { CONTACTS } from "./contactsData.js";
 import { validateSessions } from "./sessionsData";
-import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "@mms/shared";
+import {
+  type BrandingSettings,
+  type GlobalSettings,
+  type PublicBranding,
+  DEFAULT_BRANDING_SETTINGS,
+  DEFAULT_GLOBAL_SETTINGS,
+  mergeBrandingSettings,
+  mergeGlobalSettings,
+  formatDate as sharedFormatDate,
+  parseTenantFromHost,
+  tenantLocalStoragePrefix,
+  validateWorkspaceBackupJson,
+} from "@mms/shared";
+import { getAppDomain } from "./tenantConfig";
+
+/** Active workspace localStorage key prefix (`mms_` on apex, `mms_t:{slug}:` on tenant). */
+export function getWorkspaceLocalStoragePrefix(): string {
+  if (typeof window === "undefined") return "mms_";
+  const subdomain = parseTenantFromHost(window.location.hostname, getAppDomain());
+  return subdomain ? tenantLocalStoragePrefix(subdomain) : "mms_";
+}
+
+function getStoragePrefix(): string {
+  return getWorkspaceLocalStoragePrefix();
+}
+
+function scopedStorageKey(key: string): string {
+  return `${getStoragePrefix()}${key}`;
+}
 
 interface StudentRecord extends Record<string, unknown> {
   contactId?: string | number;
@@ -151,10 +179,17 @@ function getHeaders(token?: string): Record<string, string> {
  * @param {unknown} body - Object or Array to send.
  * @returns {Promise<void>}
  */
-async function syncToServer(url: string, body: unknown): Promise<void> {
+export interface ServerSyncResult {
+  ok: boolean;
+  status?: number;
+}
+
+async function syncToServer(url: string, body: unknown): Promise<ServerSyncResult> {
   try {
     const token = localStorage.getItem("mms_token");
-    if (!token) return; // Skip background writes if not authenticated yet
+    if (!token) {
+      return { ok: false, status: 401 };
+    }
 
     setSyncStatus('syncing');
     const response = await fetch(url, {
@@ -165,12 +200,14 @@ async function syncToServer(url: string, body: unknown): Promise<void> {
     if (!response.ok) {
       console.warn(`Sync to server failed for ${url} (status: ${response.status})`);
       setSyncStatus('error');
-    } else {
-      setSyncStatus('idle');
+      return { ok: false, status: response.status };
     }
+    setSyncStatus('idle');
+    return { ok: true };
   } catch (error) {
     console.error(`Network error during background sync for ${url}:`, error);
     setSyncStatus('error');
+    return { ok: false };
   }
 }
 
@@ -199,14 +236,14 @@ export async function syncDatabase(token?: string): Promise<void> {
       // Update collections
       if (data.collections) {
         for (const [name, list] of Object.entries(data.collections)) {
-          localStorage.setItem(`mms_${name}`, JSON.stringify(list));
+          localStorage.setItem(scopedStorageKey(name), JSON.stringify(list));
         }
       }
 
       // Update objects
       if (data.objects) {
         for (const [key, obj] of Object.entries(data.objects)) {
-          localStorage.setItem(`mms_${key}`, JSON.stringify(obj));
+          localStorage.setItem(scopedStorageKey(key), JSON.stringify(obj));
         }
       }
 
@@ -233,7 +270,7 @@ export async function syncDatabase(token?: string): Promise<void> {
  */
 export function getCollection<T>(key: string, defaultData: T[]): T[] {
   try {
-    const saved = localStorage.getItem(`mms_${key}`);
+    const saved = localStorage.getItem(scopedStorageKey(key));
     if (saved !== null) {
       const parsed = JSON.parse(saved) as unknown;
       if (Array.isArray(parsed)) {
@@ -253,10 +290,12 @@ export function getCollection<T>(key: string, defaultData: T[]): T[] {
     } else if (key === "sessions") {
       dataToSave = validateSessions(defaultData) as unknown as T[];
     }
-    localStorage.setItem(`mms_${key}`, JSON.stringify(dataToSave));
-    
-    // Sync to backend asynchronously
-    void syncToServer(`/api/db/collections/${key}`, dataToSave);
+    localStorage.setItem(scopedStorageKey(key), JSON.stringify(dataToSave));
+
+    // Defer so reads during render (e.g. useLiveCollection init) don't update other components synchronously
+    queueMicrotask(() => {
+      void syncToServer(`/api/db/collections/${key}`, dataToSave);
+    });
 
     let seedData = defaultData;
     if (key === "students") {
@@ -285,7 +324,7 @@ export function saveCollection<T>(key: string, data: T[]): void {
     if (key === "students") {
       dataToSave = normalizeStudentsBeforeSave(data as unknown as StudentRecord[]) as unknown as T[];
     }
-    localStorage.setItem(`mms_${key}`, JSON.stringify(dataToSave));
+    localStorage.setItem(scopedStorageKey(key), JSON.stringify(dataToSave));
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("local-database-update"));
     }
@@ -307,20 +346,128 @@ export function saveCollection<T>(key: string, data: T[]): void {
  */
 export function getObject<T>(key: string, defaultData: T): T {
   try {
-    const saved = localStorage.getItem(`mms_${key}`);
+    const saved = localStorage.getItem(scopedStorageKey(key));
     if (saved !== null) {
       return JSON.parse(saved) as T;
     }
-    localStorage.setItem(`mms_${key}`, JSON.stringify(defaultData));
+    localStorage.setItem(scopedStorageKey(key), JSON.stringify(defaultData));
 
-    // Sync to backend asynchronously
-    void syncToServer(`/api/db/objects/${key}`, defaultData);
+    queueMicrotask(() => {
+      void syncToServer(`/api/db/objects/${key}`, defaultData);
+    });
 
     return defaultData;
   } catch (error) {
     console.error(`Error reading object "${key}" from database:`, error);
     return defaultData;
   }
+}
+
+/** Reads `global_settings` merged with defaults (incl. all `enabledModules` keys). */
+export function getGlobalSettings(): GlobalSettings {
+  return mergeGlobalSettings(getObject<GlobalSettings>("global_settings", DEFAULT_GLOBAL_SETTINGS));
+}
+
+let globalSettingsPreview: Partial<GlobalSettings> | null = null;
+
+/** Merges a live-preview patch (Settings panels) without persisting. */
+export function mergeGlobalSettingsPreview(patch: Partial<GlobalSettings> | null): void {
+  if (patch === null) {
+    globalSettingsPreview = null;
+    return;
+  }
+  globalSettingsPreview = {
+    ...globalSettingsPreview,
+    ...patch,
+    ...(patch.enabledModules
+      ? { enabledModules: { ...globalSettingsPreview?.enabledModules, ...patch.enabledModules } }
+      : {}),
+  };
+}
+
+/** Clears the in-memory global settings preview overlay. */
+export function clearGlobalSettingsPreviewOverlay(): void {
+  globalSettingsPreview = null;
+}
+
+/** Persisted `global_settings` merged with any active preview overlay. */
+export function getEffectiveGlobalSettings(): GlobalSettings {
+  return mergeGlobalSettings({
+    ...getGlobalSettings(),
+    ...(globalSettingsPreview ?? {}),
+  });
+}
+
+/** Persists merged global settings and dispatches `local-database-update`. */
+export function saveGlobalSettings(data: GlobalSettings): void {
+  saveObject("global_settings", mergeGlobalSettings(data));
+}
+
+/** Reads `branding` merged with defaults. */
+export function getBrandingSettings(): BrandingSettings {
+  return mergeBrandingSettings(getObject<BrandingSettings>("branding", DEFAULT_BRANDING_SETTINGS));
+}
+
+let brandingPreview: Partial<BrandingSettings> | null = null;
+
+/** Merges a live-preview patch (Settings panels) without persisting. */
+export function mergeBrandingSettingsPreview(patch: Partial<BrandingSettings> | null): void {
+  brandingPreview = patch === null ? null : { ...brandingPreview, ...patch };
+}
+
+/** Clears the in-memory branding preview overlay. */
+export function clearBrandingSettingsPreviewOverlay(): void {
+  brandingPreview = null;
+}
+
+/** Persisted `branding` merged with any active preview overlay. */
+export function getEffectiveBrandingSettings(): BrandingSettings {
+  return mergeBrandingSettings({
+    ...getBrandingSettings(),
+    ...(brandingPreview ?? {}),
+  });
+}
+
+function writeObjectLocal<T>(key: string, data: T): void {
+  localStorage.setItem(scopedStorageKey(key), JSON.stringify(data));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("local-database-update"));
+  }
+}
+
+/**
+ * Persists merged branding locally and waits for PostgreSQL sync to complete.
+ */
+export async function saveBrandingSettings(data: BrandingSettings): Promise<ServerSyncResult> {
+  const merged = mergeBrandingSettings(data);
+  try {
+    writeObjectLocal("branding", merged);
+    return await syncToServer("/api/db/objects/branding", merged);
+  } catch (error) {
+    console.error('Error writing branding to local database:', error);
+    return { ok: false };
+  }
+}
+
+/** Reads a stored object without seeding defaults (for pre-auth branding prefetch). */
+export function readObjectLocal<T>(key: string): T | null {
+  try {
+    const saved = localStorage.getItem(scopedStorageKey(key));
+    if (saved !== null) {
+      return JSON.parse(saved) as T;
+    }
+  } catch (error) {
+    console.error(`Error reading object "${key}" from local cache:`, error);
+  }
+  return null;
+}
+
+/** Merges public branding from the workspace API into the local branding object (login prefetch). */
+export function cachePublicBranding(partial: PublicBranding): void {
+  const existing = mergeBrandingSettings(
+    readObjectLocal<BrandingSettings>("branding") ?? DEFAULT_BRANDING_SETTINGS,
+  );
+  saveObject("branding", mergeBrandingSettings({ ...existing, ...partial }));
 }
 
 /**
@@ -333,12 +480,7 @@ export function getObject<T>(key: string, defaultData: T): T {
  */
 export function saveObject<T>(key: string, data: T): void {
   try {
-    localStorage.setItem(`mms_${key}`, JSON.stringify(data));
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("local-database-update"));
-    }
-
-    // Sync to backend asynchronously
+    writeObjectLocal(key, data);
     void syncToServer(`/api/db/objects/${key}`, data);
   } catch (error) {
     console.error(`Error writing object "${key}" to database:`, error);
@@ -353,10 +495,11 @@ export function saveObject<T>(key: string, data: T): void {
  */
 export function exportDatabase(): string {
   try {
+    const prefix = getStoragePrefix();
     const data: Record<string, string> = {};
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith("mms_")) {
+      if (key && key.startsWith(prefix)) {
         const val = localStorage.getItem(key);
         if (val !== null) {
           data[key] = val;
@@ -379,15 +522,16 @@ export function exportDatabase(): string {
  */
 export function importDatabase(jsonString: string): void {
   try {
-    const data = JSON.parse(jsonString) as Record<string, unknown>;
-    if (!data || typeof data !== "object") {
-      throw new Error("Invalid backup data format");
+    const prefix = getStoragePrefix();
+    const validated = validateWorkspaceBackupJson(jsonString, prefix);
+    if (!validated.ok) {
+      throw new Error(validated.errorKey);
     }
 
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith("mms_")) {
+      if (key && key.startsWith(prefix)) {
         keysToRemove.push(key);
       }
     }
@@ -396,17 +540,15 @@ export function importDatabase(jsonString: string): void {
     const collections: Record<string, unknown[]> = {};
     const objects: Record<string, unknown> = {};
 
-    for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith("mms_") && typeof value === "string") {
-        localStorage.setItem(key, value);
+    for (const [key, value] of Object.entries(validated.data)) {
+      localStorage.setItem(key, value);
 
-        const parsedVal = JSON.parse(value) as unknown;
-        const name = key.replace("mms_", "");
-        if (Array.isArray(parsedVal)) {
-          collections[name] = parsedVal;
-        } else {
-          objects[name] = parsedVal;
-        }
+      const parsedVal = JSON.parse(value) as unknown;
+      const logicalKey = key.slice(prefix.length);
+      if (Array.isArray(parsedVal)) {
+        collections[logicalKey] = parsedVal;
+      } else {
+        objects[logicalKey] = parsedVal;
       }
     }
 
@@ -430,38 +572,6 @@ export function importDatabase(jsonString: string): void {
  * @returns {string} The formatted date string.
  */
 export function formatDate(date: string | Date | null | undefined, showMonthName = false): string {
-  if (!date) return "—";
-  const d = typeof date === "string" ? new Date(date) : date;
-  if (isNaN(d.getTime())) return "—";
-
-  const settings = getObject<GlobalSettings>("global_settings", DEFAULT_GLOBAL_SETTINGS);
-  const format = settings?.dateFormat || "DD/MM/YYYY";
-
-  if (showMonthName) {
-    const day = d.getDate();
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const month = months[d.getMonth()];
-    const year = d.getFullYear();
-    
-    if (format === "MM/DD/YYYY") {
-      return `${month} ${day}, ${year}`;
-    }
-    if (format === "YYYY-MM-DD") {
-      return `${year}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-    return `${day} ${month} ${year}`;
-  }
-
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = String(d.getFullYear());
-
-  if (format === "MM/DD/YYYY") {
-    return `${month}/${day}/${year}`;
-  }
-  if (format === "YYYY-MM-DD") {
-    return `${year}-${month}-${day}`;
-  }
-  // Default is DD/MM/YYYY
-  return `${day}/${month}/${year}`;
+  const settings = getEffectiveGlobalSettings();
+  return sharedFormatDate(date, settings.dateFormat, showMonthName);
 }

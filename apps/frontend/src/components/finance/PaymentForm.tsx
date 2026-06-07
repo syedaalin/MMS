@@ -124,7 +124,7 @@ export default function PaymentForm({ invoice, onClose, onSave }: PaymentFormPro
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {orderedFields.map((field) => {
-              const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled !== false);
+              const isEnabled = fields[field.id]?.enabled !== false;
               if (!isEnabled) return null;
 
               if (field.id === "amount") {
@@ -192,7 +192,7 @@ export default function PaymentForm({ invoice, onClose, onSave }: PaymentFormPro
               }
 
               // Custom field
-              if (field.isCustom) {
+              if (!["amount", "method", "date", "receivedBy", "note"].includes(field.id)) {
                 const val = (data as Record<string, unknown>)[field.id] ?? "";
                 return (
                   <div key={field.id} className={field.type === "textarea" ? "sm:col-span-2" : ""}>

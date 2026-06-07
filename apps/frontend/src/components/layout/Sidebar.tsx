@@ -1,64 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Users,
-  GraduationCap,
-  ClipboardList,
-  Calendar,
-  UserCheck,
-  DollarSign,
-  Star,
-  FileText,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  UserCog,
-  Scale,
-  TrendingUp,
-  BookOpen,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import useBranding from "@/hooks/useBranding";
 
-import { getObject } from "@/lib/db";
-import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "@mms/shared";
-
-interface MenuItem {
-  label: string;
-  icon: LucideIcon;
-  path?: string;
-  moduleId?: string;
-  subItems?: {
-    label: string;
-    icon: LucideIcon;
-    path: string;
-    moduleId?: string;
-  }[];
-}
-
-const menuItems: MenuItem[] = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/", moduleId: "dashboard" },
-  { label: "Contacts", icon: Users, path: "/contacts", moduleId: "contacts" },
-  {
-    label: "Academics",
-    icon: BookOpen,
-    subItems: [
-      { label: "Students", icon: GraduationCap, path: "/students", moduleId: "students" },
-      { label: "Sessions", icon: Calendar, path: "/sessions", moduleId: "sessions" },
-      { label: "Enrollments", icon: ClipboardList, path: "/enrollments", moduleId: "enrollment" },
-      { label: "Hasanat Cards", icon: Star, path: "/hasanat-cards", moduleId: "hasanat" },
-      { label: "Examinations", icon: FileText, path: "/examinations", moduleId: "examination" },
-    ]
-  },
-  { label: "Attendance", icon: UserCheck, path: "/attendance", moduleId: "attendance" },
-  { label: "Finance", icon: DollarSign, path: "/finance", moduleId: "finance" },
-  { label: "Accounting", icon: TrendingUp, path: "/accounting", moduleId: "accounting" },
-  { label: "Obligations", icon: Scale, path: "/obligations", moduleId: "finance" },
-  { label: "Users", icon: UserCog, path: "/users", moduleId: "users" },
-  { label: "Settings", icon: Settings, path: "/settings" },
-];
+import useGlobalSettings from "@/hooks/useGlobalSettings";
+import useTranslation from "@/hooks/useTranslation";
+import { NAV_ITEMS } from "@/lib/navConfig";
+import { isNavPathActive, ROUTES } from "@/lib/routes";
 
 export interface SidebarProps {
   /** If true, shrinks the sidebar to an icon-only strip. */
@@ -75,37 +24,38 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps): React.JS
   const location = useLocation();
   const branding = useBranding();
 
-  const settings = getObject<GlobalSettings>("global_settings", DEFAULT_GLOBAL_SETTINGS);
+  const settings = useGlobalSettings();
+  const { t } = useTranslation();
   const enabledModules = settings.enabledModules || {};
 
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
-    menuItems.forEach(item => {
-      if (item.subItems && item.subItems.some(sub => location.pathname === sub.path)) {
-        initial[item.label] = true;
+    NAV_ITEMS.forEach(item => {
+      if (item.subItems && item.subItems.some(sub => isNavPathActive(location.pathname, sub.path))) {
+        initial[item.labelKey] = true;
       }
     });
     return initial;
   });
 
-  const toggleMenu = (label: string) => {
+  const toggleMenu = (labelKey: string) => {
     if (collapsed) {
-      onToggle(); // Expand sidebar
-      setOpenMenus(prev => ({ ...prev, [label]: true }));
+      onToggle();
+      setOpenMenus(prev => ({ ...prev, [labelKey]: true }));
     } else {
-      setOpenMenus(prev => ({ ...prev, [label]: !prev[label] }));
+      setOpenMenus(prev => ({ ...prev, [labelKey]: !prev[labelKey] }));
     }
   };
 
   useEffect(() => {
-    menuItems.forEach(item => {
-      if (item.subItems && item.subItems.some(sub => location.pathname === sub.path)) {
-        setOpenMenus(prev => ({ ...prev, [item.label]: true }));
+    NAV_ITEMS.forEach(item => {
+      if (item.subItems && item.subItems.some(sub => isNavPathActive(location.pathname, sub.path))) {
+        setOpenMenus(prev => ({ ...prev, [item.labelKey]: true }));
       }
     });
   }, [location.pathname]);
 
-  const visibleMenuItems = menuItems.map(item => {
+  const visibleMenuItems = NAV_ITEMS.map(item => {
     if (item.subItems) {
       const visibleSubItems = item.subItems.filter(sub => {
         if (!sub.moduleId) return true;
@@ -130,7 +80,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps): React.JS
     >
       {/* Logo */}
       <div className="h-16 flex items-center px-5 border-b border-sidebar-border">
-        <div className="flex items-center gap-3 overflow-hidden">
+        <Link to={ROUTES.home} className="flex items-center gap-3 overflow-hidden min-w-0 hover:opacity-90 transition-opacity">
           {branding.logoUrl ? (
             <img
               src={branding.logoUrl}
@@ -158,21 +108,21 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps): React.JS
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </Link>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         {visibleMenuItems.map((item) => {
           if (item.subItems) {
-            const isMenuOpen = !!openMenus[item.label];
-            const hasActiveSub = item.subItems.some(sub => location.pathname === sub.path);
+            const isMenuOpen = !!openMenus[item.labelKey];
+            const hasActiveSub = item.subItems.some(sub => isNavPathActive(location.pathname, sub.path));
             const Icon = item.icon;
 
             return (
-              <div key={item.label} className="space-y-1">
+              <div key={item.labelKey} className="space-y-1">
                 <button
-                  onClick={() => toggleMenu(item.label)}
+                  onClick={() => toggleMenu(item.labelKey)}
                   className={`group flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
                     hasActiveSub
                       ? "bg-sidebar-accent/35 text-sidebar-foreground"
@@ -189,7 +139,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps): React.JS
                           exit={{ opacity: 0, width: 0 }}
                           className="text-[13px] font-medium overflow-hidden whitespace-nowrap"
                         >
-                          {item.label}
+                          {t(item.labelKey)}
                         </motion.span>
                       )}
                     </AnimatePresence>
@@ -213,7 +163,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps): React.JS
                       className="overflow-hidden pl-7 space-y-1 border-l border-sidebar-border/40 ml-[21px]"
                     >
                       {item.subItems.map((sub) => {
-                        const isSubActive = location.pathname === sub.path;
+                        const isSubActive = isNavPathActive(location.pathname, sub.path);
                         const SubIcon = sub.icon;
 
                         return (
@@ -235,7 +185,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps): React.JS
                             )}
                             <SubIcon className={`w-4 h-4 flex-shrink-0 ${isSubActive ? "text-sidebar-primary" : ""}`} />
                             <span className="text-[12.5px] font-medium">
-                              {sub.label}
+                              {t(sub.labelKey)}
                             </span>
                           </Link>
                         );
@@ -247,7 +197,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps): React.JS
             );
           }
 
-          const isActive = location.pathname === item.path;
+          const isActive = isNavPathActive(location.pathname, item.path ?? ROUTES.home);
           const Icon = item.icon;
 
           return (
@@ -278,7 +228,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps): React.JS
                     exit={{ opacity: 0, width: 0 }}
                     className="text-[13px] font-medium overflow-hidden whitespace-nowrap"
                   >
-                    {item.label}
+                    {t(item.labelKey)}
                   </motion.span>
                 )}
               </AnimatePresence>
@@ -298,7 +248,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps): React.JS
           ) : (
             <>
               <ChevronLeft className="w-4 h-4" />
-              <span className="text-xs font-medium">Collapse</span>
+              <span className="text-xs font-medium">{t("nav.collapse")}</span>
             </>
           )}
         </button>

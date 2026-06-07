@@ -1,10 +1,15 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
+import useConfigSubTabs from "@/hooks/useConfigSubTabs";
+import useTranslation from "@/hooks/useTranslation";
+import useModuleTierTabs from "@/hooks/useModuleTierTabs";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Calendar, Users, BookOpen,
   DollarSign, ChevronRight, Filter, ChevronDown, Settings, LayoutDashboard, BarChart2,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
+import ResponsiveAccordionTabs from "@/components/ui/ResponsiveAccordionTabs";
+import SubTabBar from "@/components/ui/SubTabBar";
 import SearchBar from "../components/ui/SearchBar";
 import FilterChips from "../components/ui/FilterChips";
 import ActionButton from "../components/ui/ActionButton";
@@ -20,19 +25,9 @@ import ModuleReports from "../components/reports/ModuleReports";
 import ErrorBoundary from "../components/ui/ErrorBoundary";
 import KPISummary from "../components/reports/KPISummary";
 import { SESSIONS_DATA, SESSION_TYPES, Session } from "../lib/sessionsData";
-import { getCollection, saveCollection, formatDate, getObject } from "../lib/db";
+import { saveCollection, formatDate, getObject } from "../lib/db";
+import { useLiveCollection } from "../hooks/useLiveCollection";
 import { SessionsSettings as SessionsSettingsData, DEFAULT_SESSIONS_SETTINGS } from "@mms/shared";
-
-const PAGE_TABS = [
-  { id: "operations",    label: "Operations",    icon: LayoutDashboard },
-  { id: "analytics",     label: "Analytics",     icon: BarChart2 },
-  { id: "configuration", label: "Configuration", icon: Settings },
-];
-
-const SESSION_SETTINGS_SUB_TABS = [
-  { id: "fields", label: "Fields" },
-  { id: "preferences", label: "Preferences" },
-];
 
 type SessionStatus = "active" | "upcoming" | "completed" | "cancelled";
 type SessionType = typeof SESSION_TYPES[number];
@@ -128,7 +123,10 @@ function SessionCard({ session, onClick }: SessionCardProps) {
  * @returns The Sessions page.
  */
 export default function Sessions() {
-  const [sessions, setSessions] = useState<Session[]>(() => getCollection("sessions", SESSIONS_DATA));
+  const PAGE_TABS = useModuleTierTabs();
+  const configSubTabs = useConfigSubTabs();
+  const { t } = useTranslation();
+  const sessions = useLiveCollection("sessions", SESSIONS_DATA);
   const settings = getObject<SessionsSettingsData>("sessions_settings", DEFAULT_SESSIONS_SETTINGS);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<SessionStatus[]>([]);
@@ -138,10 +136,6 @@ export default function Sessions() {
   const [detailSession, setDetailSession] = useState<Session | null>(null);
   const [activeTab, setActiveTab] = useState("operations");
   const [subTab, setSubTab] = useState("fields");
-
-  useEffect(() => {
-    saveCollection("sessions", sessions);
-  }, [sessions]);
 
   const filtered = useMemo(() => {
     return sessions.filter((s) => {
@@ -155,14 +149,14 @@ export default function Sessions() {
 
   const handleSave = (data: Session) => {
     const existing = sessions.find((s) => s.id === data.id);
-    setSessions((ss) => existing ? ss.map((s) => s.id === data.id ? data : s) : [...ss, data]);
+    saveCollection("sessions", existing ? sessions.map((s) => s.id === data.id ? data : s) : [...sessions, data]);
     if (detailSession?.id === data.id) setDetailSession(data);
     setShowForm(false);
     setEditSession(null);
   };
 
   const handleUpdate = (updated: Session) => {
-    setSessions((ss) => ss.map((s) => s.id === updated.id ? updated : s));
+    saveCollection("sessions", sessions.map((s) => s.id === updated.id ? updated : s));
     setDetailSession(updated);
   };
 
@@ -179,8 +173,8 @@ export default function Sessions() {
       <meta name="description" content="Manage academic sessions, class schedules, timings, and class-wise registries." />
       <PageHeader
         icon={Calendar}
-        title="Sessions"
-        subtitle={`${sessions.length} total · ${sessions.filter((s) => s.status === "active").length} active`}
+        title={t("nav.sessions")}
+        subtitle={t("page.sessions.subtitle")}
         actions={
           <ActionButton variant="primary" icon={Plus} onClick={() => { setEditSession(null); setShowForm(true); }}>
             New Session
@@ -188,23 +182,12 @@ export default function Sessions() {
         }
       />
 
-      <div className="space-y-4">
-        <KPISummary category="sessions" />
-      </div>
-
-      {/* Page tab bar */}
-      <div className="flex border-b border-border">
-        {PAGE_TABS.map((t) => {
-          const Icon = t.icon;
-          return (
-            <button key={t.id} onClick={() => setActiveTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all ${activeTab === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-              <Icon className="w-4 h-4" /> {t.label}
-            </button>
-          );
-        })}
-      </div>
-
+      <ResponsiveAccordionTabs
+        tabs={PAGE_TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        panelIdPrefix="sessions-tab"
+      >
       <AnimatePresence mode="wait">
         {activeTab === "operations" ? (
           <motion.div
@@ -328,7 +311,8 @@ export default function Sessions() {
             )}
           </motion.div>
         ) : activeTab === "analytics" ? (
-          <motion.div key="analytics" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+          <motion.div key="analytics" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="space-y-4">
+            <KPISummary category="sessions" />
             <ModuleReports category="sessions" />
           </motion.div>
         ) : (
@@ -341,37 +325,27 @@ export default function Sessions() {
           >
             <ErrorBoundary>
               <div className="space-y-4">
-                <div className="flex gap-1 p-1 bg-muted/60 rounded-xl w-fit border border-border/30">
-                  {SESSION_SETTINGS_SUB_TABS.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setSubTab(t.id)}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                        subTab === t.id
-                          ? "bg-card text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
+                <SubTabBar
+                  tabs={configSubTabs.map((tab) => ({ key: tab.id, label: tab.label }))}
+                  value={subTab}
+                  onChange={setSubTab}
+                />
                 <SessionsSettings mode={subTab as "fields" | "preferences"} />
               </div>
             </ErrorBoundary>
           </motion.div>
         )}
       </AnimatePresence>
+      </ResponsiveAccordionTabs>
 
       {/* Modals */}
       <AnimatePresence>
-        {showForm && (
-          <SessionForm
-            session={editSession}
-            onClose={() => { setShowForm(false); setEditSession(null); }}
-            onSave={handleSave}
-          />
-        )}
+        <SessionForm
+          open={showForm}
+          session={editSession}
+          onClose={() => { setShowForm(false); setEditSession(null); }}
+          onSave={handleSave}
+        />
         {detailSession && (
           <SessionDetail
             session={detailSession}

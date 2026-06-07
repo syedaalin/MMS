@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Loader2, Mail, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AuthLayout from "../../components/auth/AuthLayout";
+import { ROUTES } from "../../lib/routes";
+import { apexUrl } from "../../lib/tenantConfig";
+import useTranslation from "@/hooks/useTranslation";
 
 /**
  * ForgotPassword Page Component
@@ -14,6 +17,7 @@ import AuthLayout from "../../components/auth/AuthLayout";
  * @returns React element representing the forgot password page.
  */
 export default function ForgotPassword() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -21,8 +25,8 @@ export default function ForgotPassword() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!email) { setError("Email is required"); return; }
-    if (!/\S+@\S+\.\S+/.test(email)) { setError("Enter a valid email address"); return; }
+    if (!email) { setError(t("auth.emailRequired")); return; }
+    if (!/\S+@\S+\.\S+/.test(email)) { setError(t("auth.emailInvalid")); return; }
     setLoading(true);
     await new Promise((r) => setTimeout(r, 1500));
     setLoading(false);
@@ -31,11 +35,11 @@ export default function ForgotPassword() {
 
   return (
     <AuthLayout
-      title={sent ? "Check your email" : "Forgot password?"}
+      title={sent ? t("auth.forgotCheckEmail") : t("auth.forgotTitle")}
       subtitle={
         sent
-          ? `We've sent a reset link to ${email}`
-          : "Enter your email and we'll send you a reset link"
+          ? t("auth.forgotSentTo", { email })
+          : t("auth.forgotSubtitle")
       }
     >
       <AnimatePresence mode="wait">
@@ -46,7 +50,6 @@ export default function ForgotPassword() {
             animate={{ opacity: 1, scale: 1 }}
             className="space-y-5"
           >
-            {/* Success icon */}
             <div className="flex justify-center">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
                 <CheckCircle2 className="w-8 h-8 text-primary" />
@@ -57,9 +60,9 @@ export default function ForgotPassword() {
               <div className="flex items-start gap-3">
                 <Mail className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">Reset link sent</p>
+                  <p className="text-sm font-medium text-foreground">{t("auth.resetLinkSent")}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Check your inbox at <strong>{email}</strong>. The link expires in 30 minutes.
+                    {t("auth.resetLinkExpiry", { email })}
                   </p>
                 </div>
               </div>
@@ -69,13 +72,19 @@ export default function ForgotPassword() {
               onClick={() => { setSent(false); setEmail(""); }}
               className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
             >
-              Try a different email
+              {t("auth.tryDifferentEmail")}
             </button>
 
             <p className="text-center text-xs text-muted-foreground">
-              <Link to="/login" className="text-primary font-medium hover:underline inline-flex items-center gap-1">
-                <ArrowLeft className="w-3 h-3" /> Back to sign in
+              <Link to={ROUTES.login} className="text-primary font-medium hover:underline inline-flex items-center gap-1">
+                <ArrowLeft className="w-3 h-3" /> {t("auth.backToSignIn")}
               </Link>
+            </p>
+            <p className="text-center text-xs text-muted-foreground">
+              {t("auth.notYourMadrasa")}{" "}
+              <a href={apexUrl(ROUTES.login)} className="font-medium text-primary hover:underline">
+                {t("auth.viewAllMadrasaLinks")}
+              </a>
             </p>
           </motion.div>
         ) : (
@@ -88,7 +97,7 @@ export default function ForgotPassword() {
           >
             <div>
               <label className="text-sm font-medium text-foreground block mb-1.5">
-                Email address
+                {t("auth.emailAddress")}
               </label>
               <input
                 type="email"
@@ -111,17 +120,38 @@ export default function ForgotPassword() {
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <>
-                  Send reset link
+                  {t("auth.sendResetLink")}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
 
             <p className="text-center text-xs text-muted-foreground">
-              <Link to="/login" className="text-primary font-medium hover:underline inline-flex items-center gap-1">
-                <ArrowLeft className="w-3 h-3" /> Back to sign in
+              <Link to={ROUTES.login} className="text-primary font-medium hover:underline inline-flex items-center gap-1">
+                <ArrowLeft className="w-3 h-3" /> {t("auth.backToSignIn")}
               </Link>
             </p>
+
+            <div className="border-t border-border/50 pt-4 text-center text-xs text-muted-foreground space-y-2">
+              <p>
+                {t("auth.notYourMadrasa")}{" "}
+                <a
+                  href={apexUrl(ROUTES.login)}
+                  className="font-medium text-primary transition-colors hover:text-primary/80 hover:underline"
+                >
+                  {t("auth.viewAllMadrasaLinks")}
+                </a>
+              </p>
+              <p>
+                {t("auth.noAccount")}{" "}
+                <a
+                  href={apexUrl(ROUTES.onboarding)}
+                  className="font-medium text-primary transition-colors hover:text-primary/80 hover:underline"
+                >
+                  {t("auth.createMadrasa")}
+                </a>
+              </p>
+            </div>
           </motion.form>
         )}
       </AnimatePresence>

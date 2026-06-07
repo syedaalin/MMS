@@ -16,20 +16,20 @@
  */
 import {
   CONFIG_VERSION,
-  DEFAULT_ENABLED_FIELDS,
-  DEFAULT_REQUIRED_FIELDS,
   DEFAULT_ENABLED_TABS,
   DEFAULT_REQUIRED_TABS,
-  DEFAULT_TAB_FIELD_CONFIG,
-  TAB_FIELD_DEFINITIONS,
   FieldConfig,
-  TabFieldConfig,
-  CustomField,
+  FieldDefinition,
+  TAB_REGISTRY,
+  DEFAULT_UI_STRINGS,
+  INITIAL_FIELD_SEED,
+  DEFAULT_PAGE_TABS,
+  DEFAULT_FORM_TABS,
+  DEFAULT_DETAIL_TABS,
+  DEFAULT_SETTINGS_SUB_TABS,
+  DEFAULT_COLUMN_REGISTRY,
+  REMOVED_FORM_FIELD_KEYS,
 } from "./contactFields";
-
-// ── Storage keys ──────────────────────────────────────────────────────────────
-const STORAGE_KEY = "mms_contact_field_config";
-const DEFAULT_STORAGE_KEY = "mms_contact_field_config_default";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -40,73 +40,19 @@ const DEFAULT_STORAGE_KEY = "mms_contact_field_config_default";
  * @returns {FieldConfig} The default field configuration.
  */
 function getHardcodedDefaults(): FieldConfig {
-  const tabFieldConfig: Record<string, TabFieldConfig> = {};
-  for (const [k, v] of Object.entries(DEFAULT_TAB_FIELD_CONFIG)) {
-    tabFieldConfig[k] = {
-      enabled: [...v.enabled],
-      required: [...v.required],
-    };
-  }
-
-  const tabCustomFields: Record<string, CustomField[]> = {};
-  for (const k of Object.keys(TAB_FIELD_DEFINITIONS)) {
-    tabCustomFields[k] = [];
-  }
-
-  // Default personas for 2026 CRM
-  const personas = [
-    {
-      id: "general",
-      label: "General Contact",
-      icon: "User",
-      enabledTabs: [...DEFAULT_ENABLED_TABS],
-      requiredTabs: [...DEFAULT_REQUIRED_TABS],
-      tabFieldConfig: { ...tabFieldConfig },
-      tabCustomFields: { ...tabCustomFields },
-    },
-    {
-      id: "student",
-      label: "Student",
-      icon: "GraduationCap",
-      enabledTabs: ["phones", "emails", "addresses", "emergency", "relationships"],
-      requiredTabs: ["phones", "emergency"],
-      tabFieldConfig: {
-        ...tabFieldConfig,
-        basic: {
-          enabled: ["avatar", "firstName", "lastName", "gender", "dob"],
-          required: ["firstName", "lastName", "gender", "dob"],
-        }
-      },
-      tabCustomFields: { ...tabCustomFields },
-    },
-    {
-      id: "staff",
-      label: "Staff Member",
-      icon: "Briefcase",
-      enabledTabs: ["phones", "emails", "addresses", "socials", "relationships"],
-      requiredTabs: ["phones", "emails"],
-      tabFieldConfig: {
-        ...tabFieldConfig,
-        basic: {
-          enabled: ["avatar", "firstName", "lastName", "gender", "dob"],
-          required: ["firstName", "lastName", "gender"],
-        }
-      },
-      tabCustomFields: { ...tabCustomFields },
-    }
-  ];
+  const fieldsClone = JSON.parse(JSON.stringify(INITIAL_FIELD_SEED));
 
   return {
     version: CONFIG_VERSION,
-    enabled: [...DEFAULT_ENABLED_FIELDS],
-    required: [...DEFAULT_REQUIRED_FIELDS],
     enabledTabs: [...DEFAULT_ENABLED_TABS],
     requiredTabs: [...DEFAULT_REQUIRED_TABS],
-    tabFieldConfig,
-    customFields: [],
-    tabCustomFields,
-    personas,
-    defaultPersonaId: "general",
+    fields: fieldsClone,
+    pageTabs: [...DEFAULT_PAGE_TABS],
+    formTabs: [...DEFAULT_FORM_TABS],
+    detailTabs: [...DEFAULT_DETAIL_TABS],
+    settingsSubTabs: [...DEFAULT_SETTINGS_SUB_TABS],
+    columnRegistry: [...DEFAULT_COLUMN_REGISTRY],
+    uiStrings: { ...DEFAULT_UI_STRINGS }
   };
 }
 
@@ -125,43 +71,33 @@ function migrateConfig(config: unknown): FieldConfig {
   const rawConfig = config as Record<string, unknown>;
   const storedVersion = typeof rawConfig.version === "number" ? rawConfig.version : 0;
 
-  // Start with a shallow clone of the input config
-  const cfg = { ...rawConfig } as unknown as Partial<FieldConfig>;
-
-  if (storedVersion < 1) {
-    // v0 → v1: ensure all tab keys exist in tabFieldConfig
-    cfg.tabFieldConfig = cfg.tabFieldConfig ?? {};
-    for (const tabId of Object.keys(TAB_FIELD_DEFINITIONS)) {
-      if (!cfg.tabFieldConfig[tabId]) {
-        cfg.tabFieldConfig[tabId] = {
-          enabled: [...(DEFAULT_TAB_FIELD_CONFIG[tabId]?.enabled ?? [])],
-          required: [...(DEFAULT_TAB_FIELD_CONFIG[tabId]?.required ?? [])],
-        };
-      }
-    }
-    // Ensure top-level tab arrays are present
-    cfg.enabledTabs = cfg.enabledTabs ?? [...DEFAULT_ENABLED_TABS];
-    cfg.requiredTabs = cfg.requiredTabs ?? [...DEFAULT_REQUIRED_TABS];
-    // Ensure custom field arrays are present
-    cfg.customFields = cfg.customFields ?? [];
-    
-    const tabCustomFields: Record<string, CustomField[]> = {};
-    for (const k of Object.keys(TAB_FIELD_DEFINITIONS)) {
-      tabCustomFields[k] = [];
-    }
-    cfg.tabCustomFields = cfg.tabCustomFields ?? tabCustomFields;
-    cfg.version = 1;
-  }
-
+  // Since we migrated the schema significantly, if version is < 2, just return defaults.
   if (storedVersion < 2) {
-    // v1 → v2 modernization: Add personas
-    const defaults = getHardcodedDefaults();
-    cfg.personas = cfg.personas ?? defaults.personas;
-    cfg.defaultPersonaId = cfg.defaultPersonaId ?? defaults.defaultPersonaId;
-    cfg.version = CONFIG_VERSION;
+    return getHardcodedDefaults();
   }
 
-  // Future version migrations go here as additional `if (storedVersion < N)` blocks.
+  const cfg = { ...rawConfig } as unknown as Partial<FieldConfig>;
+  
+  // Populate dynamic tab fields if they are missing
+  const defaults = getHardcodedDefaults();
+  
+  const normalizeTabs = (tabs: any[] | undefined) => {
+    if (!Array.isArray(tabs)) return undefined;
+    return tabs.map(t => {
+      if (t && typeof t === "object" && !t.key && t.id) {
+        return { ...t, key: t.id };
+      }
+      return t;
+    });
+  };
+
+  cfg.pageTabs = normalizeTabs(cfg.pageTabs) ?? defaults.pageTabs;
+  cfg.formTabs = normalizeTabs(cfg.formTabs) ?? defaults.formTabs;
+  cfg.detailTabs = normalizeTabs(cfg.detailTabs) ?? defaults.detailTabs;
+  cfg.settingsSubTabs = normalizeTabs(cfg.settingsSubTabs) ?? defaults.settingsSubTabs;
+  cfg.columnRegistry = cfg.columnRegistry ?? defaults.columnRegistry;
+  cfg.uiStrings = cfg.uiStrings ?? defaults.uiStrings;
+  cfg.fields = cfg.fields ?? defaults.fields;
 
   return cfg as FieldConfig;
 }
@@ -182,165 +118,103 @@ export function sanitizeConfig(config: FieldConfig): FieldConfig {
     return getHardcodedDefaults();
   }
 
-  // Work on a shallow clone
   const cfg = { ...config };
 
-  // ── Top-level enabled/required (legacy flat arrays) ─────────────────────
-  const validTopLevelIds = new Set(DEFAULT_ENABLED_FIELDS);
-  if (Array.isArray(cfg.enabled)) {
-    cfg.enabled = cfg.enabled.filter((f) => typeof f === "string" && validTopLevelIds.has(f));
-  }
-  if (Array.isArray(cfg.required)) {
-    cfg.required = cfg.required.filter((f) => typeof f === "string" && validTopLevelIds.has(f));
-  }
-
-  // ── Per-tab field config ─────────────────────────────────────────────────
-  if (cfg.tabFieldConfig && typeof cfg.tabFieldConfig === "object") {
-    const sanitizedTabConfig: Record<string, TabFieldConfig> = {};
-    for (const tabId of Object.keys(TAB_FIELD_DEFINITIONS)) {
-      const savedTab = cfg.tabFieldConfig[tabId];
-      const coreIds = new Set(TAB_FIELD_DEFINITIONS[tabId].map((f) => f.id));
-
-      // Collect IDs of custom fields for this tab
-      const customIds = new Set(
-        (cfg.tabCustomFields?.[tabId] ?? cfg.customFields ?? []).map((f) => f.id)
-      );
-
-      const isAllowed = (id: string) => coreIds.has(id) || customIds.has(id);
-
-      sanitizedTabConfig[tabId] = {
-        enabled: Array.isArray(savedTab?.enabled)
-          ? savedTab.enabled.filter(isAllowed)
-          : [...(DEFAULT_TAB_FIELD_CONFIG[tabId]?.enabled ?? [])],
-        required: Array.isArray(savedTab?.required)
-          ? savedTab.required.filter(isAllowed)
-          : [...(DEFAULT_TAB_FIELD_CONFIG[tabId]?.required ?? [])],
-        ...(savedTab?.order ? { order: savedTab.order.filter(isAllowed) } : {}),
-      };
+  // Strip fields retired from the form registry from any persisted config.
+  if (REMOVED_FORM_FIELD_KEYS.length > 0 && cfg.fields && typeof cfg.fields === "object") {
+    const removed = new Set(REMOVED_FORM_FIELD_KEYS);
+    const cleanedFields: Record<string, FieldDefinition[]> = {};
+    for (const [tabKey, tabFields] of Object.entries(cfg.fields)) {
+      cleanedFields[tabKey] = Array.isArray(tabFields)
+        ? tabFields.filter((f) => !removed.has(f.key))
+        : tabFields;
     }
-    cfg.tabFieldConfig = sanitizedTabConfig;
+    cfg.fields = cleanedFields;
+  }
+
+  const validFormTabIds = new Set(TAB_REGISTRY.map((t) => t.key));
+  if (Array.isArray(cfg.formTabs)) {
+    cfg.formTabs = cfg.formTabs.filter((t) => validFormTabIds.has(t.key));
+  }
+
+  const validPageTabIds = new Set(DEFAULT_PAGE_TABS.map((t) => t.key));
+  if (Array.isArray(cfg.pageTabs)) {
+    cfg.pageTabs = cfg.pageTabs.filter((t) => validPageTabIds.has(t.key));
+  }
+
+  const validDetailTabIds = new Set(DEFAULT_DETAIL_TABS.map((t) => t.key));
+  if (Array.isArray(cfg.detailTabs)) {
+    cfg.detailTabs = cfg.detailTabs.filter((t) => validDetailTabIds.has(t.key));
+  }
+
+  const validSettingsSubTabIds = new Set(DEFAULT_SETTINGS_SUB_TABS.map((t) => t.key));
+  if (Array.isArray(cfg.settingsSubTabs)) {
+    cfg.settingsSubTabs = cfg.settingsSubTabs.filter((t) => validSettingsSubTabIds.has(t.key));
   }
 
   return cfg;
 }
 
-/**
- * Safely parses a JSON string. Returns `null` on any error and logs a warning.
- *
- * @param {string|null} raw - Raw JSON string from localStorage.
- * @param {string} context - Human-readable label for error messages.
- * @returns {unknown|null} Parsed value or null.
- */
-function safeParse(raw: string | null, context: string): unknown | null {
-  if (raw === null) return null;
-  try {
-    return JSON.parse(raw);
-  } catch (err) {
-    console.warn(`[contactFieldsStore] Failed to parse stored config for "${context}":`, err);
-    return null;
-  }
-}
 
-/**
- * Safely writes a value to localStorage. Logs a warning on quota exceeded.
- *
- * @param {string} key - Storage key.
- * @param {unknown} value - Value to serialize and store.
- */
-function safeWrite(key: string, value: unknown): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (err) {
-    console.warn(`[contactFieldsStore] Failed to write "${key}" to localStorage (quota exceeded?):`, err);
-  }
-}
+
+import { getObject, saveObject } from "./db";
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Loads the admin-set default config from localStorage.
+ * Loads the admin-set default config.
  * Falls back to hardcoded system defaults if nothing is stored.
  *
  * @returns {FieldConfig} The default field configuration.
  */
 export function loadDefaultConfig(): FieldConfig {
-  let raw = localStorage.getItem(DEFAULT_STORAGE_KEY);
-  if (!raw) {
-    const legacy = localStorage.getItem("madrasa_contact_field_config_default");
-    if (legacy) {
-      raw = legacy;
-      safeWrite(DEFAULT_STORAGE_KEY, JSON.parse(legacy));
-      try {
-        localStorage.removeItem("madrasa_contact_field_config_default");
-      } catch (err) {
-        console.warn("[contactFieldsStore] Failed to remove legacy default config key:", err);
-      }
-    }
-  }
-  const parsed = safeParse(raw, "defaultConfig");
-  if (parsed && typeof parsed === "object") {
-    return sanitizeConfig(migrateConfig(parsed));
-  }
-  return getHardcodedDefaults();
+  const defaults = getHardcodedDefaults();
+  const parsed = getObject("contact_field_config_default", defaults);
+  return sanitizeConfig(migrateConfig(parsed));
 }
 
 /**
- * Persists the admin-set default config to localStorage.
+ * Persists the admin-set default config.
  *
  * @param {FieldConfig} config - Configuration object to save.
  */
 export function saveDefaultConfig(config: FieldConfig): void {
-  safeWrite(DEFAULT_STORAGE_KEY, { ...config, version: CONFIG_VERSION });
+  saveObject("contact_field_config_default", { ...config, version: CONFIG_VERSION });
 }
 
 /**
- * Loads the active field config from localStorage.
+ * Loads the active field config.
  * Merges missing keys from the default config so partial saves are safe.
  * Falls back to loadDefaultConfig() if nothing is stored.
  *
  * @returns {FieldConfig} The active field configuration.
  */
 export function loadFieldConfig(): FieldConfig {
-  let raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    const legacy = localStorage.getItem("madrasa_contact_field_config");
-    if (legacy) {
-      raw = legacy;
-      safeWrite(STORAGE_KEY, JSON.parse(legacy));
-      try {
-        localStorage.removeItem("madrasa_contact_field_config");
-      } catch (err) {
-        console.warn("[contactFieldsStore] Failed to remove legacy field config key:", err);
-      }
-    }
-  }
-  const parsed = safeParse(raw, "fieldConfig");
+  const fallback = loadDefaultConfig();
+  const parsed = getObject("contact_field_config", fallback);
+  const migrated = migrateConfig(parsed);
 
-  if (parsed && typeof parsed === "object") {
-    const migrated = migrateConfig(parsed);
-    const fallback = loadDefaultConfig();
-
-    const merged: FieldConfig = {
-      ...fallback,
-      ...migrated,
-      enabledTabs: migrated.enabledTabs ?? fallback.enabledTabs,
-      requiredTabs: migrated.requiredTabs ?? fallback.requiredTabs,
-      tabFieldConfig: migrated.tabFieldConfig ?? fallback.tabFieldConfig,
-      customFields: migrated.customFields ?? fallback.customFields,
-      tabCustomFields: migrated.tabCustomFields ?? fallback.tabCustomFields,
-    };
-    return sanitizeConfig(merged);
-  }
-
-  return loadDefaultConfig();
+  const merged: FieldConfig = {
+    ...fallback,
+    ...migrated,
+    enabledTabs: migrated.enabledTabs ?? fallback.enabledTabs,
+    requiredTabs: migrated.requiredTabs ?? fallback.requiredTabs,
+    fields: migrated.fields ?? fallback.fields,
+    uiStrings: {
+      ...fallback.uiStrings,
+      ...migrated.uiStrings,
+    },
+  };
+  return sanitizeConfig(merged);
 }
 
 /**
- * Persists the active field config to localStorage.
+ * Persists the active field config.
  * Always stamps the current CONFIG_VERSION before saving.
  *
  * @param {FieldConfig} config - Configuration object to save.
  */
 export function saveFieldConfig(config: FieldConfig): void {
-  safeWrite(STORAGE_KEY, { ...config, version: CONFIG_VERSION });
+  saveObject("contact_field_config", { ...config, version: CONFIG_VERSION });
 }
+

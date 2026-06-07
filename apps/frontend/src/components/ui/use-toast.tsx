@@ -1,8 +1,11 @@
 // Inspired by react-hot-toast library
 import { useState, useEffect } from "react";
 
-const TOAST_LIMIT = 20;
-const TOAST_REMOVE_DELAY = 1000000;
+const TOAST_LIMIT = 5;
+// Short buffer to let the exit animation play before the toast is unmounted.
+const TOAST_REMOVE_DELAY = 300;
+// How long a toast stays visible before it auto-dismisses.
+const TOAST_DEFAULT_DURATION = 5000;
 
 export interface ToasterToast {
   id: string;
@@ -11,8 +14,10 @@ export interface ToasterToast {
   action?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  variant?: "default" | "destructive" | null;
+  variant?: "default" | "destructive" | "success" | "warning" | "info" | null;
   className?: string;
+  /** Auto-dismiss delay in ms. Pass `Infinity` to keep the toast until dismissed. */
+  duration?: number;
 }
 
 const actionTypes = {
@@ -158,7 +163,7 @@ type ToastPropsWithoutId = Omit<ToasterToast, "id">;
  * @param props - Properties for the toast.
  * @returns Helper methods to manage the triggered toast.
  */
-function toast({ ...props }: ToastPropsWithoutId) {
+function toast({ duration = TOAST_DEFAULT_DURATION, ...props }: ToastPropsWithoutId) {
   const id = genId();
 
   const update = (props: ToastPropsWithoutId): void =>
@@ -181,6 +186,10 @@ function toast({ ...props }: ToastPropsWithoutId) {
       },
     },
   });
+
+  if (duration !== Infinity) {
+    setTimeout(dismiss, duration);
+  }
 
   return {
     id,

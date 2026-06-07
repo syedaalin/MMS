@@ -1,11 +1,14 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { X, Check, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
+import { canvasToOptimizedDataUrl } from "@mms/shared";
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 interface AvatarCropperProps {
   src: string;
   onCrop: (dataUrl: string) => void;
   onCancel: () => void;
+  uiStrings?: Record<string, string>;
 }
 
 interface DragCoordinate {
@@ -18,7 +21,8 @@ interface DragCoordinate {
  * @param props Component properties.
  * @returns React element.
  */
-export default function AvatarCropper({ src, onCrop, onCancel }: AvatarCropperProps): React.JSX.Element {
+export default function AvatarCropper({ src, onCrop, onCancel, uiStrings = {} }: AvatarCropperProps): React.JSX.Element {
+  useBodyScrollLock();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scale, setScale] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
@@ -138,8 +142,8 @@ export default function AvatarCropper({ src, onCrop, onCancel }: AvatarCropperPr
     ctx.drawImage(imgEl, -imgEl.naturalWidth / 2, -imgEl.naturalHeight / 2);
     ctx.restore();
 
-    // Export as WebP at 0.78 quality — good balance size vs quality
-    const dataUrl = out.toDataURL("image/webp", 0.78);
+    // Export AVIF (fallback WebP) at 0.78 quality — best size vs quality
+    const dataUrl = canvasToOptimizedDataUrl(out, 0.78);
     onCrop(dataUrl);
   };
 
@@ -155,14 +159,14 @@ export default function AvatarCropper({ src, onCrop, onCancel }: AvatarCropperPr
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border text-left">
           <div>
-            <h3 className="text-sm font-bold text-foreground">Crop Profile Photo</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Drag to reposition · scroll to zoom</p>
+            <h3 className="text-sm font-bold text-foreground">{uiStrings?.cropProfilePhoto || "Crop Profile Photo"}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{uiStrings?.cropperInstructions || "Drag to reposition · scroll to zoom"}</p>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
-            aria-label="Close cropper"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
+            aria-label={uiStrings.closeCropper || "Close cropper"}
           >
             <X className="w-4 h-4" />
           </button>
@@ -207,7 +211,7 @@ export default function AvatarCropper({ src, onCrop, onCancel }: AvatarCropperPr
               value={scale}
               onChange={(e) => setScale(parseFloat(e.target.value))}
               className="flex-1 accent-primary h-1.5 rounded-full bg-border"
-              aria-label="Zoom scale"
+              aria-label={uiStrings.zoomScale || "Zoom scale"}
             />
             <ZoomIn className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           </div>
@@ -216,10 +220,10 @@ export default function AvatarCropper({ src, onCrop, onCancel }: AvatarCropperPr
             <button
               type="button"
               onClick={() => setRotation((r) => r - 90)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors text-foreground"
+              className="flex items-center gap-1.5 px-3 min-h-[44px] rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors text-foreground"
             >
               <RotateCw className="w-3.5 h-3.5 scale-x-[-1]" />
-              <span>Rotate</span>
+              <span>{uiStrings?.rotate || "Rotate"}</span>
             </button>
             <button
               type="button"
@@ -228,17 +232,17 @@ export default function AvatarCropper({ src, onCrop, onCancel }: AvatarCropperPr
                 setOffset({ x: 0, y: 0 });
                 setRotation(0);
               }}
-              className="px-3 py-2 rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors text-muted-foreground"
+              className="px-3 min-h-[44px] rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors text-muted-foreground"
             >
-              Reset
+              {uiStrings?.reset || "Reset"}
             </button>
             <button
               type="button"
               onClick={handleCrop}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
             >
               <Check className="w-4 h-4" />
-              <span>Apply Photo</span>
+              <span>{uiStrings?.applyPhoto || "Apply Photo"}</span>
             </button>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { useBrandPalette } from "@/lib/BrandingPaletteContext";
 import { DollarSign, TrendingUp, AlertCircle, Tag } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -38,10 +39,6 @@ interface FinancialReportProps {
 /** Formats a number as a PKR currency string. */
 const PKR = (n: number): string => `PKR ${Number(n).toLocaleString()}`;
 
-const PIE_COLORS: string[] = [
-  "hsl(var(--primary))", "#D4A853", "#4F46E5", "#0891B2", "#EF4444",
-];
-
 const STATUS_COLOR: Record<InvoiceStatus, string> = {
   paid:      "bg-emerald-50 text-emerald-700",
   pending:   "bg-amber-50 text-amber-700",
@@ -58,6 +55,11 @@ const STATUS_COLOR: Record<InvoiceStatus, string> = {
  * @returns The FinancialReport component.
  */
 export default function FinancialReport({ filters }: FinancialReportProps): React.JSX.Element {
+  const palette = useBrandPalette();
+  const PIE_COLORS = useMemo(
+    () => [palette.primary, palette.secondary, palette.charts[2], palette.charts[3], "#EF4444"],
+    [palette],
+  );
   const financeInvoices = useLiveCollection<Invoice>("finance_invoices", INVOICES);
 
   const feeCollection = useMemo(() => {

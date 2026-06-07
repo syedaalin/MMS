@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useBrandedDashboardChartColors } from "@/hooks/useBrandedDashboardChartColors";
 import {
   ResponsiveContainer, Cell, PieChart, Pie, Tooltip, TooltipContentProps,
   ComposedChart, Area, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -29,20 +30,13 @@ const HasanatTooltip = ({ active = false, payload = [] }: Partial<TooltipContent
   );
 };
 
-const ATTENDANCE_COLORS: Record<string, string> = {
-  emerald: "#047857",
-  blue:    "#2563eb",
-  violet:  "#7c3aed",
-  amber:   "#d97706",
-  red:     "#dc2626"
-};
-
 /**
  * AttendanceChart component.
  * Displays weekly attendance rate with dynamic layouts.
  * @returns {React.ReactElement}
  */
 export function AttendanceChart({ isEditMode = false }: { isEditMode?: boolean }) {
+  const { attendance: ATTENDANCE_COLORS } = useBrandedDashboardChartColors();
   const records = getCollection<AttendanceRecord>("attendance_records", ATTENDANCE_RECORDS);
 
   const [chartType, setChartType] = useState<"bar" | "line" | "area">(() => {
@@ -82,7 +76,7 @@ export function AttendanceChart({ isEditMode = false }: { isEditMode?: boolean }
   const avg = attendanceData.length ? Math.round(attendanceData.reduce((s, d) => s + d.rate, 0) / attendanceData.length) : 0;
 
   const isSemantic = colorTheme === "semantic";
-  const themeColor = ATTENDANCE_COLORS[colorTheme] || ATTENDANCE_COLORS.emerald;
+  const themeColor = ATTENDANCE_COLORS[colorTheme] || ATTENDANCE_COLORS.brand;
 
   return (
     <section aria-labelledby="attendance-chart-heading" className="bg-card rounded-xl border border-border p-5">
@@ -185,19 +179,13 @@ export function AttendanceChart({ isEditMode = false }: { isEditMode?: boolean }
   );
 }
 
-const HASANAT_THEMES: Record<string, { mem: string; att: string; beh: string }> = {
-  mixed:    { mem: "#047857", att: "#D4A853", beh: "#2563eb" },
-  emerald:  { mem: "#047857", att: "#10b981", beh: "#6ee7b7" },
-  blue:     { mem: "#1d4ed8", att: "#3b82f6", beh: "#93c5fd" },
-  violet:   { mem: "#6d28d9", att: "#8b5cf6", beh: "#c4b5fd" }
-};
-
 /**
  * HasanatChart component.
  * Displays Hasanat points distribution using Pie/Bar/Radar charts.
  * @returns {React.ReactElement}
  */
 export function HasanatChart({ isEditMode = false }: { isEditMode?: boolean }) {
+  const { hasanat: HASANAT_THEMES } = useBrandedDashboardChartColors();
   const distributions = getCollection<Distribution>("hasanat_distributions", DISTRIBUTIONS);
 
   const [chartType, setChartType] = useState<"pie" | "bar" | "radar">(() => {

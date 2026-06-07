@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
-import { Users, UserCheck, Heart, LucideIcon, BrainCircuit, ShieldCheck, Zap } from "lucide-react";
-import { Contact, FieldConfig } from "../../lib/contactFields";
-import { calculateProfileHealth } from "../../lib/ContactConfigContext";
+import { Users, LucideIcon, BrainCircuit, ShieldCheck, Zap } from "lucide-react";
+import { Contact, FieldConfig } from "@mms/shared";
+import { calculateProfileHealth, useContactConfig } from "../../lib/ContactConfigContext";
+import useTranslation from "@/hooks/useTranslation";
 
 interface ContactStatsBarProps {
   contacts: Contact[];
@@ -14,13 +15,16 @@ interface ContactStatsBarProps {
  * @returns React element or null.
  */
 export default function ContactStatsBar({ contacts, fieldConfig }: ContactStatsBarProps): React.JSX.Element | null {
+  const { uiStrings } = useContactConfig();
+  const { t } = useTranslation();
+
   const stats = useMemo(() => {
     let withPhone = 0;
     let withEmail = 0;
     let active = 0;
     let totalHealth = 0;
     const healthBuckets = { good: 0, average: 0, poor: 0 };
-    const personas: Record<string, number> = {};
+    let withWhatsApp = 0;
 
     contacts.forEach((c) => {
       if ((c.phones || []).length > 0 || c.phone) withPhone++;
@@ -33,12 +37,13 @@ export default function ContactStatsBar({ contacts, fieldConfig }: ContactStatsB
       else if (health >= 50) healthBuckets.average++;
       else healthBuckets.poor++;
 
-      const pId = c.personaId || "general";
-      personas[pId] = (personas[pId] || 0) + 1;
+      if (c.whatsappStatus === "REGISTERED") {
+        withWhatsApp++;
+      }
     });
 
     const avgHealth = contacts.length > 0 ? Math.round(totalHealth / contacts.length) : 0;
-    return { withPhone, withEmail, active, avgHealth, healthBuckets, personas };
+    return { withPhone, withEmail, active, avgHealth, healthBuckets, withWhatsApp };
   }, [contacts]);
 
   const total = contacts.length;
@@ -48,9 +53,9 @@ export default function ContactStatsBar({ contacts, fieldConfig }: ContactStatsB
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       <StatCard
         icon={Users}
-        label="Total Contacts"
+        label={t("contacts.totalContacts")}
         value={total}
-        sub={`${stats.active} Active Profiles`}
+        sub={`${stats.active} ${t("contacts.activeProfiles")}`}
         color="text-primary"
         bg="bg-primary/10"
       />
@@ -61,30 +66,30 @@ export default function ContactStatsBar({ contacts, fieldConfig }: ContactStatsB
         </div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Database Health</span>
+            <ShieldCheck className="w-4 h-4 text-success" />
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">{t("contacts.databaseHealth")}</span>
           </div>
           <span className="text-xl font-black text-foreground">{stats.avgHealth}%</span>
         </div>
         
         <div className="space-y-3">
           <div className="h-2 w-full bg-muted rounded-full flex overflow-hidden">
-            <div className="h-full bg-emerald-500" style={{ width: `${(stats.healthBuckets.good / total) * 100}%` }} />
-            <div className="h-full bg-amber-500" style={{ width: `${(stats.healthBuckets.average / total) * 100}%` }} />
-            <div className="h-full bg-red-400" style={{ width: `${(stats.healthBuckets.poor / total) * 100}%` }} />
+            <div className={`h-full ${(uiStrings.healthBgHigh || "bg-success")}`} style={{ width: `${(stats.healthBuckets.good / total) * 100}%` }} />
+            <div className={`h-full ${(uiStrings.healthBgMedium || "bg-warning")}`} style={{ width: `${(stats.healthBuckets.average / total) * 100}%` }} />
+            <div className={`h-full ${(uiStrings.healthBgLow || "bg-destructive")}`} style={{ width: `${(stats.healthBuckets.poor / total) * 100}%` }} />
           </div>
           <div className="flex items-center justify-between text-[10px] font-bold">
-            <div className="flex items-center gap-1.5 text-emerald-600">
-              <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>{stats.healthBuckets.good} Complete</span>
+            <div className={`flex items-center gap-1.5 ${uiStrings.healthClassHigh || "text-success"}`}>
+              <div className={`w-2 h-2 rounded-full ${(uiStrings.healthBgHigh || "bg-success")}`} />
+              <span>{stats.healthBuckets.good} {t("contacts.complete")}</span>
             </div>
-            <div className="flex items-center gap-1.5 text-amber-600">
-              <div className="w-2 h-2 rounded-full bg-amber-500" />
-              <span>{stats.healthBuckets.average} Partial</span>
+            <div className={`flex items-center gap-1.5 ${uiStrings.healthClassMedium || "text-warning"}`}>
+              <div className={`w-2 h-2 rounded-full ${(uiStrings.healthBgMedium || "bg-warning")}`} />
+              <span>{stats.healthBuckets.average} {t("contacts.partial")}</span>
             </div>
-            <div className="flex items-center gap-1.5 text-red-500">
-              <div className="w-2 h-2 rounded-full bg-red-400" />
-              <span>{stats.healthBuckets.poor} Stale</span>
+            <div className={`flex items-center gap-1.5 ${uiStrings.healthClassLow || "text-destructive"}`}>
+              <div className={`w-2 h-2 rounded-full ${(uiStrings.healthBgLow || "bg-destructive")}`} />
+              <span>{stats.healthBuckets.poor} {t("contacts.stale")}</span>
             </div>
           </div>
         </div>
@@ -92,11 +97,11 @@ export default function ContactStatsBar({ contacts, fieldConfig }: ContactStatsB
 
       <StatCard
         icon={Zap}
-        label="Persona Mix"
-        value={Object.keys(stats.personas).length}
-        sub={`${stats.withPhone} Verified Phones`}
-        color="text-amber-600"
-        bg="bg-amber-100"
+        label={t("contacts.whatsappActive")}
+        value={stats.withWhatsApp}
+        sub={`${stats.withPhone} ${t("contacts.verifiedPhones")}`}
+        color={uiStrings.healthClassHigh || "text-success"}
+        bg="bg-success/10 border border-success/30"
       />
     </div>
   );

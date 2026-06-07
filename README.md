@@ -1,72 +1,98 @@
-# MMS - Madrasa Management System (Monorepo)
+# MMS — Madrasa Management System
 
-This repository contains the decoupled and modernized codebase for the MMS application. It is structured as a pnpm Workspace (monorepo) with separate frontend and backend directories.
+pnpm workspace monorepo: React frontend, Fastify backend, shared types package, PostgreSQL database.
 
----
-
-## Directory Structure
+## Layout
 
 ```text
-mms/
-├── package.json          # Root orchestration package configuration
-├── README.md             # This documentation
-├── backend/              # Standalone REST API service
-│   ├── src/              # TypeScript source code (Fastify, node:sqlite)
-│   ├── Dockerfile        # Production Docker configuration
-│   └── package.json
-└── frontend/             # Single-Page React Application
-    ├── src/              # React components, contexts, and pages
-    ├── vite.config.js    # Vite compilation & proxy config
-    └── package.json
+.
+├── apps/
+│   ├── frontend/          # React 19 + Vite (port 5173)
+│   └── backend/           # Fastify 5 + Drizzle + PostgreSQL (port 3000)
+├── packages/
+│   └── shared/            # @mms/shared — types, settings defaults, utilities
+├── package.json           # Root scripts (turbo)
+├── pnpm-workspace.yaml
+├── turbo.json
+└── restart_servers.sh     # Kill stale ports, start backend + frontend
 ```
-
----
 
 ## Prerequisites
 
-- **Node.js**: Version 22.5.0 or higher (required for native `node:sqlite` database bindings).
-- **Docker**: Optional (for running the containerized backend).
+- **Node.js** 22+
+- **pnpm** 11.x (`corepack enable` or `npm i -g pnpm`)
+- **PostgreSQL** 15+ (local install or Docker)
 
----
+## Environment
 
-## Setup & Local Development
+| Variable | App | Notes |
+|----------|-----|-------|
+| `VITE_API_URL` | frontend | Dev default: Vite proxies `/api` → `http://localhost:3000` |
+| `JWT_SECRET` | backend | **Required** — server refuses to start without it |
+| `DATABASE_URL` | backend | Default: `postgresql://postgres:postgres@localhost:5432/mms` |
+| `ALLOWED_ORIGIN` | backend | Production CORS origin |
+| `NODE_ENV` | backend | `production` tightens CORS |
 
-### 1. Install Dependencies
-At the root directory of the project, run:
-```bash
-npm install
-```
-*This will install all dependencies for the root, frontend, and backend projects collectively using NPM Workspaces.*
+Example backend `.env` (`apps/backend/.env`):
 
-### 2. Configure Environment Variables
-Inside the `frontend/` directory, verify or create the `.env.local` file:
 ```env
-VITE_API_URL=http://localhost:3000
+JWT_SECRET=change-me-in-production
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mms
 ```
 
-### 3. Run Development Servers
-To boot up both the Fastify backend (port 3000) and the Vite frontend dev server (port 5173) concurrently, run:
+## Commands (repo root)
+
 ```bash
-npm run dev
+pnpm install      # install all workspaces
+pnpm dev          # frontend + backend via turbo
+pnpm build        # build @mms/shared, then apps
+pnpm typecheck    # TypeScript check all packages
 ```
-*The frontend automatically proxies `/api` requests to the backend server.*
 
----
+Per-app:
 
-## Production & Containerization
-
-### Docker (Backend Only)
-To build and run the backend service container:
 ```bash
-# Build the Docker image
-docker build -t mms-backend ./backend
-
-# Run the container (binds port 3000 and mounts volume for sqlite data persistence)
-docker run -p 3000:3000 -v $(pwd)/backend/data:/app/data mms-backend
+cd apps/frontend && pnpm lint
+cd apps/backend && pnpm dev
 ```
 
-### Production Build
-To compile the typescript backend and build the static frontend bundle:
+Quick restart (PostgreSQL Docker, kills stale ports, health checks, logs to `.logs/`):
+
 ```bash
-npm run build
+./restart_servers.sh           # full restart (recommended)
+./restart_servers.sh --quick   # faster, no health wait
+./scripts/stop_servers.sh      # stop background servers
 ```
+
+## Local development
+
+1. Start PostgreSQL and create database `mms` (or match `DATABASE_URL`).
+2. Set `JWT_SECRET` in `apps/backend/.env`.
+3. From repo root: `pnpm install && pnpm dev` (or `./restart_servers.sh`).
+4. Open `http://localhost:5173` — API at `http://localhost:3000` (`GET /health`).
+
+Migrations and seeds run on backend startup when the database is empty.
+
+## Production build
+
+```bash
+pnpm build
+```
+
+- Shared package: `packages/shared/dist`
+- Backend: `apps/backend/dist` → `node dist/index.js`
+- Frontend: `apps/frontend/dist` (static assets for any static host)
+
+## Docker (backend)
+
+Build from the **repository root** (not `apps/backend`):
+
+```bash
+docker build -f apps/backend/Dockerfile -t mms-backend .
+docker run -p 3000:3000 \
+  -e JWT_SECRET=change-me \
+  -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/mms \
+  mms-backend
+```
+
+PostgreSQL must be reachable at `DATABASE_URL`. The image exposes port **3000**.

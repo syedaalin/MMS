@@ -1,6 +1,27 @@
-import React, { useState } from "react";
-import { Plus, Pencil, Shield, Check, X, Lock } from "lucide-react";
-import { MODULES, ACTIONS, DEFAULT_ROLES, type Role, type PermissionMap } from "../../lib/usersData";
+import React, { useEffect, useMemo, useState } from 'react';
+import { Plus, Pencil, Shield, Check, X, Lock, BookOpen } from 'lucide-react';
+import {
+  DEFAULT_USERS_SETTINGS,
+  filterRbacModulesForSettings,
+  groupRbacModulesForPermissionsNav,
+  PERMISSION_ACTIONS,
+  workspaceRoleDescription,
+  workspaceRoleLabel,
+  type PermissionAction,
+  type PermissionMap,
+  type RbacModuleDef,
+  type UsersSettings,
+  type WorkspaceRole,
+} from '@mms/shared';
+import useTranslation from '@/hooks/useTranslation';
+import useGlobalSettings from '@/hooks/useGlobalSettings';
+import { useIsAdminViewer } from '@/hooks/useViewerRole';
+import { useWorkspaceRoles } from '@/hooks/useWorkspaceRoles';
+import { getObject, saveObject } from '@/lib/db';
+import { notify } from '@/lib/notify';
+import { Button } from '@/components/ui/button';
+import { UserRoleBadge } from './userBadges';
+import { SettingsMetaBadge } from '@/components/settings/settingsShared';
 
 interface PermCellProps {
   checked: boolean;
@@ -8,42 +29,40 @@ interface PermCellProps {
   disabled?: boolean;
 }
 
-/**
- * A checkbox element showing permission status for a cell in the permissions grid.
- *
- * @param props - PermCell options.
- * @returns The permission checkbox element.
- */
-function PermCell({ checked, onChange, disabled = false }: PermCellProps): JSX.Element {
+function PermCell({ checked, onChange, disabled = false }: PermCellProps): React.JSX.Element {
   return (
-    <button onClick={() => !disabled && onChange(!checked)} disabled={disabled}
-      className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all mx-auto ${
-        checked ? "bg-primary border-primary text-primary-foreground" : "border-border bg-card text-transparent hover:border-primary/50"
-      } ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}>
-      <Check className="w-3.5 h-3.5" />
+    <button
+      type="button"
+      onClick={() => !disabled && onChange(!checked)}
+      disabled={disabled}
+      className={`mx-auto flex h-7 w-7 items-center justify-center rounded-lg border-2 transition-all ${
+        checked
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border bg-card text-transparent hover:border-primary/50'
+      } ${disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
+    >
+      <Check className="h-3.5 w-3.5" />
     </button>
   );
 }
 
 interface RoleFormProps {
-  role?: Role | null;
-  onSave: (role: Role) => void;
+  role?: WorkspaceRole | null;
+  visibleModules: readonly RbacModuleDef[];
+  onSave: (role: WorkspaceRole) => void;
   onCancel: () => void;
 }
 
-/**
- * Interactive form to create or edit a custom role with customizable module permissions.
- *
- * @param props - RoleForm options.
- * @returns The role editor form.
- */
-function RoleForm({ role, onSave, onCancel }: RoleFormProps): JSX.Element {
-  const [name, setName]         = useState(role?.name || "");
-  const [desc, setDesc]         = useState(role?.description || "");
-  const [perms, setPerms]       = useState<PermissionMap>(role?.permissions ? JSON.parse(JSON.stringify(role.permissions)) : {});
-  const [error, setError]       = useState("");
+function RoleForm({ role, visibleModules, onSave, onCancel }: RoleFormProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const [name, setName] = useState(role?.customLabel ?? '');
+  const [desc, setDesc] = useState(role?.customDescription ?? '');
+  const [perms, setPerms] = useState<PermissionMap>(
+    role?.permissions ? structuredClone(role.permissions) : {},
+  );
+  const [error, setError] = useState('');
 
-  const togglePerm = (moduleId: string, action: typeof ACTIONS[number]): void => {
+  const togglePerm = (moduleId: string, action: PermissionAction): void => {
     setPerms((prev) => {
       const cur = prev[moduleId] || [];
       const next = cur.includes(action) ? cur.filter((a) => a !== action) : [...cur, action];
@@ -52,7 +71,7 @@ function RoleForm({ role, onSave, onCancel }: RoleFormProps): JSX.Element {
   };
 
   const selectAll = (moduleId: string): void => {
-    setPerms((prev) => ({ ...prev, [moduleId]: [...ACTIONS] }));
+    setPerms((prev) => ({ ...prev, [moduleId]: [...PERMISSION_ACTIONS] }));
   };
 
   const clearAll = (moduleId: string): void => {
@@ -60,210 +79,459 @@ function RoleForm({ role, onSave, onCancel }: RoleFormProps): JSX.Element {
   };
 
   const handleSave = (): void => {
-    if (!name.trim()) { setError("Role name is required."); return; }
+    if (!name.trim()) {
+      setError(t('users.permissions.errorNameRequired'));
+      return;
+    }
     onSave({
-      id: role?.id || `role_${Date.now()}`,
-      name,
-      description: desc,
+      id: role?.id ?? `role_${Date.now()}`,
+      labelKey: 'users.role.custom',
+      descriptionKey: 'users.role.customDesc',
+      customLabel: name.trim(),
+      customDescription: desc.trim(),
       permissions: perms,
       isSystem: false,
-      color: "bg-purple-100 text-purple-700 border-purple-200",
+      badgeVariant: 'primary',
     });
   };
 
   return (
     <div className="space-y-5">
-      {error && <p className="text-xs text-red-600 font-semibold">{error}</p>}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {error ? <p className="text-xs font-semibold text-destructive">{error}</p> : null}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label className="text-xs font-semibold text-foreground block mb-1">Role Name *</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Librarian"
-            className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/20" />
+          <label className="mb-1 block text-xs font-semibold text-foreground">
+            {t('users.permissions.fieldName')}
+          </label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('users.permissions.fieldNamePlaceholder')}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
         </div>
         <div>
-          <label className="text-xs font-semibold text-foreground block mb-1">Description</label>
-          <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Brief description…"
-            className="w-full text-sm rounded-xl border border-border bg-background px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/20" />
+          <label className="mb-1 block text-xs font-semibold text-foreground">
+            {t('users.permissions.fieldDescription')}
+          </label>
+          <input
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            placeholder={t('users.permissions.fieldDescriptionPlaceholder')}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
         </div>
       </div>
 
-      {/* Permissions matrix */}
-      <div className="rounded-xl border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/60 border-b border-border">
-              <tr>
-                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase min-w-[140px]">Module</th>
-                {ACTIONS.map((a) => (
-                  <th key={a} className="px-2 py-2.5 text-center text-[11px] font-semibold text-muted-foreground uppercase w-16 capitalize">{a}</th>
-                ))}
-                <th className="px-2 py-2.5 text-center text-[11px] font-semibold text-muted-foreground uppercase">All</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {MODULES.map((m) => {
-                const cur = perms[m.id] || [];
-                const allChecked = ACTIONS.every((a) => cur.includes(a));
-                return (
-                  <tr key={m.id} className="hover:bg-muted/10 transition-colors">
-                    <td className="px-3 py-2.5 text-xs font-semibold text-foreground">{m.label}</td>
-                    {ACTIONS.map((a) => (
-                      <td key={a} className="px-2 py-2.5">
-                        <PermCell
-                          checked={cur.includes(a)}
-                          onChange={() => togglePerm(m.id, a)}
-                        />
-                      </td>
-                    ))}
-                    <td className="px-2 py-2.5">
-                      <button onClick={() => allChecked ? clearAll(m.id) : selectAll(m.id)}
-                        className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center mx-auto text-xs font-bold transition-all ${
-                          allChecked ? "border-amber-400 bg-amber-100 text-amber-700 hover:bg-amber-200" : "border-primary/30 text-primary/60 hover:bg-primary/10"
-                        }`}>
-                        {allChecked ? <X className="w-3 h-3" /> : <Check className="w-3 h-3" />}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <PermissionMatrix
+        modules={visibleModules}
+        perms={perms}
+        readOnly={false}
+        onToggle={togglePerm}
+        onSelectAll={selectAll}
+        onClearAll={clearAll}
+      />
 
       <div className="flex gap-2">
-        <button onClick={onCancel} className="px-5 py-2.5 rounded-xl border border-border bg-card text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors">Cancel</button>
-        <button onClick={handleSave} className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">Save Role</button>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          {t('users.cancel')}
+        </Button>
+        <Button type="button" onClick={handleSave}>
+          {t('users.permissions.saveRole')}
+        </Button>
       </div>
     </div>
   );
 }
 
-export interface RolesPermissionsProps {
-  adminRole: string;
+function persistWorkspaceRoles(roles: WorkspaceRole[]): void {
+  const settings = getObject<UsersSettings>('users_settings', DEFAULT_USERS_SETTINGS);
+  saveObject('users_settings', { ...settings, workspaceRoles: roles });
 }
 
-/**
- * RolesPermissions component provides a tab/panel to manage roles and their security matrix.
- *
- * @param props - Component parameters.
- * @returns The roles and permissions management element.
- */
-export default function RolesPermissions({ adminRole }: RolesPermissionsProps): JSX.Element {
-  const [roles, setRoles]   = useState<Role[]>(DEFAULT_ROLES);
-  const [editing, setEdit]  = useState<Role | "new" | null>(null);
-  const [selected, setSel]  = useState<Role | null>(null);
+interface PermissionMatrixProps {
+  modules: readonly RbacModuleDef[];
+  perms: PermissionMap;
+  readOnly: boolean;
+  onToggle: (moduleId: string, action: PermissionAction) => void;
+  onSelectAll: (moduleId: string) => void;
+  onClearAll: (moduleId: string) => void;
+}
 
-  const displayRole = selected || roles[0];
+function PermissionMatrixRow({
+  mod,
+  perms,
+  readOnly,
+  inGroup,
+  onToggle,
+  onSelectAll,
+  onClearAll,
+}: {
+  mod: RbacModuleDef;
+  perms: PermissionMap;
+  readOnly: boolean;
+  inGroup: boolean;
+  onToggle: (moduleId: string, action: PermissionAction) => void;
+  onSelectAll: (moduleId: string) => void;
+  onClearAll: (moduleId: string) => void;
+}): React.JSX.Element {
+  const { t } = useTranslation();
+  const cur = perms[mod.id] || [];
+  const allChecked = PERMISSION_ACTIONS.every((a) => cur.includes(a));
+  const hasAny = cur.length > 0;
 
-  const handleSave = (role: Role): void => {
+  return (
+    <tr
+      className={`transition-colors ${hasAny || !readOnly ? 'hover:bg-muted/10' : 'opacity-40'}`}
+    >
+      <td
+        className={`px-3 py-2.5 text-xs font-semibold text-foreground ${inGroup ? 'pl-8' : ''}`}
+      >
+        {t(mod.labelKey)}
+      </td>
+      {PERMISSION_ACTIONS.map((a) => (
+        <td key={a} className="px-2 py-2.5">
+          {readOnly ? (
+            <div
+              className={`mx-auto flex h-7 w-7 items-center justify-center rounded-lg border-2 ${
+                cur.includes(a)
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-card text-transparent'
+              }`}
+            >
+              <Check className="h-3.5 w-3.5" />
+            </div>
+          ) : (
+            <PermCell checked={cur.includes(a)} onChange={() => onToggle(mod.id, a)} />
+          )}
+        </td>
+      ))}
+      {!readOnly ? (
+        <td className="px-2 py-2.5">
+          <button
+            type="button"
+            onClick={() => (allChecked ? onClearAll(mod.id) : onSelectAll(mod.id))}
+            className={`mx-auto flex h-7 w-7 items-center justify-center rounded-lg border-2 text-xs font-bold transition-all ${
+              allChecked
+                ? 'border-primary bg-primary/15 text-primary hover:bg-primary/25'
+                : 'border-primary/30 text-primary/60 hover:bg-primary/10'
+            }`}
+          >
+            {allChecked ? <X className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+          </button>
+        </td>
+      ) : null}
+    </tr>
+  );
+}
+
+function PermissionMatrix({
+  modules,
+  perms,
+  readOnly,
+  onToggle,
+  onSelectAll,
+  onClearAll,
+}: PermissionMatrixProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const groups = groupRbacModulesForPermissionsNav(modules);
+  const colSpan = PERMISSION_ACTIONS.length + 1 + (readOnly ? 0 : 1);
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="border-b border-border bg-muted/60">
+            <tr>
+              <th className="min-w-[140px] px-3 py-2.5 text-left text-[11px] font-semibold uppercase text-muted-foreground">
+                {t('users.permissions.colModule')}
+              </th>
+              {PERMISSION_ACTIONS.map((a) => (
+                <th
+                  key={a}
+                  className="w-16 px-2 py-2.5 text-center text-[11px] font-semibold uppercase text-muted-foreground"
+                >
+                  {t(`users.permission.${a}`)}
+                </th>
+              ))}
+              {!readOnly ? (
+                <th className="px-2 py-2.5 text-center text-[11px] font-semibold uppercase text-muted-foreground">
+                  {t('users.permissions.colAll')}
+                </th>
+              ) : null}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {groups.map((group, groupIndex) => (
+              <React.Fragment key={group.labelKey ?? `standalone-${group.modules[0]?.id ?? groupIndex}`}>
+                {group.labelKey ? (
+                  <tr className="bg-muted/25">
+                    <td colSpan={colSpan} className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
+                          <BookOpen className="h-3 w-3 text-primary" aria-hidden />
+                        </div>
+                        <span className="text-xs font-bold text-foreground">{t(group.labelKey)}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+                {group.modules.map((m) => (
+                  <PermissionMatrixRow
+                    key={m.id}
+                    mod={m}
+                    perms={perms}
+                    readOnly={readOnly}
+                    inGroup={!!group.labelKey}
+                    onToggle={onToggle}
+                    onSelectAll={onSelectAll}
+                    onClearAll={onClearAll}
+                  />
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export default function RolesPermissions(): React.JSX.Element {
+  const { t } = useTranslation();
+  const globalSettings = useGlobalSettings();
+  const isAdmin = useIsAdminViewer();
+  const loadedRoles = useWorkspaceRoles();
+  const visibleModules = useMemo(
+    () => filterRbacModulesForSettings(globalSettings.enabledModules),
+    [globalSettings.enabledModules],
+  );
+  const [roles, setRoles] = useState<WorkspaceRole[]>(loadedRoles);
+  const [editing, setEdit] = useState<WorkspaceRole | 'new' | null>(null);
+  const [selected, setSel] = useState<WorkspaceRole | null>(null);
+  const [permDraft, setPermDraft] = useState<PermissionMap | null>(null);
+  const [permDraftRoleId, setPermDraftRoleId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editing) {
+      setRoles(loadedRoles);
+    }
+  }, [loadedRoles, editing]);
+
+  const displayRole = selected ?? roles[0] ?? null;
+
+  useEffect(() => {
+    if (!displayRole) {
+      setPermDraft(null);
+      setPermDraftRoleId(null);
+      return;
+    }
+    if (displayRole.id !== permDraftRoleId) {
+      setPermDraft(structuredClone(displayRole.permissions));
+      setPermDraftRoleId(displayRole.id);
+    }
+  }, [displayRole, permDraftRoleId]);
+
+  const permDirty = useMemo(() => {
+    if (!displayRole || !permDraft) return false;
+    return JSON.stringify(permDraft) !== JSON.stringify(displayRole.permissions);
+  }, [displayRole, permDraft]);
+
+  const togglePermDraft = (moduleId: string, action: PermissionAction): void => {
+    setPermDraft((prev) => {
+      if (!prev) return prev;
+      const cur = prev[moduleId] || [];
+      const next = cur.includes(action) ? cur.filter((a) => a !== action) : [...cur, action];
+      return { ...prev, [moduleId]: next };
+    });
+  };
+
+  const selectAllDraft = (moduleId: string): void => {
+    setPermDraft((prev) => (prev ? { ...prev, [moduleId]: [...PERMISSION_ACTIONS] } : prev));
+  };
+
+  const clearAllDraft = (moduleId: string): void => {
+    setPermDraft((prev) => (prev ? { ...prev, [moduleId]: [] } : prev));
+  };
+
+  const resetPermDraft = (): void => {
+    if (displayRole) {
+      setPermDraft(structuredClone(displayRole.permissions));
+    }
+  };
+
+  const commitRole = (role: WorkspaceRole, toastKey: 'role' | 'permissions'): void => {
     setRoles((prev) => {
       const exists = prev.find((r) => r.id === role.id);
-      return exists ? prev.map((r) => r.id === role.id ? role : r) : [...prev, role];
+      const next = exists ? prev.map((r) => (r.id === role.id ? role : r)) : [...prev, role];
+      persistWorkspaceRoles(next);
+      return next;
     });
     setEdit(null);
+    setSel(role);
+    if (toastKey === 'permissions') {
+      notify.success(t('users.permissions.permissionsSaved'), {
+        description: t('users.permissions.permissionsSavedDesc', { name: workspaceRoleLabel(role, t) }),
+      });
+    } else {
+      notify.success(t('users.permissions.roleSaved'), {
+        description: t('users.permissions.roleSavedDesc', { name: workspaceRoleLabel(role, t) }),
+      });
+    }
+  };
+
+  const handleSave = (role: WorkspaceRole): void => {
+    commitRole(role, 'role');
+  };
+
+  const savePermissionDraft = (): void => {
+    if (!displayRole || !permDraft || !isAdmin) return;
+    commitRole({ ...displayRole, permissions: structuredClone(permDraft) }, 'permissions');
   };
 
   if (editing) {
+    const editTitle =
+      editing === 'new'
+        ? t('users.permissions.createTitle')
+        : t('users.permissions.editTitle', { name: workspaceRoleLabel(editing, t) });
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <button onClick={() => setEdit(null)} className="text-xs text-primary font-semibold hover:underline">← Roles</button>
+          <button
+            type="button"
+            onClick={() => setEdit(null)}
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            {t('users.permissions.backToRoles')}
+          </button>
           <span className="text-xs text-muted-foreground">/</span>
-          <span className="text-xs font-semibold text-foreground">{editing === "new" ? "New Role" : `Edit: ${editing.name}`}</span>
+          <span className="text-xs font-semibold text-foreground">{editTitle}</span>
         </div>
-        <h3 className="text-base font-bold text-foreground">{editing === "new" ? "Create Custom Role" : `Edit Role: ${editing.name}`}</h3>
-        <RoleForm role={editing === "new" ? null : editing} onSave={handleSave} onCancel={() => setEdit(null)} />
+        <h3 className="text-base font-bold text-foreground">{editTitle}</h3>
+        <RoleForm
+          role={editing === 'new' ? null : editing}
+          visibleModules={visibleModules}
+          onSave={handleSave}
+          onCancel={() => setEdit(null)}
+        />
       </div>
     );
   }
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Role list */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-bold text-foreground">Roles</p>
-            {adminRole === "admin" && (
-              <button onClick={() => setEdit("new")}
-                className="flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
-                <Plus className="w-3 h-3" /> Add Role
-              </button>
-            )}
+            <p className="text-sm font-bold text-foreground">{t('users.permissions.rolesTitle')}</p>
+            {isAdmin ? (
+              <Button type="button" variant="ghost" size="sm" className="h-auto px-0 text-xs" onClick={() => setEdit('new')}>
+                <Plus className="mr-1 h-3 w-3" />
+                {t('users.permissions.addRole')}
+              </Button>
+            ) : null}
           </div>
-          {roles.length === 0 && (
-            <div className="text-center py-8 rounded-xl border border-dashed border-border text-sm text-muted-foreground">No roles defined</div>
-          )}
+          {roles.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+              {t('users.permissions.emptyRoles')}
+            </div>
+          ) : null}
           {roles.map((r) => (
-            <button key={r.id} onClick={() => setSel(r)}
-              className={`w-full text-left p-3 rounded-xl border-2 transition-all ${displayRole?.id === r.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"}`}>
+            <div
+              key={r.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSel(r)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setSel(r);
+                }
+              }}
+              className={`w-full cursor-pointer rounded-xl border-2 p-3 text-left transition-all ${
+                displayRole?.id === r.id
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border bg-card hover:border-primary/40'
+              }`}
+            >
               <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-sm font-bold text-foreground">{r.name}</p>
-                    {r.isSystem && (
-                      <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-muted text-muted-foreground">SYSTEM</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {r.isSystem ? (
+                      <UserRoleBadge roleId={r.id} />
+                    ) : (
+                      <SettingsMetaBadge variant={r.badgeVariant}>{workspaceRoleLabel(r, t)}</SettingsMetaBadge>
                     )}
+                    {r.isSystem ? (
+                      <SettingsMetaBadge variant="muted">{t('users.permissions.systemBadge')}</SettingsMetaBadge>
+                    ) : null}
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{r.description}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {workspaceRoleDescription(r, t)}
+                  </p>
                 </div>
-                {!r.isSystem && adminRole === "admin" && (
-                  <button onClick={(e) => { e.stopPropagation(); setEdit(r); }}
-                    className="p-1 rounded text-muted-foreground hover:text-primary transition-colors">
-                    <Pencil className="w-3 h-3" />
+                {!r.isSystem && isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEdit(r);
+                    }}
+                    className="rounded p-1 text-muted-foreground transition-colors hover:text-primary"
+                    aria-label={t('users.permissions.editRoleDetails', { name: workspaceRoleLabel(r, t) })}
+                  >
+                    <Pencil className="h-3 w-3" />
                   </button>
-                )}
+                ) : null}
               </div>
-            </button>
+            </div>
           ))}
         </div>
 
-        {/* Permissions matrix (read-only) */}
-        <div className="lg:col-span-2 space-y-3">
-          {displayRole && (
+        <div className="space-y-3 lg:col-span-2">
+          {displayRole && permDraft ? (
             <>
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-primary" />
-                <p className="text-sm font-bold text-foreground">{displayRole.name} — Permissions Matrix</p>
-                {displayRole.isSystem && <Lock className="w-3 h-3 text-muted-foreground" />}
-              </div>
-              <div className="rounded-xl border border-border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/60 border-b border-border">
-                      <tr>
-                        <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase min-w-[140px]">Module</th>
-                        {ACTIONS.map((a) => (
-                          <th key={a} className="px-2 py-2.5 text-center text-[11px] font-semibold text-muted-foreground uppercase w-16 capitalize">{a}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {MODULES.map((m) => {
-                        const perms = displayRole.permissions[m.id] || [];
-                        const hasAny = perms.length > 0;
-                        return (
-                          <tr key={m.id} className={`transition-colors ${hasAny ? "hover:bg-muted/10" : "opacity-40"}`}>
-                            <td className="px-3 py-2.5 text-xs font-semibold text-foreground">{m.label}</td>
-                            {ACTIONS.map((a) => (
-                              <td key={a} className="px-2 py-2.5">
-                                <div className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center mx-auto ${
-                                  perms.includes(a) ? "bg-primary border-primary text-primary-foreground" : "border-border bg-card text-transparent"
-                                }`}>
-                                  <Check className="w-3.5 h-3.5" />
-                                </div>
-                              </td>
-                            ))}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-bold text-foreground">
+                    {t('users.permissions.matrixTitle', { name: workspaceRoleLabel(displayRole, t) })}
+                  </p>
+                  {displayRole.isSystem ? <Lock className="h-3 w-3 text-muted-foreground" aria-hidden /> : null}
                 </div>
+                {isAdmin ? (
+                  <div className="flex items-center gap-2">
+                    {permDirty ? (
+                      <SettingsMetaBadge variant="warning">{t('users.permissions.unsaved')}</SettingsMetaBadge>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!permDirty}
+                      onClick={resetPermDraft}
+                    >
+                      {t('users.permissions.resetPermissions')}
+                    </Button>
+                    <Button type="button" size="sm" disabled={!permDirty} onClick={savePermissionDraft}>
+                      {t('users.permissions.savePermissions')}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
+              {isAdmin ? (
+                <p className="text-xs text-muted-foreground">{t('users.permissions.editHint')}</p>
+              ) : null}
+              <PermissionMatrix
+                modules={visibleModules}
+                perms={permDraft}
+                readOnly={!isAdmin}
+                onToggle={togglePermDraft}
+                onSelectAll={selectAllDraft}
+                onClearAll={clearAllDraft}
+              />
             </>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

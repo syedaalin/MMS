@@ -3,8 +3,10 @@ import { Outlet } from "react-router-dom";
 import { Menu } from "lucide-react";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
+import TopBarActions from "./TopBarActions";
 import MobileSidebar from "./MobileSidebar";
 import useBranding from "@/hooks/useBranding";
+import useSessionTimeout from "@/hooks/useSessionTimeout";
 
 /**
  * Main authenticated application shell layout. Orchestrates the primary sidebar,
@@ -14,6 +16,7 @@ export default function AppLayout(): React.JSX.Element {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [mobileOpen, setMobileOpen] = useState<boolean>(false);
   const branding = useBranding();
+  useSessionTimeout();
 
   return (
     <div className="min-h-screen bg-background islamic-pattern">
@@ -34,34 +37,37 @@ export default function AppLayout(): React.JSX.Element {
       </div>
 
       {/* Mobile Top Bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-card/80 backdrop-blur-xl border-b border-border z-30 flex items-center px-4 gap-3">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-2 border-b border-border bg-card/80 px-3 backdrop-blur-xl sm:px-4">
         <button
+          type="button"
+          aria-label="Open navigation menu"
           onClick={(e) => {
             e.stopPropagation();
             setMobileOpen(true);
           }}
-          className="p-2 rounded-lg hover:bg-muted transition-colors"
+          className="shrink-0 rounded-lg p-2 transition-colors hover:bg-muted"
         >
-          <Menu className="w-5 h-5 text-foreground" />
+          <Menu className="h-5 w-5 text-foreground" />
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {branding.logoUrl ? (
             <img
               src={branding.logoUrl}
               alt="Logo"
-              className="w-7 h-7 rounded-md object-cover bg-white border border-border"
+              className="h-7 w-7 shrink-0 rounded-md border border-border bg-white object-cover"
             />
           ) : (
-            <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center">
-              <span className="text-primary font-display text-sm font-bold">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+              <span className="font-display text-sm font-bold text-primary">
                 {branding.madrasaName ? branding.madrasaName.charAt(0) : "م"}
               </span>
             </div>
           )}
-          <span className="font-semibold text-sm">
+          <span className="truncate text-sm font-semibold">
             {branding.madrasaName || "Madrasa MS"}
           </span>
         </div>
+        <TopBarActions compact />
       </div>
 
       {/* Main Content */}

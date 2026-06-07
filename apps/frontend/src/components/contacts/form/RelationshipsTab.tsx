@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { AlertCircle, Users, Plus, Trash2, Search, X } from "lucide-react";
-import { Field, INPUT, SELECT, FormEmptyState } from "./FormPrimitives";
+import { AlertCircle, Users, Plus, Search, X } from "lucide-react";
+import { Field, INPUT, FormEmptyState, EditableSelect, COLLECTION_CARD, CardRemoveButton } from "./FormPrimitives";
 import { useContactConfig } from "../../../lib/ContactConfigContext";
+import useTranslation from "@/hooks/useTranslation";
 
 interface ContactSummary {
   id: string | number;
@@ -28,6 +29,7 @@ interface ContactSearchPickerProps {
 }
 
 function ContactSearchPicker({ available, selectedId, onSelect }: ContactSearchPickerProps): React.JSX.Element {
+  const { t } = useTranslation();
   const [query, setQuery] = useState<string>("");
   const [open, setOpen] = useState<boolean>(false);
 
@@ -61,8 +63,8 @@ function ContactSearchPicker({ available, selectedId, onSelect }: ContactSearchP
               onSelect("");
               setOpen(true);
             }}
-            className="text-muted-foreground hover:text-foreground ml-2 transition-colors"
-            aria-label="Clear selected contact"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground ml-2 transition-colors"
+            aria-label={t("contacts.form.clearSelectedContact")}
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -78,7 +80,7 @@ function ContactSearchPicker({ available, selectedId, onSelect }: ContactSearchP
               setOpen(true);
             }}
             onFocus={() => setOpen(true)}
-            placeholder="Search by name..."
+            placeholder={t("contacts.form.searchByName")}
           />
         </div>
       )}
@@ -88,7 +90,7 @@ function ContactSearchPicker({ available, selectedId, onSelect }: ContactSearchP
           <div className="fixed inset-0 z-40" onMouseDown={() => setOpen(false)} />
           <div className="absolute z-50 top-full mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-48 overflow-y-auto">
             {filtered.length === 0 ? (
-              <p className="px-4 py-3 text-xs text-muted-foreground bg-card">No contacts found.</p>
+              <p className="px-4 py-3 text-xs text-muted-foreground bg-card">{t("contacts.form.noContactsFound")}</p>
             ) : (
               filtered.map((c) => (
                 <button
@@ -133,7 +135,8 @@ export default function RelationshipsTab({
   onChange,
   allContacts,
 }: RelationshipsTabProps): React.JSX.Element {
-  const { relationships } = useContactConfig();
+  const { relationships, updateRelationships } = useContactConfig();
+  const { t } = useTranslation();
   const list = data.relationships || [];
   const upd = (l: RelationshipItem[]): void => {
     onChange({ ...data, relationships: l });
@@ -142,12 +145,12 @@ export default function RelationshipsTab({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-start gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-700">
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-success/10 border border-success/30 text-xs text-success">
         <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-        <p>Establish bidirectional relationships with other contacts in the CRM. Links are displayed dynamically on profiles.</p>
+        <p>{t("contacts.form.relationshipInstructions")}</p>
       </div>
 
-      {list.length === 0 && <FormEmptyState icon={Users} text="No relationships set. Link this contact below." />}
+      {list.length === 0 && <FormEmptyState icon={Users} text={t("contacts.form.noRelationshipsSet")} />}
 
       {list.map((r, i) => (
         <motion.div
@@ -155,21 +158,17 @@ export default function RelationshipsTab({
           layout
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-border bg-muted/20 p-3 space-y-3"
+          className={COLLECTION_CARD}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground uppercase">Link {i + 1}</span>
-            <button
-              type="button"
+            <span className="text-xs font-semibold text-muted-foreground uppercase">{t("contacts.form.link")} {i + 1}</span>
+            <CardRemoveButton
               onClick={() => upd(list.filter((_, j) => j !== i))}
-              className="p-1 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
-              aria-label={`Remove relationship ${i + 1}`}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+              label={t("contacts.form.removeRelationship", { index: i + 1 })}
+            />
           </div>
 
-          <Field label="Link Contact" required>
+          <Field label={t("contacts.form.linkContact")} required>
             <ContactSearchPicker
               available={available}
               selectedId={r.contactId ?? ""}
@@ -177,22 +176,17 @@ export default function RelationshipsTab({
             />
           </Field>
 
-          <Field label="Relationship Type" required>
-            <select
-              className={SELECT}
+          <Field label={t("contacts.form.relationshipType")} required>
+            <EditableSelect
+              options={relationships || []}
               value={r.type || ""}
-              onChange={(e) =>
-                upd(list.map((x, j) => (j === i ? { ...x, type: e.target.value } : x)))
+              onChange={(val) =>
+                upd(list.map((x, j) => (j === i ? { ...x, type: val } : x)))
               }
-              aria-label={`Relationship to contact ${i + 1}`}
-            >
-              <option value="">Select type...</option>
-              {(relationships || []).map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+              onUpdateOptions={updateRelationships}
+              placeholder={t("contacts.form.selectType")}
+              className="w-full"
+            />
           </Field>
         </motion.div>
       ))}
@@ -200,10 +194,10 @@ export default function RelationshipsTab({
       <button
         type="button"
         onClick={() => upd([...list, { contactId: "", type: "" }])}
-        className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
+        className="flex items-center min-h-[44px] gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
       >
         <Plus className="w-4 h-4" />
-        <span>Add Relationship Link</span>
+        <span>{t("contacts.form.addRelationshipLink")}</span>
       </button>
     </div>
   );

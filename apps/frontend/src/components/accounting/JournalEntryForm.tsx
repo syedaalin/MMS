@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { Plus, Trash2, X, AlertCircle, CheckCircle2, Tag } from "lucide-react";
-import { motion } from "framer-motion";
-import { ACCOUNT_TYPE_META, JOURNAL_TAGS, generateJERef, Account, JournalEntry, FiscalYear, JournalLine, AccountType } from "../../lib/accountingData";
+import React, { useState, useMemo } from "react";
+import { Plus, Trash2, AlertCircle, CheckCircle2, Tag, BookOpen } from "lucide-react";
+import { ACCOUNT_TYPE_META, JOURNAL_TAGS, generateJERef, Account, JournalEntry, FiscalYear, JournalLine } from "../../lib/accountingData";
 import { DatePicker } from "../ui/DatePicker";
+import FormModal from "../ui/FormModal";
+import { Button } from "../ui/button";
 
 interface DraftLine extends Omit<JournalLine, "debit" | "credit"> {
   debit: string | number;
@@ -88,8 +89,7 @@ export default function JournalEntryForm({ accounts, entries, onSave, onClose, i
     return e;
   };
 
-  const handleSubmit = (ev: React.MouseEvent, saveAs?: "draft" | "posted") => {
-    ev.preventDefault();
+  const saveEntry = (saveAs?: "draft" | "posted") => {
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
     const ref = isEdit ? form.ref : generateJERef(entries);
@@ -117,22 +117,32 @@ export default function JournalEntryForm({ accounts, entries, onSave, onClose, i
     accountGroups[a.type].push(a);
   });
 
+  const errorMessages = useMemo(
+    () => Object.values(errors).filter(Boolean),
+    [errors],
+  );
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
-        role="dialog" aria-modal="true" aria-labelledby="form-title"
-        className="relative bg-card rounded-2xl border border-border shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col">
-
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
-          <div>
-            <h2 id="form-title" className="text-base font-bold text-foreground m-0">{isEdit ? "Edit Journal Entry" : "New Journal Entry"}</h2>
-            {activeFY && <p className="text-xs text-muted-foreground m-0">{activeFY}</p>}
-          </div>
-          <button type="button" aria-label="Close form" onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"><X className="w-4 h-4" aria-hidden="true" /></button>
-        </header>
-
-        <form className="px-6 py-5 overflow-y-auto flex-1 space-y-5">
+    <FormModal
+      open
+      onClose={onClose}
+      title={isEdit ? "Edit Journal Entry" : "New Journal Entry"}
+      subtitle={activeFY || undefined}
+      icon={BookOpen}
+      size="xl"
+      tall
+      cancelLabel="Cancel"
+      saveLabel="Post Entry"
+      onSave={() => saveEntry("posted")}
+      saveDisabled={!isBalanced}
+      error={errorMessages}
+      footerStart={
+        <Button type="button" variant="secondary" onClick={() => saveEntry("draft")}>
+          Save as Draft
+        </Button>
+      }
+    >
+        <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
           {/* Header fields */}
           <fieldset className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-0 p-0 m-0">
             <div>
@@ -292,17 +302,7 @@ export default function JournalEntryForm({ accounts, entries, onSave, onClose, i
             {errors.balance && <p className="text-xs text-red-500 mt-1" role="alert">{errors.balance}</p>}
           </fieldset>
 
-          {/* Actions */}
-          <footer className="flex justify-end gap-2 pt-2 border-t border-border mt-4">
-            <button type="button" onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-border text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors">Cancel</button>
-            <button type="button" onClick={(e) => handleSubmit(e, "draft")}
-              className="px-4 py-2 rounded-lg border border-border bg-muted text-sm font-semibold text-foreground hover:bg-border transition-colors">Save as Draft</button>
-            <button type="button" onClick={(e) => handleSubmit(e, "posted")}
-              className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">Post Entry</button>
-          </footer>
         </form>
-      </motion.div>
-    </div>
+    </FormModal>
   );
 }

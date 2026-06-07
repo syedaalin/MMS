@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { hashPassword } from '../services/passwordService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -8,6 +9,26 @@ const __dirname = path.dirname(__filename);
 interface SeedsData {
   DEFAULT_COLLECTIONS: Record<string, unknown[]>;
   DEFAULT_OBJECTS: Record<string, unknown>;
+}
+
+interface LegacySeedUser {
+  id: string;
+  email: string;
+  name: string;
+  role?: string;
+  roles?: string[];
+  passwordHash?: string;
+  createdAt?: string;
+  createdDate?: string;
+}
+
+interface StoredSeedUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  passwordHash: string;
+  createdAt: string;
 }
 
 let cachedSeeds: SeedsData | null = null;
@@ -27,12 +48,53 @@ function loadSeeds(): SeedsData {
 }
 
 /**
+ * Normalizes legacy seed users to the canonical StoredUser shape.
+ *
+ * @param {unknown[]} rawUsers - Users array from seeds.json.
+ * @returns {Promise<StoredSeedUser[]>} Canonical users with password hashes.
+ */
+async function normalizeSeedUsers(rawUsers: unknown[]): Promise<StoredSeedUser[]> {
+  const seedPassword = process.env.SEED_DEV_PASSWORD || 'Madrasa@123';
+  const passwordHash = await hashPassword(seedPassword);
+
+  return rawUsers.map((entry) => {
+    const user = entry as LegacySeedUser;
+    const role = user.role ?? user.roles?.[0] ?? 'assistant_teacher';
+    const createdAt = user.createdAt ?? user.createdDate ?? new Date().toISOString();
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role,
+      passwordHash: user.passwordHash ?? passwordHash,
+      createdAt,
+    };
+  });
+}
+
+/**
  * Returns the default collections for database seeding.
  *
  * @returns {Record<string, unknown[]>} Map of collection name to document array.
  */
 export function getDefaultCollections(): Record<string, unknown[]> {
   return loadSeeds().DEFAULT_COLLECTIONS;
+}
+
+/**
+ * Returns default collections with users normalized for auth (hashed passwords, singular role).
+ *
+ * @returns {Promise<Record<string, unknown[]>>} Seed collections ready for persistence.
+ */
+export async function getDefaultCollectionsForSeed(): Promise<Record<string, unknown[]>> {
+  const collections = { ...loadSeeds().DEFAULT_COLLECTIONS };
+
+  if (Array.isArray(collections.users)) {
+    collections.users = await normalizeSeedUsers(collections.users);
+  }
+
+  return collections;
 }
 
 /**

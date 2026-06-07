@@ -1,0 +1,56 @@
+import { toast } from "@/components/ui/use-toast";
+
+/**
+ * Canonical, DRY notification API for the whole app.
+ *
+ * Every user-facing toast goes through `notify` so variants, durations, and
+ * colours stay consistent and theme-token driven. Never call the low-level
+ * `toast()` directly from feature code.
+ *
+ * @example
+ * notify.success(uiStrings.contactCreated, { description: `${name} saved.` });
+ * notify.error(uiStrings.pleaseFixErrors, { description: firstError.message });
+ */
+
+/** Standard auto-dismiss durations (ms). */
+export const NOTIFY_DURATION = {
+  short: 3000,
+  default: 5000,
+  long: 8000,
+} as const;
+
+type ToastReturn = ReturnType<typeof toast>;
+
+export interface NotifyOptions {
+  /** Secondary line under the title. */
+  description?: string;
+  /** Override the auto-dismiss delay. Pass `Infinity` for a sticky toast. */
+  duration?: number;
+}
+
+type NotifyVariant = "default" | "success" | "destructive" | "warning" | "info";
+
+function make(variant: NotifyVariant, fallbackDuration: number) {
+  return (title: string, options: NotifyOptions = {}): ToastReturn =>
+    toast({
+      title,
+      description: options.description,
+      variant,
+      duration: options.duration ?? fallbackDuration,
+    });
+}
+
+export const notify = {
+  /** Positive confirmation (create, update, import, merge…). */
+  success: make("success", NOTIFY_DURATION.default),
+  /** Failure / validation error. Stays longer so the user can read it. */
+  error: make("destructive", NOTIFY_DURATION.long),
+  /** Caution / non-blocking problem. */
+  warning: make("warning", NOTIFY_DURATION.long),
+  /** Neutral information (deletions, background events). */
+  info: make("info", NOTIFY_DURATION.default),
+  /** Plain, theme-neutral message. */
+  message: make("default", NOTIFY_DURATION.default),
+} as const;
+
+export type Notify = typeof notify;

@@ -1,6 +1,9 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { syncDatabase } from './db';
-import { type User } from '@mms/shared';
+import { clear2FAState, mark2FAVerified } from './twoFactor';
+import { type User, type Workspace } from '@mms/shared';
+import { appNavigate } from './appNavigate';
+import { ROUTES } from './routes';
 
 export interface AuthError {
   type: 'invalid_credentials' | 'auth_required' | 'connection_error' | 'user_not_registered';
@@ -15,7 +18,7 @@ export interface AuthContextType {
   authError: AuthError | null;
   appPublicSettings: unknown | null;
   authChecked: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ requires2FA: boolean }>;
   logout: (shouldRedirect?: boolean) => void;
   navigateToLogin: () => void;
   checkUserAuth: () => Promise<void>;
@@ -26,7 +29,23 @@ export interface AuthContextType {
     adminName: string;
     email: string;
     password: string;
-  }) => Promise<void>;
+    subdomain: string;
+    country?: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+    logoUrl?: string;
+    adminPhone?: string;
+    website?: string;
+    footerText?: string;
+  }) => Promise<OnboardResult>;
+  exchangeHandoff: (code: string) => Promise<void>;
+}
+
+export interface OnboardResult {
+  token: string;
+  user: User;
+  workspace: Workspace;
+  handoffCode: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -117,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = async (email: string, password: string): Promise<void> => {
+  const login = async (email: string, password: string): Promise<{ requires2FA: boolean }> => {
     setIsLoadingAuth(true);
     setAuthError(null);
     try {
@@ -130,15 +149,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem('mms_token', data.token);
-        localStorage.setItem('mms_user', JSON.stringify(data.user));
-        setUser(data.user);
-        setIsAuthenticated(true);
-        setAuthChecked(true);
-        
-        // Pull latest database snapshot
-        await syncDatabase(data.token);
+        const data = await response.json() as { token: string; user: User; requires2FA?: boolean };
+        await applyAuthSession(data.token, data.user);
+        return { requires2FA: data.requires2FA === true };
       } else {
         const errorData = await response.json();
         const errObj: AuthError = { type: 'invalid_credentials', message: (errorData as { message?: string }).message || 'Login failed' };
@@ -156,6 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = (shouldRedirect = true): void => {
+    clear2FAState();
     localStorage.removeItem('mms_token');
     localStorage.removeItem('mms_user');
     setUser(null);
@@ -166,8 +180,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
 
     if (shouldRedirect) {
-      window.location.href = '/login';
+      appNavigate(ROUTES.login, { replace: true });
     }
+  };
+
+  const applyAuthSession = async (token: string, authUser: User): Promise<void> => {
+    localStorage.setItem('mms_token', token);
+    localStorage.setItem('mms_user', JSON.stringify(authUser));
+    setUser(authUser);
+    setIsAuthenticated(true);
+    setAuthChecked(true);
+    await syncDatabase(token);
   };
 
   const onboard = async (data: {
@@ -176,42 +199,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     adminName: string;
     email: string;
     password: string;
-  }): Promise<void> => {
-    setIsLoadingAuth(true);
+    subdomain: string;
+    country?: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+    logoUrl?: string;
+    adminPhone?: string;
+    website?: string;
+    footerText?: string;
+  }): Promise<OnboardResult> => {
     setAuthError(null);
-    try {
-      const response = await fetch('/api/auth/onboard', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
+    const response = await fetch('/api/auth/onboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
 
-      if (response.ok) {
-        const responseData = await response.json();
-        localStorage.setItem('mms_token', responseData.token);
-        localStorage.setItem('mms_user', JSON.stringify(responseData.user));
-        setUser(responseData.user);
-        setIsAuthenticated(true);
-        setAuthChecked(true);
-        
-        // Sync database from backend
-        await syncDatabase(responseData.token);
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Onboarding failed');
-      }
-    } catch (error: unknown) {
-      console.error('Onboarding failed:', error);
-      throw error;
-    } finally {
-      setIsLoadingAuth(false);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Onboarding failed');
     }
+
+    return (await response.json()) as OnboardResult;
+  };
+
+  const exchangeHandoff = async (code: string): Promise<void> => {
+    setAuthError(null);
+    const response = await fetch('/api/auth/handoff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Sign-in handoff failed');
+    }
+
+    const data = (await response.json()) as { token: string; user: User };
+    await applyAuthSession(data.token, data.user);
+    mark2FAVerified();
   };
 
   const navigateToLogin = (): void => {
-    window.location.href = '/login';
+    appNavigate(ROUTES.login, { replace: true });
   };
 
   // Run initial check once on mount
@@ -234,7 +265,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       navigateToLogin,
       checkUserAuth,
       checkAppState,
-      onboard
+      onboard,
+      exchangeHandoff,
     }}>
       {children}
     </AuthContext.Provider>

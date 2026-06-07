@@ -1,11 +1,16 @@
 import fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
+import rateLimit from '@fastify/rate-limit';
 import dotenv from 'dotenv';
-import { initDb } from './db/database.js';
+import { initDb, pingDatabase } from './db/database.js';
 import authRoutes from './routes/auth.js';
 import dbRoutes from './routes/db.js';
 import contactRoutes from './routes/contacts.js';
+import emailRoutes from './routes/email.js';
+import workspaceRoutes from './routes/workspace.js';
+import studentsRoutes from './routes/students.js';
+import { tenantStorage, resolveSubdomainFromRequest } from './utils/tenantContext.js';
 
 dotenv.config();
 
@@ -31,8 +36,19 @@ export async function buildApp(): Promise<FastifyInstance> {
     },
   });
 
-  // Initialize the SQLite database & seeds
   await initDb();
+
+  await app.register(rateLimit, {
+    global: false,
+  });
+
+  app.addHook('onRequest', (request, _reply, done) => {
+    const subdomain = resolveSubdomainFromRequest(
+      request.hostname,
+      request.headers['x-forwarded-host']
+    );
+    tenantStorage.run(subdomain, () => done());
+  });
 
   // Register CORS — restrict to a specific origin in production
   const isProd = process.env.NODE_ENV === 'production';
@@ -50,12 +66,26 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Register routes
   await app.register(authRoutes, { prefix: '/api/auth' });
+  await app.register(workspaceRoutes, { prefix: '/api/workspace' });
   await app.register(dbRoutes, { prefix: '/api/db' });
   await app.register(contactRoutes, { prefix: '/api/contacts' });
+  await app.register(emailRoutes, { prefix: '/api/email' });
+  await app.register(studentsRoutes, { prefix: '/api/students' });
 
-  // Basic health check route
   app.get('/health', async () => {
     return { status: 'OK', timestamp: new Date().toISOString() };
+  });
+
+  app.get('/ready', async (_request, reply) => {
+    const dbOk = await pingDatabase();
+    if (!dbOk) {
+      return reply.status(503).send({
+        type: 'server_error',
+        status: 'not_ready',
+        database: 'disconnected',
+      });
+    }
+    return { status: 'ready', database: 'connected', timestamp: new Date().toISOString() };
   });
 
   return app;

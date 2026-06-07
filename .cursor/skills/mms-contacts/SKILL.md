@@ -1,0 +1,44 @@
+---
+name: mms-contacts
+description: Implements Contact module features — forms, Kanban, WhatsApp status, field registry, ContactConfigContext, CSV/VCF sync. Use when editing contacts, CRM, phone numbers, avatars, duplicate detection, or contact settings.
+---
+
+# MMS Contacts Workflow
+
+## Key files
+
+| Area | Path |
+|------|------|
+| Page | `apps/frontend/src/pages/Contacts.tsx` |
+| Types | `packages/shared/src/contactTypes.ts` |
+| Config context | `apps/frontend/src/lib/ContactConfigContext.tsx` |
+| Field store | `apps/frontend/src/lib/contactFieldsStore.ts` |
+| Form primitives | `apps/frontend/src/components/contacts/form/FormPrimitives.tsx` |
+| Backend save | `apps/backend/src/routes/contacts.ts` |
+| WhatsApp | `apps/backend/src/services/whatsApp*.ts` |
+
+## Workflow: add form field
+
+1. Add to field registry in `@mms/shared` or `contact_field_config` object
+2. Render via `FormPrimitives` + `useSortedFields` — not new `DynamicField`
+3. If new tab needed: tab registry entry + `*Tab.tsx` content component
+4. Persist custom field values on `Contact` JSON document
+
+## Workflow: phone / WhatsApp
+
+1. Normalize E.164 with `parsePhoneNumber` (`@mms/shared`) on save
+2. Backend `POST /api/contacts` triggers verification queue
+3. UI reads `GET /api/contacts/:id/whatsapp-status`
+4. **Never** add manual WhatsApp toggle in `PhoneTab`
+
+## Provider rule
+
+`ContactConfigProvider` mounts **only** in `App.tsx`. Remove nesting from Contacts/Settings when touching those files.
+
+## Do not reintroduce
+
+`DynamicField.tsx`, `TabCustomFields.tsx`, second `DraggableFieldList` under `contacts/settings/`
+
+## Rules
+
+`.cursor/rules/mms-contacts.mdc`

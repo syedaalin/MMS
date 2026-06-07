@@ -1,20 +1,33 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowLeft, Loader2, CheckCircle2, Sparkles } from "lucide-react";
 import WizardLayout from "../../components/onboarding/WizardLayout";
+import { ROUTES } from "../../lib/routes";
+import { tenantUrl, getAppDomain } from "../../lib/tenantConfig";
+import {
+  DEFAULT_BRANDING_SETTINGS,
+  DEFAULT_GLOBAL_SETTINGS,
+  isValidSubdomain,
+  validatePasswordPolicy,
+} from "@mms/shared";
+import { defaultFooterForMadrasa } from "@/components/settings/brandingShared";
+import { applyBrandingTheme } from "@/lib/brandingTheme";
 import CreateMadrasa from "./steps/CreateMadrasa";
 import SelectPlan from "./steps/SelectPlan";
 import AdminSetup from "./steps/AdminSetup";
-import { saveObject } from "../../lib/db";
 import { useAuth } from "../../lib/AuthContext";
 
 export interface OnboardingData {
   name: string;
+  tagline: string;
   subdomain: string;
   subdomainTouched: boolean;
-  logo: string | null;
+  logoUrl: string;
   country: string;
-  brandColor: string;
+  primaryColor: string;
+  secondaryColor: string;
+  footerText: string;
   plan: string;
   firstName: string;
   lastName: string;
@@ -39,8 +52,8 @@ interface OnboardingStep {
 const STEPS: OnboardingStep[] = [
   {
     id: 1,
-    title: "Create your Madrasa",
-    subtitle: "Tell us about your institution to personalise your workspace",
+    title: "Institution & theme",
+    subtitle: "Set up your madrasa identity and colours — the same fields as Settings → Institution and Settings → Theme",
     component: CreateMadrasa,
   },
   {
@@ -60,11 +73,14 @@ const STEPS: OnboardingStep[] = [
 const initialData: OnboardingData = {
   // Step 1
   name: "",
+  tagline: DEFAULT_BRANDING_SETTINGS.tagline,
   subdomain: "",
   subdomainTouched: false,
-  logo: null,
+  logoUrl: "",
   country: "",
-  brandColor: "#047857",
+  primaryColor: DEFAULT_BRANDING_SETTINGS.primaryColor,
+  secondaryColor: DEFAULT_BRANDING_SETTINGS.secondaryColor,
+  footerText: "",
   // Step 2
   plan: "pro",
   // Step 3
@@ -90,6 +106,8 @@ export default function OnboardingWizard(): React.ReactElement {
   const [data, setData] = useState<OnboardingData>(initialData);
   const [loading, setLoading] = useState<boolean>(false);
   const [done, setDone] = useState<boolean>(false);
+  const [handoffCode, setHandoffCode] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const currentStep = STEPS[step - 1];
   if (!currentStep) {
@@ -98,7 +116,32 @@ export default function OnboardingWizard(): React.ReactElement {
   const StepComponent = currentStep.component;
   const isLastStep = step === STEPS.length;
 
+  useEffect(() => {
+    return () => {
+      applyBrandingTheme();
+    };
+  }, []);
+
+  const validateCurrentStep = (): string | null => {
+    if (step === 1) {
+      if (!data.name.trim()) {
+        return "Enter your madrasa name.";
+      }
+      if (!data.subdomain || !isValidSubdomain(data.subdomain)) {
+        return "Choose a valid workspace subdomain (letters, numbers, hyphens).";
+      }
+    }
+    return null;
+  };
+
   const handleNext = (): void => {
+    const stepError = validateCurrentStep();
+    if (stepError) {
+      setSubmitError(stepError);
+      return;
+    }
+    setSubmitError(null);
+
     if (!isLastStep) {
       setStep((s) => s + 1);
     } else {
@@ -107,48 +150,60 @@ export default function OnboardingWizard(): React.ReactElement {
   };
 
   const handleFinish = async (): Promise<void> => {
+    setSubmitError(null);
+
+    if (!data.subdomain || !isValidSubdomain(data.subdomain)) {
+      setSubmitError("Choose a valid workspace subdomain (letters, numbers, hyphens).");
+      return;
+    }
+
+    if (data.password !== data.confirmPassword) {
+      setSubmitError("Passwords do not match.");
+      return;
+    }
+
+    const policyCheck = validatePasswordPolicy(
+      data.password,
+      DEFAULT_GLOBAL_SETTINGS.passwordPolicy
+    );
+    if (!policyCheck.valid) {
+      setSubmitError(policyCheck.message);
+      return;
+    }
+
     setLoading(true);
-    
-    // Save onboarding branding details to database
-    const defaultBranding = {
-      madrasaName: "MMS",
-      tagline: "Nurturing Knowledge & Character",
-      primaryColor: "#047857",
-      secondaryColor: "#d97706",
-      logoUrl: "",
-      faviconUrl: "",
-      footerText: "© 2026 MMS. All rights reserved.",
-    };
-    
-    const brandingData = {
-      ...defaultBranding,
-      madrasaName: data.name || defaultBranding.madrasaName,
-      primaryColor: data.brandColor || defaultBranding.primaryColor,
-      logoUrl: data.logo || defaultBranding.logoUrl,
-      footerText: `© 2026 ${data.name || defaultBranding.madrasaName}. All rights reserved.`,
-    };
-    
+
     try {
-      await onboard({
+      const appDomain = getAppDomain();
+      const result = await onboard({
         madrasaName: data.name || "MMS",
-        tagline: "Nurturing Knowledge & Character",
+        tagline: data.tagline.trim() || DEFAULT_BRANDING_SETTINGS.tagline,
         adminName: `${data.firstName} ${data.lastName}`,
         email: data.email,
-        password: data.password
+        password: data.password,
+        subdomain: data.subdomain,
+        country: data.country,
+        primaryColor: data.primaryColor,
+        secondaryColor: data.secondaryColor,
+        logoUrl: data.logoUrl || undefined,
+        adminPhone: data.phone || undefined,
+        website: data.subdomain ? `https://${data.subdomain}.${appDomain}` : undefined,
+        footerText: data.footerText.trim() || defaultFooterForMadrasa(data.name),
       });
 
-      saveObject("branding", brandingData);
+      setHandoffCode(result.handoffCode);
       setLoading(false);
       setDone(true);
     } catch (err: unknown) {
       console.error("Onboarding failed:", err);
       setLoading(false);
-      alert(err instanceof Error ? err.message : "Failed to register workspace admin");
+      const message = err instanceof Error ? err.message : "Failed to register workspace admin";
+      setSubmitError(message);
     }
   };
 
-  if (done) {
-    return <SuccessScreen data={data} />;
+  if (done && handoffCode) {
+    return <SuccessScreen data={data} handoffCode={handoffCode} />;
   }
 
   return (
@@ -158,6 +213,17 @@ export default function OnboardingWizard(): React.ReactElement {
       subtitle={currentStep.subtitle}
     >
       <StepComponent data={data} onChange={setData} />
+
+      {submitError && (
+        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {submitError}{" "}
+          {submitError.toLowerCase().includes("admin account already exists") && (
+            <Link to={ROUTES.login} className="font-semibold underline">
+              Sign in instead
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="flex items-center justify-between mt-7 pt-5 border-t border-border">
@@ -214,7 +280,26 @@ export default function OnboardingWizard(): React.ReactElement {
  * @param props.data - Collected onboarding data.
  * @returns {React.ReactElement} The SuccessScreen element.
  */
-function SuccessScreen({ data }: { data: OnboardingData }): React.ReactElement {
+function SuccessScreen({
+  data,
+  handoffCode,
+}: {
+  data: OnboardingData;
+  handoffCode: string;
+}): React.ReactElement {
+  const appDomain = getAppDomain();
+  const workspaceLoginUrl = tenantUrl(
+    data.subdomain || "your-madrasa",
+    `${ROUTES.login}?handoff=${encodeURIComponent(handoffCode)}`
+  );
+
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      window.location.href = workspaceLoginUrl;
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [workspaceLoginUrl]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <motion.div
@@ -249,13 +334,17 @@ function SuccessScreen({ data }: { data: OnboardingData }): React.ReactElement {
           </h1>
           <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
             Your workspace <strong className="text-foreground">{data.name || "Your Madrasa"}</strong> is ready.
-            You can now start adding students, sessions, and managing your institution.
+            Add contact details, address, and social links anytime under{" "}
+            <strong className="text-foreground">Settings → Institution</strong>; adjust colours and footer under{" "}
+            <strong className="text-foreground">Settings → Theme</strong>.
           </p>
 
           <div className="mt-6 bg-muted/50 rounded-xl p-4 border border-border text-left space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Workspace URL</span>
-              <span className="font-medium text-foreground">{data.subdomain || "your-madrasa"}.madrasa.app</span>
+              <span className="font-medium text-foreground">
+                {data.subdomain || "your-madrasa"}.{appDomain}
+              </span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Plan</span>
@@ -268,12 +357,13 @@ function SuccessScreen({ data }: { data: OnboardingData }): React.ReactElement {
           </div>
 
           <a
-            href="/"
+            href={workspaceLoginUrl}
             className="mt-6 w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
           >
-            Go to Dashboard
+            Open {data.subdomain}.{appDomain}
             <ArrowRight className="w-4 h-4" />
           </a>
+          <p className="text-xs text-muted-foreground mt-2">Redirecting to your workspace…</p>
         </motion.div>
       </motion.div>
     </div>

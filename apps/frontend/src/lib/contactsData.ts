@@ -3,7 +3,6 @@ import type { Contact } from "./contactFields";
 export const CONTACTS: Contact[] = [
   {
     "id": 1,
-    "personaId": "staff",
     "name": "Sheikh Ibrahim",
     "firstName": "Sheikh",
     "lastName": "Ibrahim",
@@ -22,8 +21,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 300 2100049",
-        "whatsapp": true
+        "number": "+92 300 2100049"
       }
     ],
     "emails": [
@@ -55,7 +53,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 2,
-    "personaId": "staff",
     "name": "Qari Yusuf",
     "firstName": "Qari",
     "lastName": "Yusuf",
@@ -74,8 +71,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 300 1251232",
-        "whatsapp": true
+        "number": "+92 300 1251232"
       }
     ],
     "emails": [
@@ -107,7 +103,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 3,
-    "personaId": "staff",
     "name": "Ustadha Fatima",
     "firstName": "Ustadha",
     "lastName": "Fatima",
@@ -126,8 +121,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 300 7822378",
-        "whatsapp": true
+        "number": "+92 300 7822378"
       }
     ],
     "emails": [
@@ -159,7 +153,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 4,
-    "personaId": "staff",
     "name": "Ustadha Mariam",
     "firstName": "Ustadha",
     "lastName": "Mariam",
@@ -178,8 +171,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 300 6569178",
-        "whatsapp": true
+        "number": "+92 300 6569178"
       }
     ],
     "emails": [
@@ -211,7 +203,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 5,
-    "personaId": "staff",
     "name": "Sheikh Abdullah",
     "firstName": "Sheikh",
     "lastName": "Abdullah",
@@ -230,8 +221,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 300 5189571",
-        "whatsapp": true
+        "number": "+92 300 5189571"
       }
     ],
     "emails": [
@@ -263,7 +253,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 6,
-    "personaId": "staff",
     "name": "Ahmad Al-Rashid",
     "firstName": "Ahmad",
     "lastName": "Al-Rashid",
@@ -282,8 +271,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 300 5288845",
-        "whatsapp": true
+        "number": "+92 300 5288845"
       }
     ],
     "emails": [
@@ -315,7 +303,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 7,
-    "personaId": "staff",
     "name": "Hassan Bilal",
     "firstName": "Hassan",
     "lastName": "Bilal",
@@ -334,8 +321,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 300 1755918",
-        "whatsapp": true
+        "number": "+92 300 1755918"
       }
     ],
     "emails": [
@@ -367,7 +353,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 8,
-    "personaId": "staff",
     "name": "Ustadh Tahir Qazi",
     "firstName": "Tahir",
     "lastName": "Qazi",
@@ -386,8 +371,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 3847821",
-        "whatsapp": true
+        "number": "+92 312 3847821"
       }
     ],
     "emails": [
@@ -405,7 +389,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 9,
-    "personaId": "staff",
     "name": "Ustadh Hassan Baig",
     "firstName": "Hassan",
     "lastName": "Baig",
@@ -424,8 +407,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 1119819",
-        "whatsapp": true
+        "number": "+92 312 1119819"
       }
     ],
     "emails": [
@@ -443,7 +425,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 10,
-    "personaId": "staff",
     "name": "Ustadha Hafsa Shafique",
     "firstName": "Hafsa",
     "lastName": "Shafique",
@@ -462,8 +443,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 3160321",
-        "whatsapp": true
+        "number": "+92 312 3160321"
       }
     ],
     "emails": [
@@ -481,7 +461,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 11,
-    "personaId": "staff",
     "name": "Ustadha Asma Zaidi",
     "firstName": "Asma",
     "lastName": "Zaidi",
@@ -500,8 +479,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 8344622",
-        "whatsapp": true
+        "number": "+92 312 8344622"
       }
     ],
     "emails": [
@@ -519,7 +497,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 12,
-    "personaId": "staff",
     "name": "Ustadh Ismail Farooq",
     "firstName": "Ismail",
     "lastName": "Farooq",
@@ -538,8 +515,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 3015766",
-        "whatsapp": true
+        "number": "+92 312 3015766"
       }
     ],
     "emails": [
@@ -557,7 +533,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 13,
-    "personaId": "staff",
     "name": "Ustadha Maymunah Farooq",
     "firstName": "Maymunah",
     "lastName": "Farooq",
@@ -576,8 +551,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 9377613",
-        "whatsapp": true
+        "number": "+92 312 9377613"
       }
     ],
     "emails": [
@@ -595,7 +569,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 14,
-    "personaId": "staff",
     "name": "Ustadh Bashir Imran",
     "firstName": "Bashir",
     "lastName": "Imran",
@@ -614,8 +587,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 7311396",
-        "whatsapp": true
+        "number": "+92 312 7311396"
       }
     ],
     "emails": [
@@ -633,7 +605,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 15,
-    "personaId": "staff",
     "name": "Ustadha Juwayriyah Hussain",
     "firstName": "Juwayriyah",
     "lastName": "Hussain",
@@ -652,8 +623,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 9116097",
-        "whatsapp": true
+        "number": "+92 312 9116097"
       }
     ],
     "emails": [
@@ -671,7 +641,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 16,
-    "personaId": "staff",
     "name": "Ustadha Maryam Nawaz",
     "firstName": "Maryam",
     "lastName": "Nawaz",
@@ -690,8 +659,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 4918500",
-        "whatsapp": true
+        "number": "+92 312 4918500"
       }
     ],
     "emails": [
@@ -709,7 +677,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 17,
-    "personaId": "staff",
     "name": "Ustadh Nabil Nawaz",
     "firstName": "Nabil",
     "lastName": "Nawaz",
@@ -728,8 +695,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 9841170",
-        "whatsapp": true
+        "number": "+92 312 9841170"
       }
     ],
     "emails": [
@@ -747,7 +713,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 18,
-    "personaId": "staff",
     "name": "Ustadha Zoya Sheikh",
     "firstName": "Zoya",
     "lastName": "Sheikh",
@@ -766,8 +731,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 3029102",
-        "whatsapp": true
+        "number": "+92 312 3029102"
       }
     ],
     "emails": [
@@ -785,7 +749,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 19,
-    "personaId": "staff",
     "name": "Ustadh Hussein Qadri",
     "firstName": "Hussein",
     "lastName": "Qadri",
@@ -804,8 +767,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 2974802",
-        "whatsapp": true
+        "number": "+92 312 2974802"
       }
     ],
     "emails": [
@@ -823,7 +785,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 20,
-    "personaId": "staff",
     "name": "Ustadha Layla Naqvi",
     "firstName": "Layla",
     "lastName": "Naqvi",
@@ -842,8 +803,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 312 9126640",
-        "whatsapp": true
+        "number": "+92 312 9126640"
       }
     ],
     "emails": [
@@ -861,7 +821,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 21,
-    "personaId": "parent",
     "name": "Bushra Khan",
     "firstName": "Bushra",
     "lastName": "Khan",
@@ -880,8 +839,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 8587850",
-        "whatsapp": true
+        "number": "+92 321 8587850"
       }
     ],
     "emails": [
@@ -906,7 +864,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 22,
-    "personaId": "parent",
     "name": "Rida Chaudhry",
     "firstName": "Rida",
     "lastName": "Chaudhry",
@@ -925,8 +882,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 7557052",
-        "whatsapp": true
+        "number": "+92 321 7557052"
       }
     ],
     "emails": [
@@ -951,7 +907,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 23,
-    "personaId": "parent",
     "name": "Hiba Mirza",
     "firstName": "Hiba",
     "lastName": "Mirza",
@@ -970,8 +925,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 8266756",
-        "whatsapp": true
+        "number": "+92 321 8266756"
       }
     ],
     "emails": [
@@ -996,7 +950,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 24,
-    "personaId": "parent",
     "name": "Mariam Bukhari",
     "firstName": "Mariam",
     "lastName": "Bukhari",
@@ -1015,8 +968,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 6523935",
-        "whatsapp": true
+        "number": "+92 321 6523935"
       }
     ],
     "emails": [
@@ -1041,7 +993,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 25,
-    "personaId": "parent",
     "name": "Mariam Aslam",
     "firstName": "Mariam",
     "lastName": "Aslam",
@@ -1060,8 +1011,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 8516593",
-        "whatsapp": true
+        "number": "+92 321 8516593"
       }
     ],
     "emails": [
@@ -1086,7 +1036,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 26,
-    "personaId": "parent",
     "name": "Hina Dar",
     "firstName": "Hina",
     "lastName": "Dar",
@@ -1105,8 +1054,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 4100273",
-        "whatsapp": true
+        "number": "+92 321 4100273"
       }
     ],
     "emails": [
@@ -1131,7 +1079,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 27,
-    "personaId": "parent",
     "name": "Fatima Zaidi",
     "firstName": "Fatima",
     "lastName": "Zaidi",
@@ -1150,8 +1097,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 1147613",
-        "whatsapp": true
+        "number": "+92 321 1147613"
       }
     ],
     "emails": [
@@ -1176,7 +1122,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 28,
-    "personaId": "parent",
     "name": "Yusuf Siddiqui",
     "firstName": "Yusuf",
     "lastName": "Siddiqui",
@@ -1195,8 +1140,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 6096430",
-        "whatsapp": true
+        "number": "+92 321 6096430"
       }
     ],
     "emails": [
@@ -1221,7 +1165,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 29,
-    "personaId": "parent",
     "name": "Samia Imran",
     "firstName": "Samia",
     "lastName": "Imran",
@@ -1240,8 +1183,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 4116138",
-        "whatsapp": true
+        "number": "+92 321 4116138"
       }
     ],
     "emails": [
@@ -1266,7 +1208,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 30,
-    "personaId": "parent",
     "name": "Sawdah Khan",
     "firstName": "Sawdah",
     "lastName": "Khan",
@@ -1285,8 +1226,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 9454446",
-        "whatsapp": true
+        "number": "+92 321 9454446"
       }
     ],
     "emails": [
@@ -1311,7 +1251,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 31,
-    "personaId": "parent",
     "name": "Sawdah Aslam",
     "firstName": "Sawdah",
     "lastName": "Aslam",
@@ -1330,8 +1269,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 8021345",
-        "whatsapp": true
+        "number": "+92 321 8021345"
       }
     ],
     "emails": [
@@ -1356,7 +1294,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 32,
-    "personaId": "parent",
     "name": "Uzma Bhatti",
     "firstName": "Uzma",
     "lastName": "Bhatti",
@@ -1375,8 +1312,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 2493125",
-        "whatsapp": true
+        "number": "+92 321 2493125"
       }
     ],
     "emails": [
@@ -1401,7 +1337,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 33,
-    "personaId": "parent",
     "name": "Uzma Ghazi",
     "firstName": "Uzma",
     "lastName": "Ghazi",
@@ -1420,8 +1355,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 6505048",
-        "whatsapp": true
+        "number": "+92 321 6505048"
       }
     ],
     "emails": [
@@ -1446,7 +1380,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 34,
-    "personaId": "parent",
     "name": "Uzma Anwar",
     "firstName": "Uzma",
     "lastName": "Anwar",
@@ -1465,8 +1398,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 2642646",
-        "whatsapp": true
+        "number": "+92 321 2642646"
       }
     ],
     "emails": [
@@ -1491,7 +1423,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 35,
-    "personaId": "parent",
     "name": "Rida Imran",
     "firstName": "Rida",
     "lastName": "Imran",
@@ -1510,8 +1441,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 6502703",
-        "whatsapp": true
+        "number": "+92 321 6502703"
       }
     ],
     "emails": [
@@ -1536,7 +1466,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 36,
-    "personaId": "parent",
     "name": "Hafsa Baig",
     "firstName": "Hafsa",
     "lastName": "Baig",
@@ -1555,8 +1484,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 8635807",
-        "whatsapp": true
+        "number": "+92 321 8635807"
       }
     ],
     "emails": [
@@ -1581,7 +1509,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 37,
-    "personaId": "parent",
     "name": "Habib Nasir",
     "firstName": "Habib",
     "lastName": "Nasir",
@@ -1600,8 +1527,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 6717793",
-        "whatsapp": true
+        "number": "+92 321 6717793"
       }
     ],
     "emails": [
@@ -1626,7 +1552,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 38,
-    "personaId": "parent",
     "name": "Zain Sheikh",
     "firstName": "Zain",
     "lastName": "Sheikh",
@@ -1645,8 +1570,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 9079367",
-        "whatsapp": true
+        "number": "+92 321 9079367"
       }
     ],
     "emails": [
@@ -1671,7 +1595,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 39,
-    "personaId": "parent",
     "name": "Hamza Ghazi",
     "firstName": "Hamza",
     "lastName": "Ghazi",
@@ -1690,8 +1613,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 8444150",
-        "whatsapp": true
+        "number": "+92 321 8444150"
       }
     ],
     "emails": [
@@ -1716,7 +1638,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 40,
-    "personaId": "parent",
     "name": "Anas Iqbal",
     "firstName": "Anas",
     "lastName": "Iqbal",
@@ -1735,8 +1656,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 4562060",
-        "whatsapp": true
+        "number": "+92 321 4562060"
       }
     ],
     "emails": [
@@ -1761,7 +1681,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 41,
-    "personaId": "parent",
     "name": "Zakariya Zahid",
     "firstName": "Zakariya",
     "lastName": "Zahid",
@@ -1780,8 +1699,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 4786626",
-        "whatsapp": true
+        "number": "+92 321 4786626"
       }
     ],
     "emails": [
@@ -1806,7 +1724,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 42,
-    "personaId": "parent",
     "name": "Khadija Pirzada",
     "firstName": "Khadija",
     "lastName": "Pirzada",
@@ -1825,8 +1742,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 8460668",
-        "whatsapp": true
+        "number": "+92 321 8460668"
       }
     ],
     "emails": [
@@ -1851,7 +1767,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 43,
-    "personaId": "parent",
     "name": "Shakir Dar",
     "firstName": "Shakir",
     "lastName": "Dar",
@@ -1870,8 +1785,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 4412840",
-        "whatsapp": true
+        "number": "+92 321 4412840"
       }
     ],
     "emails": [
@@ -1896,7 +1810,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 44,
-    "personaId": "parent",
     "name": "Yasmin Zahid",
     "firstName": "Yasmin",
     "lastName": "Zahid",
@@ -1915,8 +1828,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 2356552",
-        "whatsapp": true
+        "number": "+92 321 2356552"
       }
     ],
     "emails": [
@@ -1941,7 +1853,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 45,
-    "personaId": "parent",
     "name": "Mariam Akhtar",
     "firstName": "Mariam",
     "lastName": "Akhtar",
@@ -1960,8 +1871,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 8659677",
-        "whatsapp": true
+        "number": "+92 321 8659677"
       }
     ],
     "emails": [
@@ -1986,7 +1896,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 46,
-    "personaId": "parent",
     "name": "Asiya Farooq",
     "firstName": "Asiya",
     "lastName": "Farooq",
@@ -2005,8 +1914,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 9782530",
-        "whatsapp": true
+        "number": "+92 321 9782530"
       }
     ],
     "emails": [
@@ -2031,7 +1939,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 47,
-    "personaId": "parent",
     "name": "Ismail Tariq",
     "firstName": "Ismail",
     "lastName": "Tariq",
@@ -2050,8 +1957,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 1930309",
-        "whatsapp": true
+        "number": "+92 321 1930309"
       }
     ],
     "emails": [
@@ -2076,7 +1982,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 48,
-    "personaId": "parent",
     "name": "Rayyan Shafique",
     "firstName": "Rayyan",
     "lastName": "Shafique",
@@ -2095,8 +2000,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 7671707",
-        "whatsapp": true
+        "number": "+92 321 7671707"
       }
     ],
     "emails": [
@@ -2121,7 +2025,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 49,
-    "personaId": "parent",
     "name": "Tahir Zahid",
     "firstName": "Tahir",
     "lastName": "Zahid",
@@ -2140,8 +2043,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 5764575",
-        "whatsapp": true
+        "number": "+92 321 5764575"
       }
     ],
     "emails": [
@@ -2166,7 +2068,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 50,
-    "personaId": "parent",
     "name": "Hania Hassan",
     "firstName": "Hania",
     "lastName": "Hassan",
@@ -2185,8 +2086,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 1643577",
-        "whatsapp": true
+        "number": "+92 321 1643577"
       }
     ],
     "emails": [
@@ -2211,7 +2111,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 51,
-    "personaId": "parent",
     "name": "Layla Shafique",
     "firstName": "Layla",
     "lastName": "Shafique",
@@ -2230,8 +2129,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 9007415",
-        "whatsapp": true
+        "number": "+92 321 9007415"
       }
     ],
     "emails": [
@@ -2256,7 +2154,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 52,
-    "personaId": "parent",
     "name": "Noura Rahman",
     "firstName": "Noura",
     "lastName": "Rahman",
@@ -2275,8 +2172,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 6024645",
-        "whatsapp": true
+        "number": "+92 321 6024645"
       }
     ],
     "emails": [
@@ -2301,7 +2197,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 53,
-    "personaId": "parent",
     "name": "Hassan Khan",
     "firstName": "Hassan",
     "lastName": "Khan",
@@ -2320,8 +2215,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 2454054",
-        "whatsapp": true
+        "number": "+92 321 2454054"
       }
     ],
     "emails": [
@@ -2346,7 +2240,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 54,
-    "personaId": "parent",
     "name": "Salma Hashmi",
     "firstName": "Salma",
     "lastName": "Hashmi",
@@ -2365,8 +2258,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 6927026",
-        "whatsapp": true
+        "number": "+92 321 6927026"
       }
     ],
     "emails": [
@@ -2391,7 +2283,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 55,
-    "personaId": "parent",
     "name": "Rida Aslam",
     "firstName": "Rida",
     "lastName": "Aslam",
@@ -2410,8 +2301,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 7863002",
-        "whatsapp": true
+        "number": "+92 321 7863002"
       }
     ],
     "emails": [
@@ -2436,7 +2326,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 56,
-    "personaId": "parent",
     "name": "Ibrahim Qadri",
     "firstName": "Ibrahim",
     "lastName": "Qadri",
@@ -2455,8 +2344,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 8713517",
-        "whatsapp": true
+        "number": "+92 321 8713517"
       }
     ],
     "emails": [
@@ -2481,7 +2369,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 57,
-    "personaId": "parent",
     "name": "Layla Al-Rashid",
     "firstName": "Layla",
     "lastName": "Al-Rashid",
@@ -2500,8 +2387,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 3868002",
-        "whatsapp": true
+        "number": "+92 321 3868002"
       }
     ],
     "emails": [
@@ -2526,7 +2412,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 58,
-    "personaId": "parent",
     "name": "Zain Pirzada",
     "firstName": "Zain",
     "lastName": "Pirzada",
@@ -2545,8 +2430,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 5780364",
-        "whatsapp": true
+        "number": "+92 321 5780364"
       }
     ],
     "emails": [
@@ -2571,7 +2455,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 59,
-    "personaId": "parent",
     "name": "Salma Sheikh",
     "firstName": "Salma",
     "lastName": "Sheikh",
@@ -2590,8 +2473,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 1834474",
-        "whatsapp": true
+        "number": "+92 321 1834474"
       }
     ],
     "emails": [
@@ -2616,7 +2498,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 60,
-    "personaId": "parent",
     "name": "Ismail Malik",
     "firstName": "Ismail",
     "lastName": "Malik",
@@ -2635,8 +2516,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 7265924",
-        "whatsapp": true
+        "number": "+92 321 7265924"
       }
     ],
     "emails": [
@@ -2661,7 +2541,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 61,
-    "personaId": "parent",
     "name": "Majid Qadri",
     "firstName": "Majid",
     "lastName": "Qadri",
@@ -2680,8 +2559,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 1779296",
-        "whatsapp": true
+        "number": "+92 321 1779296"
       }
     ],
     "emails": [
@@ -2706,7 +2584,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 62,
-    "personaId": "parent",
     "name": "Hussein Nasir",
     "firstName": "Hussein",
     "lastName": "Nasir",
@@ -2725,8 +2602,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 1005140",
-        "whatsapp": true
+        "number": "+92 321 1005140"
       }
     ],
     "emails": [
@@ -2751,7 +2627,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 63,
-    "personaId": "parent",
     "name": "Zaid Sajid",
     "firstName": "Zaid",
     "lastName": "Sajid",
@@ -2770,8 +2645,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 9570630",
-        "whatsapp": true
+        "number": "+92 321 9570630"
       }
     ],
     "emails": [
@@ -2796,7 +2670,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 64,
-    "personaId": "parent",
     "name": "Yusuf Shafique",
     "firstName": "Yusuf",
     "lastName": "Shafique",
@@ -2815,8 +2688,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 6358190",
-        "whatsapp": true
+        "number": "+92 321 6358190"
       }
     ],
     "emails": [
@@ -2841,7 +2713,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 65,
-    "personaId": "parent",
     "name": "Ismail Shafique",
     "firstName": "Ismail",
     "lastName": "Shafique",
@@ -2860,8 +2731,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 1942207",
-        "whatsapp": true
+        "number": "+92 321 1942207"
       }
     ],
     "emails": [
@@ -2886,7 +2756,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 66,
-    "personaId": "parent",
     "name": "Khadija Shah",
     "firstName": "Khadija",
     "lastName": "Shah",
@@ -2905,8 +2774,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 2809046",
-        "whatsapp": true
+        "number": "+92 321 2809046"
       }
     ],
     "emails": [
@@ -2931,7 +2799,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 67,
-    "personaId": "parent",
     "name": "Sumayya Rizvi",
     "firstName": "Sumayya",
     "lastName": "Rizvi",
@@ -2950,8 +2817,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 5798469",
-        "whatsapp": true
+        "number": "+92 321 5798469"
       }
     ],
     "emails": [
@@ -2976,7 +2842,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 68,
-    "personaId": "parent",
     "name": "Ruqayyah Khan",
     "firstName": "Ruqayyah",
     "lastName": "Khan",
@@ -2995,8 +2860,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 3869899",
-        "whatsapp": true
+        "number": "+92 321 3869899"
       }
     ],
     "emails": [
@@ -3021,7 +2885,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 69,
-    "personaId": "parent",
     "name": "Hiba Karimi",
     "firstName": "Hiba",
     "lastName": "Karimi",
@@ -3040,8 +2903,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 2235045",
-        "whatsapp": true
+        "number": "+92 321 2235045"
       }
     ],
     "emails": [
@@ -3066,7 +2928,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 70,
-    "personaId": "parent",
     "name": "Safiya Yousaf",
     "firstName": "Safiya",
     "lastName": "Yousaf",
@@ -3085,8 +2946,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 2908827",
-        "whatsapp": true
+        "number": "+92 321 2908827"
       }
     ],
     "emails": [
@@ -3111,7 +2971,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 71,
-    "personaId": "parent",
     "name": "Ayla Bukhari",
     "firstName": "Ayla",
     "lastName": "Bukhari",
@@ -3130,8 +2989,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 8776569",
-        "whatsapp": true
+        "number": "+92 321 8776569"
       }
     ],
     "emails": [
@@ -3156,7 +3014,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 72,
-    "personaId": "parent",
     "name": "Nadia Pirzada",
     "firstName": "Nadia",
     "lastName": "Pirzada",
@@ -3175,8 +3032,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 4537727",
-        "whatsapp": true
+        "number": "+92 321 4537727"
       }
     ],
     "emails": [
@@ -3201,7 +3057,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 73,
-    "personaId": "parent",
     "name": "Suleiman Latif",
     "firstName": "Suleiman",
     "lastName": "Latif",
@@ -3220,8 +3075,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 1463067",
-        "whatsapp": true
+        "number": "+92 321 1463067"
       }
     ],
     "emails": [
@@ -3246,7 +3100,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 74,
-    "personaId": "parent",
     "name": "Samia Hashmi",
     "firstName": "Samia",
     "lastName": "Hashmi",
@@ -3265,8 +3118,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 8641601",
-        "whatsapp": true
+        "number": "+92 321 8641601"
       }
     ],
     "emails": [
@@ -3291,7 +3143,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 75,
-    "personaId": "parent",
     "name": "Nabil Shafique",
     "firstName": "Nabil",
     "lastName": "Shafique",
@@ -3310,8 +3161,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 1097917",
-        "whatsapp": true
+        "number": "+92 321 1097917"
       }
     ],
     "emails": [
@@ -3336,7 +3186,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 76,
-    "personaId": "parent",
     "name": "Asma Shah",
     "firstName": "Asma",
     "lastName": "Shah",
@@ -3355,8 +3204,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 4245565",
-        "whatsapp": true
+        "number": "+92 321 4245565"
       }
     ],
     "emails": [
@@ -3381,7 +3229,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 77,
-    "personaId": "parent",
     "name": "Bashir Qadri",
     "firstName": "Bashir",
     "lastName": "Qadri",
@@ -3400,8 +3247,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 9764197",
-        "whatsapp": true
+        "number": "+92 321 9764197"
       }
     ],
     "emails": [
@@ -3426,7 +3272,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 78,
-    "personaId": "parent",
     "name": "Safiya Latif",
     "firstName": "Safiya",
     "lastName": "Latif",
@@ -3445,8 +3290,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 3789112",
-        "whatsapp": true
+        "number": "+92 321 3789112"
       }
     ],
     "emails": [
@@ -3471,7 +3315,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 79,
-    "personaId": "parent",
     "name": "Samia Dar",
     "firstName": "Samia",
     "lastName": "Dar",
@@ -3490,8 +3333,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 6867572",
-        "whatsapp": true
+        "number": "+92 321 6867572"
       }
     ],
     "emails": [
@@ -3516,7 +3358,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 80,
-    "personaId": "parent",
     "name": "Salma Hussain",
     "firstName": "Salma",
     "lastName": "Hussain",
@@ -3535,8 +3376,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 321 1475671",
-        "whatsapp": true
+        "number": "+92 321 1475671"
       }
     ],
     "emails": [
@@ -3561,7 +3401,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 81,
-    "personaId": "student",
     "name": "Abdullah Rizvi",
     "firstName": "Abdullah",
     "lastName": "Rizvi",
@@ -3580,8 +3419,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 9287748",
-        "whatsapp": false
+        "number": "+92 333 9287748"
       }
     ],
     "emails": [
@@ -3611,7 +3449,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 82,
-    "personaId": "student",
     "name": "Usman Hussain",
     "firstName": "Usman",
     "lastName": "Hussain",
@@ -3630,8 +3467,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 3924327",
-        "whatsapp": true
+        "number": "+92 333 3924327"
       }
     ],
     "emails": [
@@ -3661,7 +3497,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 83,
-    "personaId": "student",
     "name": "Rashid Lodhi",
     "firstName": "Rashid",
     "lastName": "Lodhi",
@@ -3680,8 +3515,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 7949702",
-        "whatsapp": true
+        "number": "+92 333 7949702"
       }
     ],
     "emails": [
@@ -3711,7 +3545,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 84,
-    "personaId": "student",
     "name": "Shakir Ghani",
     "firstName": "Shakir",
     "lastName": "Ghani",
@@ -3730,8 +3563,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 9111505",
-        "whatsapp": false
+        "number": "+92 333 9111505"
       }
     ],
     "emails": [
@@ -3761,7 +3593,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 85,
-    "personaId": "student",
     "name": "Jabir Raza",
     "firstName": "Jabir",
     "lastName": "Raza",
@@ -3780,8 +3611,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 8285797",
-        "whatsapp": true
+        "number": "+92 333 8285797"
       }
     ],
     "emails": [
@@ -3811,7 +3641,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 86,
-    "personaId": "student",
     "name": "Sumayya Iqbal",
     "firstName": "Sumayya",
     "lastName": "Iqbal",
@@ -3830,8 +3659,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 1122183",
-        "whatsapp": false
+        "number": "+92 333 1122183"
       }
     ],
     "emails": [
@@ -3861,7 +3689,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 87,
-    "personaId": "student",
     "name": "Safiyyah Nawaz",
     "firstName": "Safiyyah",
     "lastName": "Nawaz",
@@ -3880,8 +3707,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 3989636",
-        "whatsapp": true
+        "number": "+92 333 3989636"
       }
     ],
     "emails": [
@@ -3911,7 +3737,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 88,
-    "personaId": "student",
     "name": "Samia Hashmi",
     "firstName": "Samia",
     "lastName": "Hashmi",
@@ -3930,8 +3755,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 1589949",
-        "whatsapp": true
+        "number": "+92 333 1589949"
       }
     ],
     "emails": [
@@ -3961,7 +3785,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 89,
-    "personaId": "student",
     "name": "Zain Zaidi",
     "firstName": "Zain",
     "lastName": "Zaidi",
@@ -3980,8 +3803,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 3953658",
-        "whatsapp": true
+        "number": "+92 333 3953658"
       }
     ],
     "emails": [
@@ -4011,7 +3833,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 90,
-    "personaId": "student",
     "name": "Hina Aslam",
     "firstName": "Hina",
     "lastName": "Aslam",
@@ -4030,8 +3851,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 7854752",
-        "whatsapp": true
+        "number": "+92 333 7854752"
       }
     ],
     "emails": [
@@ -4061,7 +3881,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 91,
-    "personaId": "student",
     "name": "Hassan Al-Nouri",
     "firstName": "Hassan",
     "lastName": "Al-Nouri",
@@ -4080,8 +3899,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 3788390",
-        "whatsapp": false
+        "number": "+92 333 3788390"
       }
     ],
     "emails": [
@@ -4111,7 +3929,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 92,
-    "personaId": "student",
     "name": "Zakariya Naqvi",
     "firstName": "Zakariya",
     "lastName": "Naqvi",
@@ -4130,8 +3947,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 8728612",
-        "whatsapp": false
+        "number": "+92 333 8728612"
       }
     ],
     "emails": [
@@ -4161,7 +3977,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 93,
-    "personaId": "student",
     "name": "Samia Karimi",
     "firstName": "Samia",
     "lastName": "Karimi",
@@ -4180,8 +3995,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4316144",
-        "whatsapp": false
+        "number": "+92 333 4316144"
       }
     ],
     "emails": [
@@ -4211,7 +4025,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 94,
-    "personaId": "student",
     "name": "Lubna Karimi",
     "firstName": "Lubna",
     "lastName": "Karimi",
@@ -4230,8 +4043,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6346736",
-        "whatsapp": false
+        "number": "+92 333 6346736"
       }
     ],
     "emails": [
@@ -4261,7 +4073,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 95,
-    "personaId": "student",
     "name": "Aaliyah Ghani",
     "firstName": "Aaliyah",
     "lastName": "Ghani",
@@ -4280,8 +4091,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 2475366",
-        "whatsapp": true
+        "number": "+92 333 2475366"
       }
     ],
     "emails": [
@@ -4311,7 +4121,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 96,
-    "personaId": "student",
     "name": "Harun Khalid",
     "firstName": "Harun",
     "lastName": "Khalid",
@@ -4330,8 +4139,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4110226",
-        "whatsapp": true
+        "number": "+92 333 4110226"
       }
     ],
     "emails": [
@@ -4361,7 +4169,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 97,
-    "personaId": "student",
     "name": "Bushra Bukhari",
     "firstName": "Bushra",
     "lastName": "Bukhari",
@@ -4380,8 +4187,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6673524",
-        "whatsapp": true
+        "number": "+92 333 6673524"
       }
     ],
     "emails": [
@@ -4411,7 +4217,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 98,
-    "personaId": "student",
     "name": "Mariam Akhtar",
     "firstName": "Mariam",
     "lastName": "Akhtar",
@@ -4430,8 +4235,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 5960569",
-        "whatsapp": true
+        "number": "+92 333 5960569"
       }
     ],
     "emails": [
@@ -4461,7 +4265,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 99,
-    "personaId": "student",
     "name": "Lubna Shafique",
     "firstName": "Lubna",
     "lastName": "Shafique",
@@ -4480,8 +4283,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 2950958",
-        "whatsapp": false
+        "number": "+92 333 2950958"
       }
     ],
     "emails": [
@@ -4511,7 +4313,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 100,
-    "personaId": "student",
     "name": "Safiyyah Tariq",
     "firstName": "Safiyyah",
     "lastName": "Tariq",
@@ -4530,8 +4331,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 1475899",
-        "whatsapp": false
+        "number": "+92 333 1475899"
       }
     ],
     "emails": [
@@ -4561,7 +4361,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 101,
-    "personaId": "student",
     "name": "Zara Khalid",
     "firstName": "Zara",
     "lastName": "Khalid",
@@ -4580,8 +4379,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 3905174",
-        "whatsapp": false
+        "number": "+92 333 3905174"
       }
     ],
     "emails": [
@@ -4611,7 +4409,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 102,
-    "personaId": "student",
     "name": "Noman Aslam",
     "firstName": "Noman",
     "lastName": "Aslam",
@@ -4630,8 +4427,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4470801",
-        "whatsapp": true
+        "number": "+92 333 4470801"
       }
     ],
     "emails": [
@@ -4661,7 +4457,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 103,
-    "personaId": "student",
     "name": "Sidra Al-Rashid",
     "firstName": "Sidra",
     "lastName": "Al-Rashid",
@@ -4680,8 +4475,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4104767",
-        "whatsapp": true
+        "number": "+92 333 4104767"
       }
     ],
     "emails": [
@@ -4711,7 +4505,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 104,
-    "personaId": "student",
     "name": "Jamil Kazmi",
     "firstName": "Jamil",
     "lastName": "Kazmi",
@@ -4730,8 +4523,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 3977363",
-        "whatsapp": false
+        "number": "+92 333 3977363"
       }
     ],
     "emails": [
@@ -4761,7 +4553,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 105,
-    "personaId": "student",
     "name": "Bashir Al-Nouri",
     "firstName": "Bashir",
     "lastName": "Al-Nouri",
@@ -4780,8 +4571,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 3934547",
-        "whatsapp": false
+        "number": "+92 333 3934547"
       }
     ],
     "emails": [
@@ -4811,7 +4601,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 106,
-    "personaId": "student",
     "name": "Kashif Shah",
     "firstName": "Kashif",
     "lastName": "Shah",
@@ -4830,8 +4619,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 8492513",
-        "whatsapp": true
+        "number": "+92 333 8492513"
       }
     ],
     "emails": [
@@ -4861,7 +4649,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 107,
-    "personaId": "student",
     "name": "Maryam Hashmi",
     "firstName": "Maryam",
     "lastName": "Hashmi",
@@ -4880,8 +4667,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 7744155",
-        "whatsapp": false
+        "number": "+92 333 7744155"
       }
     ],
     "emails": [
@@ -4911,7 +4697,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 108,
-    "personaId": "student",
     "name": "Ayla Bukhari",
     "firstName": "Ayla",
     "lastName": "Bukhari",
@@ -4930,8 +4715,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6233241",
-        "whatsapp": true
+        "number": "+92 333 6233241"
       }
     ],
     "emails": [
@@ -4961,7 +4745,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 109,
-    "personaId": "student",
     "name": "Luqman Rehman",
     "firstName": "Luqman",
     "lastName": "Rehman",
@@ -4980,8 +4763,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 1563300",
-        "whatsapp": false
+        "number": "+92 333 1563300"
       }
     ],
     "emails": [
@@ -5011,7 +4793,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 110,
-    "personaId": "student",
     "name": "Sufyan Imran",
     "firstName": "Sufyan",
     "lastName": "Imran",
@@ -5030,8 +4811,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 8721124",
-        "whatsapp": false
+        "number": "+92 333 8721124"
       }
     ],
     "emails": [
@@ -5061,7 +4841,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 111,
-    "personaId": "student",
     "name": "Yahya Aslam",
     "firstName": "Yahya",
     "lastName": "Aslam",
@@ -5080,8 +4859,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 8281921",
-        "whatsapp": false
+        "number": "+92 333 8281921"
       }
     ],
     "emails": [
@@ -5111,7 +4889,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 112,
-    "personaId": "student",
     "name": "Bushra Mirza",
     "firstName": "Bushra",
     "lastName": "Mirza",
@@ -5130,8 +4907,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 3293113",
-        "whatsapp": true
+        "number": "+92 333 3293113"
       }
     ],
     "emails": [
@@ -5161,7 +4937,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 113,
-    "personaId": "student",
     "name": "Lubna Dar",
     "firstName": "Lubna",
     "lastName": "Dar",
@@ -5180,8 +4955,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4384749",
-        "whatsapp": false
+        "number": "+92 333 4384749"
       }
     ],
     "emails": [
@@ -5211,7 +4985,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 114,
-    "personaId": "student",
     "name": "Nadia Bhatti",
     "firstName": "Nadia",
     "lastName": "Bhatti",
@@ -5230,8 +5003,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6877541",
-        "whatsapp": false
+        "number": "+92 333 6877541"
       }
     ],
     "emails": [
@@ -5261,7 +5033,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 115,
-    "personaId": "student",
     "name": "Hamza Akhtar",
     "firstName": "Hamza",
     "lastName": "Akhtar",
@@ -5280,8 +5051,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 9414782",
-        "whatsapp": true
+        "number": "+92 333 9414782"
       }
     ],
     "emails": [
@@ -5311,7 +5081,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 116,
-    "personaId": "student",
     "name": "Sara Hussain",
     "firstName": "Sara",
     "lastName": "Hussain",
@@ -5330,8 +5099,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 9127656",
-        "whatsapp": false
+        "number": "+92 333 9127656"
       }
     ],
     "emails": [
@@ -5361,7 +5129,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 117,
-    "personaId": "student",
     "name": "Shakir Bukhari",
     "firstName": "Shakir",
     "lastName": "Bukhari",
@@ -5380,8 +5147,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 8738468",
-        "whatsapp": false
+        "number": "+92 333 8738468"
       }
     ],
     "emails": [
@@ -5411,7 +5177,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 118,
-    "personaId": "student",
     "name": "Maymunah Bhatti",
     "firstName": "Maymunah",
     "lastName": "Bhatti",
@@ -5430,8 +5195,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 9604434",
-        "whatsapp": true
+        "number": "+92 333 9604434"
       }
     ],
     "emails": [
@@ -5461,7 +5225,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 119,
-    "personaId": "student",
     "name": "Ruqayyah Lodhi",
     "firstName": "Ruqayyah",
     "lastName": "Lodhi",
@@ -5480,8 +5243,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6857731",
-        "whatsapp": false
+        "number": "+92 333 6857731"
       }
     ],
     "emails": [
@@ -5511,7 +5273,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 120,
-    "personaId": "student",
     "name": "Mustafa Pirzada",
     "firstName": "Mustafa",
     "lastName": "Pirzada",
@@ -5530,8 +5291,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6384851",
-        "whatsapp": false
+        "number": "+92 333 6384851"
       }
     ],
     "emails": [
@@ -5561,7 +5321,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 121,
-    "personaId": "student",
     "name": "Layla Aziz",
     "firstName": "Layla",
     "lastName": "Aziz",
@@ -5580,8 +5339,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6976917",
-        "whatsapp": true
+        "number": "+92 333 6976917"
       }
     ],
     "emails": [
@@ -5611,7 +5369,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 122,
-    "personaId": "student",
     "name": "Yasmin Rehman",
     "firstName": "Yasmin",
     "lastName": "Rehman",
@@ -5630,8 +5387,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4261863",
-        "whatsapp": false
+        "number": "+92 333 4261863"
       }
     ],
     "emails": [
@@ -5661,7 +5417,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 123,
-    "personaId": "student",
     "name": "Sajid Ghani",
     "firstName": "Sajid",
     "lastName": "Ghani",
@@ -5680,8 +5435,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 8356153",
-        "whatsapp": false
+        "number": "+92 333 8356153"
       }
     ],
     "emails": [
@@ -5711,7 +5465,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 124,
-    "personaId": "student",
     "name": "Ali Nawaz",
     "firstName": "Ali",
     "lastName": "Nawaz",
@@ -5730,8 +5483,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6688695",
-        "whatsapp": true
+        "number": "+92 333 6688695"
       }
     ],
     "emails": [
@@ -5761,7 +5513,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 125,
-    "personaId": "student",
     "name": "Farida Qazi",
     "firstName": "Farida",
     "lastName": "Qazi",
@@ -5780,8 +5531,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 2861777",
-        "whatsapp": false
+        "number": "+92 333 2861777"
       }
     ],
     "emails": [
@@ -5811,7 +5561,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 126,
-    "personaId": "student",
     "name": "Sidra Khan",
     "firstName": "Sidra",
     "lastName": "Khan",
@@ -5830,8 +5579,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 7359661",
-        "whatsapp": false
+        "number": "+92 333 7359661"
       }
     ],
     "emails": [
@@ -5861,7 +5609,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 127,
-    "personaId": "student",
     "name": "Noman Kazmi",
     "firstName": "Noman",
     "lastName": "Kazmi",
@@ -5880,8 +5627,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6164350",
-        "whatsapp": true
+        "number": "+92 333 6164350"
       }
     ],
     "emails": [
@@ -5911,7 +5657,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 128,
-    "personaId": "student",
     "name": "Uzma Imran",
     "firstName": "Uzma",
     "lastName": "Imran",
@@ -5930,8 +5675,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 5974653",
-        "whatsapp": false
+        "number": "+92 333 5974653"
       }
     ],
     "emails": [
@@ -5961,7 +5705,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 129,
-    "personaId": "student",
     "name": "Ibrahim Imran",
     "firstName": "Ibrahim",
     "lastName": "Imran",
@@ -5980,8 +5723,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 1253872",
-        "whatsapp": false
+        "number": "+92 333 1253872"
       }
     ],
     "emails": [
@@ -6011,7 +5753,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 130,
-    "personaId": "student",
     "name": "Ruqayyah Shah",
     "firstName": "Ruqayyah",
     "lastName": "Shah",
@@ -6030,8 +5771,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 8101174",
-        "whatsapp": false
+        "number": "+92 333 8101174"
       }
     ],
     "emails": [
@@ -6061,7 +5801,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 131,
-    "personaId": "student",
     "name": "Imran Qadri",
     "firstName": "Imran",
     "lastName": "Qadri",
@@ -6080,8 +5819,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4900022",
-        "whatsapp": false
+        "number": "+92 333 4900022"
       }
     ],
     "emails": [
@@ -6111,7 +5849,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 132,
-    "personaId": "student",
     "name": "Zoya Pirzada",
     "firstName": "Zoya",
     "lastName": "Pirzada",
@@ -6130,8 +5867,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4594052",
-        "whatsapp": false
+        "number": "+92 333 4594052"
       }
     ],
     "emails": [
@@ -6161,7 +5897,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 133,
-    "personaId": "student",
     "name": "Hassan Khalid",
     "firstName": "Hassan",
     "lastName": "Khalid",
@@ -6180,8 +5915,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4730556",
-        "whatsapp": false
+        "number": "+92 333 4730556"
       }
     ],
     "emails": [
@@ -6211,7 +5945,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 134,
-    "personaId": "student",
     "name": "Ahmed Qazi",
     "firstName": "Ahmed",
     "lastName": "Qazi",
@@ -6230,8 +5963,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 9457671",
-        "whatsapp": true
+        "number": "+92 333 9457671"
       }
     ],
     "emails": [
@@ -6261,7 +5993,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 135,
-    "personaId": "student",
     "name": "Noman Tariq",
     "firstName": "Noman",
     "lastName": "Tariq",
@@ -6280,8 +6011,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4935128",
-        "whatsapp": true
+        "number": "+92 333 4935128"
       }
     ],
     "emails": [
@@ -6311,7 +6041,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 136,
-    "personaId": "student",
     "name": "Hina Anwar",
     "firstName": "Hina",
     "lastName": "Anwar",
@@ -6330,8 +6059,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 5303316",
-        "whatsapp": false
+        "number": "+92 333 5303316"
       }
     ],
     "emails": [
@@ -6361,7 +6089,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 137,
-    "personaId": "student",
     "name": "Aaliyah Qureshi",
     "firstName": "Aaliyah",
     "lastName": "Qureshi",
@@ -6380,8 +6107,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 3911829",
-        "whatsapp": false
+        "number": "+92 333 3911829"
       }
     ],
     "emails": [
@@ -6411,7 +6137,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 138,
-    "personaId": "student",
     "name": "Hina Zahid",
     "firstName": "Hina",
     "lastName": "Zahid",
@@ -6430,8 +6155,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 9619489",
-        "whatsapp": false
+        "number": "+92 333 9619489"
       }
     ],
     "emails": [
@@ -6461,7 +6185,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 139,
-    "personaId": "student",
     "name": "Tahir Khalid",
     "firstName": "Tahir",
     "lastName": "Khalid",
@@ -6480,8 +6203,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4219784",
-        "whatsapp": false
+        "number": "+92 333 4219784"
       }
     ],
     "emails": [
@@ -6511,7 +6233,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 140,
-    "personaId": "student",
     "name": "Zainab Siddiqui",
     "firstName": "Zainab",
     "lastName": "Siddiqui",
@@ -6530,8 +6251,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 2009140",
-        "whatsapp": false
+        "number": "+92 333 2009140"
       }
     ],
     "emails": [
@@ -6561,7 +6281,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 141,
-    "personaId": "student",
     "name": "Jabir Raza",
     "firstName": "Jabir",
     "lastName": "Raza",
@@ -6580,8 +6299,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 2241895",
-        "whatsapp": false
+        "number": "+92 333 2241895"
       }
     ],
     "emails": [
@@ -6611,7 +6329,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 142,
-    "personaId": "student",
     "name": "Maryam Malik",
     "firstName": "Maryam",
     "lastName": "Malik",
@@ -6630,8 +6347,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 7293145",
-        "whatsapp": false
+        "number": "+92 333 7293145"
       }
     ],
     "emails": [
@@ -6661,7 +6377,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 143,
-    "personaId": "student",
     "name": "Sana Baig",
     "firstName": "Sana",
     "lastName": "Baig",
@@ -6680,8 +6395,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 9058788",
-        "whatsapp": true
+        "number": "+92 333 9058788"
       }
     ],
     "emails": [
@@ -6711,7 +6425,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 144,
-    "personaId": "student",
     "name": "Habib Ghani",
     "firstName": "Habib",
     "lastName": "Ghani",
@@ -6730,8 +6443,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 5878526",
-        "whatsapp": false
+        "number": "+92 333 5878526"
       }
     ],
     "emails": [
@@ -6761,7 +6473,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 145,
-    "personaId": "student",
     "name": "Jabir Sheikh",
     "firstName": "Jabir",
     "lastName": "Sheikh",
@@ -6780,8 +6491,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6418827",
-        "whatsapp": false
+        "number": "+92 333 6418827"
       }
     ],
     "emails": [
@@ -6811,7 +6521,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 146,
-    "personaId": "student",
     "name": "Sumayya Nawaz",
     "firstName": "Sumayya",
     "lastName": "Nawaz",
@@ -6830,8 +6539,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6795424",
-        "whatsapp": true
+        "number": "+92 333 6795424"
       }
     ],
     "emails": [
@@ -6861,7 +6569,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 147,
-    "personaId": "student",
     "name": "Ali Farooq",
     "firstName": "Ali",
     "lastName": "Farooq",
@@ -6880,8 +6587,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 7145278",
-        "whatsapp": false
+        "number": "+92 333 7145278"
       }
     ],
     "emails": [
@@ -6911,7 +6617,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 148,
-    "personaId": "student",
     "name": "Rida Al-Nouri",
     "firstName": "Rida",
     "lastName": "Al-Nouri",
@@ -6930,8 +6635,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6273909",
-        "whatsapp": true
+        "number": "+92 333 6273909"
       }
     ],
     "emails": [
@@ -6961,7 +6665,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 149,
-    "personaId": "student",
     "name": "Sidra Tariq",
     "firstName": "Sidra",
     "lastName": "Tariq",
@@ -6980,8 +6683,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6905104",
-        "whatsapp": true
+        "number": "+92 333 6905104"
       }
     ],
     "emails": [
@@ -7011,7 +6713,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 150,
-    "personaId": "student",
     "name": "Sawdah Abbasi",
     "firstName": "Sawdah",
     "lastName": "Abbasi",
@@ -7030,8 +6731,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 8221587",
-        "whatsapp": false
+        "number": "+92 333 8221587"
       }
     ],
     "emails": [
@@ -7061,7 +6761,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 151,
-    "personaId": "student",
     "name": "Noura Nasir",
     "firstName": "Noura",
     "lastName": "Nasir",
@@ -7080,8 +6779,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 1631157",
-        "whatsapp": false
+        "number": "+92 333 1631157"
       }
     ],
     "emails": [
@@ -7111,7 +6809,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 152,
-    "personaId": "student",
     "name": "Hina Rahman",
     "firstName": "Hina",
     "lastName": "Rahman",
@@ -7130,8 +6827,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4523997",
-        "whatsapp": false
+        "number": "+92 333 4523997"
       }
     ],
     "emails": [
@@ -7161,7 +6857,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 153,
-    "personaId": "student",
     "name": "Asiya Latif",
     "firstName": "Asiya",
     "lastName": "Latif",
@@ -7180,8 +6875,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 2241867",
-        "whatsapp": true
+        "number": "+92 333 2241867"
       }
     ],
     "emails": [
@@ -7211,7 +6905,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 154,
-    "personaId": "student",
     "name": "Asiya Iqbal",
     "firstName": "Asiya",
     "lastName": "Iqbal",
@@ -7230,8 +6923,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6827140",
-        "whatsapp": true
+        "number": "+92 333 6827140"
       }
     ],
     "emails": [
@@ -7261,7 +6953,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 155,
-    "personaId": "student",
     "name": "Sara Yousaf",
     "firstName": "Sara",
     "lastName": "Yousaf",
@@ -7280,8 +6971,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 9843313",
-        "whatsapp": true
+        "number": "+92 333 9843313"
       }
     ],
     "emails": [
@@ -7311,7 +7001,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 156,
-    "personaId": "student",
     "name": "Sajid Kazmi",
     "firstName": "Sajid",
     "lastName": "Kazmi",
@@ -7330,8 +7019,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 1793011",
-        "whatsapp": true
+        "number": "+92 333 1793011"
       }
     ],
     "emails": [
@@ -7361,7 +7049,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 157,
-    "personaId": "student",
     "name": "Qadir Imran",
     "firstName": "Qadir",
     "lastName": "Imran",
@@ -7380,8 +7067,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6016246",
-        "whatsapp": true
+        "number": "+92 333 6016246"
       }
     ],
     "emails": [
@@ -7411,7 +7097,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 158,
-    "personaId": "student",
     "name": "Ruqayyah Karimi",
     "firstName": "Ruqayyah",
     "lastName": "Karimi",
@@ -7430,8 +7115,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 6240699",
-        "whatsapp": true
+        "number": "+92 333 6240699"
       }
     ],
     "emails": [
@@ -7461,7 +7145,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 159,
-    "personaId": "student",
     "name": "Hussein Ghani",
     "firstName": "Hussein",
     "lastName": "Ghani",
@@ -7480,8 +7163,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 1524037",
-        "whatsapp": true
+        "number": "+92 333 1524037"
       }
     ],
     "emails": [
@@ -7511,7 +7193,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 160,
-    "personaId": "student",
     "name": "Fariha Qureshi",
     "firstName": "Fariha",
     "lastName": "Qureshi",
@@ -7530,8 +7211,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 7353355",
-        "whatsapp": true
+        "number": "+92 333 7353355"
       }
     ],
     "emails": [
@@ -7561,7 +7241,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 161,
-    "personaId": "student",
     "name": "Sajid Akhtar",
     "firstName": "Sajid",
     "lastName": "Akhtar",
@@ -7580,8 +7259,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 8953994",
-        "whatsapp": false
+        "number": "+92 333 8953994"
       }
     ],
     "emails": [
@@ -7611,7 +7289,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 162,
-    "personaId": "student",
     "name": "Faisal Al-Farsi",
     "firstName": "Faisal",
     "lastName": "Al-Farsi",
@@ -7630,8 +7307,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 3385046",
-        "whatsapp": false
+        "number": "+92 333 3385046"
       }
     ],
     "emails": [
@@ -7661,7 +7337,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 163,
-    "personaId": "student",
     "name": "Asif Yousaf",
     "firstName": "Asif",
     "lastName": "Yousaf",
@@ -7680,8 +7355,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 9281520",
-        "whatsapp": false
+        "number": "+92 333 9281520"
       }
     ],
     "emails": [
@@ -7711,7 +7385,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 164,
-    "personaId": "student",
     "name": "Muhammad Karimi",
     "firstName": "Muhammad",
     "lastName": "Karimi",
@@ -7730,8 +7403,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 2868579",
-        "whatsapp": true
+        "number": "+92 333 2868579"
       }
     ],
     "emails": [
@@ -7761,7 +7433,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 165,
-    "personaId": "student",
     "name": "Yahya Farooq",
     "firstName": "Yahya",
     "lastName": "Farooq",
@@ -7780,8 +7451,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 2997030",
-        "whatsapp": false
+        "number": "+92 333 2997030"
       }
     ],
     "emails": [
@@ -7811,7 +7481,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 166,
-    "personaId": "student",
     "name": "Rayhana Ghazi",
     "firstName": "Rayhana",
     "lastName": "Ghazi",
@@ -7830,8 +7499,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4327117",
-        "whatsapp": true
+        "number": "+92 333 4327117"
       }
     ],
     "emails": [
@@ -7861,7 +7529,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 167,
-    "personaId": "student",
     "name": "Sana Al-Farsi",
     "firstName": "Sana",
     "lastName": "Al-Farsi",
@@ -7880,8 +7547,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4452007",
-        "whatsapp": false
+        "number": "+92 333 4452007"
       }
     ],
     "emails": [
@@ -7911,7 +7577,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 168,
-    "personaId": "student",
     "name": "Sawdah Al-Nouri",
     "firstName": "Sawdah",
     "lastName": "Al-Nouri",
@@ -7930,8 +7595,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 7830639",
-        "whatsapp": true
+        "number": "+92 333 7830639"
       }
     ],
     "emails": [
@@ -7961,7 +7625,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 169,
-    "personaId": "student",
     "name": "Sajid Bukhari",
     "firstName": "Sajid",
     "lastName": "Bukhari",
@@ -7980,8 +7643,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 1396198",
-        "whatsapp": false
+        "number": "+92 333 1396198"
       }
     ],
     "emails": [
@@ -8011,7 +7673,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 170,
-    "personaId": "student",
     "name": "Zoya Rizvi",
     "firstName": "Zoya",
     "lastName": "Rizvi",
@@ -8030,8 +7691,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4445005",
-        "whatsapp": false
+        "number": "+92 333 4445005"
       }
     ],
     "emails": [
@@ -8061,7 +7721,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 171,
-    "personaId": "student",
     "name": "Aisha Rahman",
     "firstName": "Aisha",
     "lastName": "Rahman",
@@ -8080,8 +7739,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 2436827",
-        "whatsapp": false
+        "number": "+92 333 2436827"
       }
     ],
     "emails": [
@@ -8111,7 +7769,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 172,
-    "personaId": "student",
     "name": "Bashir Malik",
     "firstName": "Bashir",
     "lastName": "Malik",
@@ -8130,8 +7787,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 1364610",
-        "whatsapp": true
+        "number": "+92 333 1364610"
       }
     ],
     "emails": [
@@ -8161,7 +7817,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 173,
-    "personaId": "student",
     "name": "Bushra Qadri",
     "firstName": "Bushra",
     "lastName": "Qadri",
@@ -8180,8 +7835,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 3200132",
-        "whatsapp": true
+        "number": "+92 333 3200132"
       }
     ],
     "emails": [
@@ -8211,7 +7865,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 174,
-    "personaId": "student",
     "name": "Fatima Zaidi",
     "firstName": "Fatima",
     "lastName": "Zaidi",
@@ -8230,8 +7883,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 5134494",
-        "whatsapp": true
+        "number": "+92 333 5134494"
       }
     ],
     "emails": [
@@ -8261,7 +7913,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 175,
-    "personaId": "student",
     "name": "Safiyyah Qadri",
     "firstName": "Safiyyah",
     "lastName": "Qadri",
@@ -8280,8 +7931,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 2260821",
-        "whatsapp": false
+        "number": "+92 333 2260821"
       }
     ],
     "emails": [
@@ -8311,7 +7961,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 176,
-    "personaId": "student",
     "name": "Asma Al-Rashid",
     "firstName": "Asma",
     "lastName": "Al-Rashid",
@@ -8330,8 +7979,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 2543133",
-        "whatsapp": true
+        "number": "+92 333 2543133"
       }
     ],
     "emails": [
@@ -8361,7 +8009,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 177,
-    "personaId": "student",
     "name": "Hania Al-Nouri",
     "firstName": "Hania",
     "lastName": "Al-Nouri",
@@ -8380,8 +8027,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4542647",
-        "whatsapp": false
+        "number": "+92 333 4542647"
       }
     ],
     "emails": [
@@ -8411,7 +8057,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 178,
-    "personaId": "student",
     "name": "Yasmin Lodhi",
     "firstName": "Yasmin",
     "lastName": "Lodhi",
@@ -8430,8 +8075,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 8960508",
-        "whatsapp": true
+        "number": "+92 333 8960508"
       }
     ],
     "emails": [
@@ -8461,7 +8105,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 179,
-    "personaId": "student",
     "name": "Majid Khalid",
     "firstName": "Majid",
     "lastName": "Khalid",
@@ -8480,8 +8123,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 1804252",
-        "whatsapp": true
+        "number": "+92 333 1804252"
       }
     ],
     "emails": [
@@ -8511,7 +8153,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 180,
-    "personaId": "student",
     "name": "Hafsa Khan",
     "firstName": "Hafsa",
     "lastName": "Khan",
@@ -8530,8 +8171,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 9474188",
-        "whatsapp": true
+        "number": "+92 333 9474188"
       }
     ],
     "emails": [
@@ -8561,7 +8201,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 181,
-    "personaId": "student",
     "name": "Noura Hussain",
     "firstName": "Noura",
     "lastName": "Hussain",
@@ -8580,8 +8219,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 7826078",
-        "whatsapp": true
+        "number": "+92 333 7826078"
       }
     ],
     "emails": [
@@ -8611,7 +8249,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 182,
-    "personaId": "student",
     "name": "Sajid Sajid",
     "firstName": "Sajid",
     "lastName": "Sajid",
@@ -8630,8 +8267,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 5438826",
-        "whatsapp": true
+        "number": "+92 333 5438826"
       }
     ],
     "emails": [
@@ -8661,7 +8297,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 183,
-    "personaId": "student",
     "name": "Salman Akhtar",
     "firstName": "Salman",
     "lastName": "Akhtar",
@@ -8680,8 +8315,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 9157347",
-        "whatsapp": false
+        "number": "+92 333 9157347"
       }
     ],
     "emails": [
@@ -8711,7 +8345,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 184,
-    "personaId": "student",
     "name": "Salma Ghani",
     "firstName": "Salma",
     "lastName": "Ghani",
@@ -8730,8 +8363,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 7098474",
-        "whatsapp": false
+        "number": "+92 333 7098474"
       }
     ],
     "emails": [
@@ -8761,7 +8393,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 185,
-    "personaId": "student",
     "name": "Fatima Al-Nouri",
     "firstName": "Fatima",
     "lastName": "Al-Nouri",
@@ -8780,8 +8411,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 5157061",
-        "whatsapp": true
+        "number": "+92 333 5157061"
       }
     ],
     "emails": [
@@ -8811,7 +8441,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 186,
-    "personaId": "student",
     "name": "Sawdah Latif",
     "firstName": "Sawdah",
     "lastName": "Latif",
@@ -8830,8 +8459,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 1598126",
-        "whatsapp": true
+        "number": "+92 333 1598126"
       }
     ],
     "emails": [
@@ -8861,7 +8489,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 187,
-    "personaId": "student",
     "name": "Bushra Yousaf",
     "firstName": "Bushra",
     "lastName": "Yousaf",
@@ -8880,8 +8507,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 2405570",
-        "whatsapp": false
+        "number": "+92 333 2405570"
       }
     ],
     "emails": [
@@ -8911,7 +8537,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 188,
-    "personaId": "student",
     "name": "Ali Rahman",
     "firstName": "Ali",
     "lastName": "Rahman",
@@ -8930,8 +8555,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 5516585",
-        "whatsapp": true
+        "number": "+92 333 5516585"
       }
     ],
     "emails": [
@@ -8961,7 +8585,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 189,
-    "personaId": "student",
     "name": "Ruqayyah Karimi",
     "firstName": "Ruqayyah",
     "lastName": "Karimi",
@@ -8980,8 +8603,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 4485802",
-        "whatsapp": true
+        "number": "+92 333 4485802"
       }
     ],
     "emails": [
@@ -9011,7 +8633,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 190,
-    "personaId": "student",
     "name": "Uzma Al-Farsi",
     "firstName": "Uzma",
     "lastName": "Al-Farsi",
@@ -9030,8 +8651,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 333 7947335",
-        "whatsapp": false
+        "number": "+92 333 7947335"
       }
     ],
     "emails": [
@@ -9061,7 +8681,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 191,
-    "personaId": "donor",
     "name": "Jamil Qazi",
     "firstName": "Jamil",
     "lastName": "Qazi",
@@ -9080,8 +8699,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 8428287",
-        "whatsapp": true
+        "number": "+92 345 8428287"
       }
     ],
     "emails": [
@@ -9099,7 +8717,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 192,
-    "personaId": "donor",
     "name": "Mariam Khalid",
     "firstName": "Mariam",
     "lastName": "Khalid",
@@ -9118,8 +8735,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 4484285",
-        "whatsapp": true
+        "number": "+92 345 4484285"
       }
     ],
     "emails": [
@@ -9137,7 +8753,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 193,
-    "personaId": "donor",
     "name": "Zainab Dar",
     "firstName": "Zainab",
     "lastName": "Dar",
@@ -9156,8 +8771,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 4918409",
-        "whatsapp": true
+        "number": "+92 345 4918409"
       }
     ],
     "emails": [
@@ -9175,7 +8789,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 194,
-    "personaId": "donor",
     "name": "Layla Ghani",
     "firstName": "Layla",
     "lastName": "Ghani",
@@ -9194,8 +8807,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 6836854",
-        "whatsapp": true
+        "number": "+92 345 6836854"
       }
     ],
     "emails": [
@@ -9213,7 +8825,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 195,
-    "personaId": "donor",
     "name": "Qadir Tariq",
     "firstName": "Qadir",
     "lastName": "Tariq",
@@ -9232,8 +8843,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 5451998",
-        "whatsapp": true
+        "number": "+92 345 5451998"
       }
     ],
     "emails": [
@@ -9251,7 +8861,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 196,
-    "personaId": "donor",
     "name": "Ismail Zaidi",
     "firstName": "Ismail",
     "lastName": "Zaidi",
@@ -9270,8 +8879,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 3122459",
-        "whatsapp": true
+        "number": "+92 345 3122459"
       }
     ],
     "emails": [
@@ -9289,7 +8897,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 197,
-    "personaId": "donor",
     "name": "Rayhana Khalid",
     "firstName": "Rayhana",
     "lastName": "Khalid",
@@ -9308,8 +8915,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 4367335",
-        "whatsapp": true
+        "number": "+92 345 4367335"
       }
     ],
     "emails": [
@@ -9327,7 +8933,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 198,
-    "personaId": "donor",
     "name": "Ibrahim Akhtar",
     "firstName": "Ibrahim",
     "lastName": "Akhtar",
@@ -9346,8 +8951,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 1403437",
-        "whatsapp": true
+        "number": "+92 345 1403437"
       }
     ],
     "emails": [
@@ -9365,7 +8969,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 199,
-    "personaId": "donor",
     "name": "Shakir Hashmi",
     "firstName": "Shakir",
     "lastName": "Hashmi",
@@ -9384,8 +8987,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 6159114",
-        "whatsapp": true
+        "number": "+92 345 6159114"
       }
     ],
     "emails": [
@@ -9403,7 +9005,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 200,
-    "personaId": "donor",
     "name": "Asiya Chaudhry",
     "firstName": "Asiya",
     "lastName": "Chaudhry",
@@ -9422,8 +9023,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 2864407",
-        "whatsapp": true
+        "number": "+92 345 2864407"
       }
     ],
     "emails": [
@@ -9441,7 +9041,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 201,
-    "personaId": "donor",
     "name": "Khalid Baig",
     "firstName": "Khalid",
     "lastName": "Baig",
@@ -9460,8 +9059,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 7974125",
-        "whatsapp": true
+        "number": "+92 345 7974125"
       }
     ],
     "emails": [
@@ -9479,7 +9077,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 202,
-    "personaId": "donor",
     "name": "Sumayya Naqvi",
     "firstName": "Sumayya",
     "lastName": "Naqvi",
@@ -9498,8 +9095,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 9996572",
-        "whatsapp": true
+        "number": "+92 345 9996572"
       }
     ],
     "emails": [
@@ -9517,7 +9113,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 203,
-    "personaId": "donor",
     "name": "Fatima Shah",
     "firstName": "Fatima",
     "lastName": "Shah",
@@ -9536,8 +9131,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 3525747",
-        "whatsapp": true
+        "number": "+92 345 3525747"
       }
     ],
     "emails": [
@@ -9555,7 +9149,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 204,
-    "personaId": "donor",
     "name": "Omar Baig",
     "firstName": "Omar",
     "lastName": "Baig",
@@ -9574,8 +9167,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 6636171",
-        "whatsapp": true
+        "number": "+92 345 6636171"
       }
     ],
     "emails": [
@@ -9593,7 +9185,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 205,
-    "personaId": "donor",
     "name": "Farhan Abbasi",
     "firstName": "Farhan",
     "lastName": "Abbasi",
@@ -9612,8 +9203,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 3154138",
-        "whatsapp": true
+        "number": "+92 345 3154138"
       }
     ],
     "emails": [
@@ -9631,7 +9221,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 206,
-    "personaId": "donor",
     "name": "Salma Rehman",
     "firstName": "Salma",
     "lastName": "Rehman",
@@ -9650,8 +9239,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 8926930",
-        "whatsapp": true
+        "number": "+92 345 8926930"
       }
     ],
     "emails": [
@@ -9669,7 +9257,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 207,
-    "personaId": "donor",
     "name": "Asiya Rahman",
     "firstName": "Asiya",
     "lastName": "Rahman",
@@ -9688,8 +9275,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 1718450",
-        "whatsapp": true
+        "number": "+92 345 1718450"
       }
     ],
     "emails": [
@@ -9707,7 +9293,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 208,
-    "personaId": "donor",
     "name": "Hamza Baig",
     "firstName": "Hamza",
     "lastName": "Baig",
@@ -9726,8 +9311,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 3444811",
-        "whatsapp": true
+        "number": "+92 345 3444811"
       }
     ],
     "emails": [
@@ -9745,7 +9329,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 209,
-    "personaId": "donor",
     "name": "Jabir Rehman",
     "firstName": "Jabir",
     "lastName": "Rehman",
@@ -9764,8 +9347,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 7878312",
-        "whatsapp": true
+        "number": "+92 345 7878312"
       }
     ],
     "emails": [
@@ -9783,7 +9365,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 210,
-    "personaId": "donor",
     "name": "Rida Shafique",
     "firstName": "Rida",
     "lastName": "Shafique",
@@ -9802,8 +9383,7 @@ export const CONTACTS: Contact[] = [
     "phones": [
       {
         "label": "Mobile",
-        "number": "+92 345 7579987",
-        "whatsapp": true
+        "number": "+92 345 7579987"
       }
     ],
     "emails": [
@@ -9821,7 +9401,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 211,
-    "personaId": "general",
     "name": "Ahmed Shah",
     "firstName": "Ahmed",
     "lastName": "Shah",
@@ -9848,7 +9427,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 212,
-    "personaId": "general",
     "name": "Anas Baig",
     "firstName": "Anas",
     "lastName": "Baig",
@@ -9875,7 +9453,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 213,
-    "personaId": "general",
     "name": "Mariam Al-Farsi",
     "firstName": "Mariam",
     "lastName": "Al-Farsi",
@@ -9902,7 +9479,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 214,
-    "personaId": "general",
     "name": "Zainab Akhtar",
     "firstName": "Zainab",
     "lastName": "Akhtar",
@@ -9929,7 +9505,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 215,
-    "personaId": "general",
     "name": "Maymunah Tariq",
     "firstName": "Maymunah",
     "lastName": "Tariq",
@@ -9956,7 +9531,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 216,
-    "personaId": "general",
     "name": "Hafsa Rahman",
     "firstName": "Hafsa",
     "lastName": "Rahman",
@@ -9983,7 +9557,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 217,
-    "personaId": "general",
     "name": "Hafsa Mirza",
     "firstName": "Hafsa",
     "lastName": "Mirza",
@@ -10010,7 +9583,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 218,
-    "personaId": "general",
     "name": "Qadir Shafique",
     "firstName": "Qadir",
     "lastName": "Shafique",
@@ -10037,7 +9609,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 219,
-    "personaId": "general",
     "name": "Bashir Pirzada",
     "firstName": "Bashir",
     "lastName": "Pirzada",
@@ -10064,7 +9635,6 @@ export const CONTACTS: Contact[] = [
   },
   {
     "id": 220,
-    "personaId": "general",
     "name": "Faisal Qadri",
     "firstName": "Faisal",
     "lastName": "Qadri",

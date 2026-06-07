@@ -2,6 +2,9 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from '@/App'
 import '@/index.css'
+import { applyAppTheme } from '@/lib/brandingTheme'
+
+applyAppTheme()
 
 // Suppress Recharts v3 false-positive dimension warnings during mounting
 const originalWarn = console.warn;

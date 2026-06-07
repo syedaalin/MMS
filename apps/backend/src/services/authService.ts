@@ -1,5 +1,13 @@
 import { JWT } from '@fastify/jwt';
-import { validateCredentials, userExistsWithRole, createUser, type PublicUser } from './userService.js';
+import { validateCredentials, createUser, type PublicUser } from './userService.js';
+import { createWorkspace, getWorkspaceBySubdomain } from './workspaceService.js';
+import { createAuthHandoff } from './authHandoffService.js';
+import { saveObject } from '../db/database.js';
+import type { Workspace } from '@mms/shared';
+import { buildBrandingFromOnboarding, requiresTwoFactor } from '@mms/shared';
+import { assertPasswordMeetsPolicy, getJwtExpiresIn, loadGlobalSettings } from './globalSettingsService.js';
+import { runWithTenant } from '../utils/tenantContext.js';
+import { seedTenantDefaults } from './tenantSeedService.js';
 
 /** Public user shape re-exported for route usage. */
 export type { PublicUser as User };
@@ -7,51 +15,102 @@ export type { PublicUser as User };
 export interface AuthResult {
   token: string;
   user: PublicUser;
+  requires2FA?: boolean;
 }
 
-/**
- * Validates login credentials against the users database and generates a JWT.
- *
- * @param {string} email - The email to authenticate.
- * @param {string} password - The plaintext password attempt.
- * @param {JWT} jwtSigner - The Fastify JWT utility.
- * @returns {Promise<AuthResult | null>} Signed token + user if valid, null otherwise.
- */
+export interface OnboardInput {
+  email: string;
+  adminName: string;
+  password: string;
+  subdomain: string;
+  madrasaName: string;
+  tagline?: string;
+  country?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  logoUrl?: string;
+  adminPhone?: string;
+  website?: string;
+  footerText?: string;
+}
+
+export interface OnboardResult extends AuthResult {
+  workspace: Workspace;
+  handoffCode: string;
+}
+
 export async function loginUser(
   email: string,
   password: string,
+  workspaceSubdomain: string,
   jwtSigner: JWT
 ): Promise<AuthResult | null> {
-  const user = await validateCredentials(email, password);
+  const user = await validateCredentials(email, password, workspaceSubdomain);
   if (!user) return null;
 
-  const token = jwtSigner.sign(user);
-  return { token, user };
+  const settings = await loadGlobalSettings();
+  const expiresIn = await getJwtExpiresIn();
+  const token = jwtSigner.sign(user, { expiresIn });
+  return {
+    token,
+    user,
+    requires2FA: requiresTwoFactor(settings, user),
+  };
 }
 
-/**
- * Processes first-time admin onboarding.
- * Throws 409 if an admin account already exists to prevent duplicate admins.
- *
- * @param {string} email - The administrative email.
- * @param {string} adminName - The administrator's display name.
- * @param {string} password - The plaintext password to hash and store.
- * @param {JWT} jwtSigner - The Fastify JWT utility.
- * @returns {Promise<AuthResult>} Signed token and created administrator profile.
- */
+/** Onboarding is always available for new, unused subdomains. */
+export async function isOnboardingAvailable(): Promise<boolean> {
+  return true;
+}
+
 export async function onboardUser(
-  email: string,
-  adminName: string,
-  password: string,
+  input: OnboardInput,
   jwtSigner: JWT
-): Promise<AuthResult> {
-  if (await userExistsWithRole('admin')) {
-    const err = new Error('An admin account already exists. Onboarding is disabled.');
-    (err as Error & { statusCode: number }).statusCode = 409;
-    throw err;
+): Promise<OnboardResult> {
+  const workspace = await createWorkspace({
+    subdomain: input.subdomain,
+    madrasaName: input.madrasaName,
+    tagline: input.tagline,
+    country: input.country,
+  });
+
+  await runWithTenant(workspace.subdomain, async () => {
+    await seedTenantDefaults();
+
+    const branding = buildBrandingFromOnboarding({
+      madrasaName: input.madrasaName,
+      tagline: input.tagline,
+      subdomain: workspace.subdomain,
+      country: input.country,
+      primaryColor: input.primaryColor,
+      secondaryColor: input.secondaryColor,
+      logoUrl: input.logoUrl,
+      adminEmail: input.email,
+      adminPhone: input.adminPhone,
+      website: input.website,
+      footerText: input.footerText,
+    });
+    await saveObject('branding', { ...branding, subdomain: workspace.subdomain });
+
+    await assertPasswordMeetsPolicy(input.password);
+    await createUser(input.email, input.adminName, input.password, 'admin', workspace.subdomain);
+  });
+
+  const user = await runWithTenant(workspace.subdomain, async () =>
+    validateCredentials(input.email, input.password, workspace.subdomain)
+  );
+  if (!user) {
+    throw new Error('Failed to create workspace administrator.');
   }
 
-  const user = await createUser(email, adminName, password, 'admin');
-  const token = jwtSigner.sign(user);
-  return { token, user };
+  const expiresIn = await getJwtExpiresIn();
+  const token = jwtSigner.sign(user, { expiresIn });
+  const authResult: AuthResult = { token, user };
+  const handoffCode = createAuthHandoff(authResult);
+
+  return { ...authResult, workspace, handoffCode };
+}
+
+export async function resolvePublicWorkspace(subdomain: string): Promise<Workspace | null> {
+  return getWorkspaceBySubdomain(subdomain);
 }

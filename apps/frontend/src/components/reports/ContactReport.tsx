@@ -14,8 +14,8 @@ import { Contact } from "../../lib/contactFields";
 import { calculateProfileHealth } from "../../lib/ContactConfigContext";
 import { STUDENTS, Student } from "../../lib/studentsData";
 
-export interface ContactPersonaItem {
-  persona: string;
+export interface ContactStageItem {
+  stage: string;
   count: number;
   health: number;
 }
@@ -28,7 +28,7 @@ export interface LifecycleStageItem {
 
 /**
  * ContactReport component provides CRM-specific analytics.
- * Visualizes persona distribution, lifecycle stages, and health metrics.
+ * Visualizes lifecycle stage distribution, lifecycle stages, and health metrics.
  *
  * @param {object} props - Component props.
  * @param {Function} [props.onEditVisual] - Optional callback to open the visualizer.
@@ -39,16 +39,16 @@ export default function ContactReport(_props: { onEditVisual?: (config: unknown)
   
   const students = useLiveCollection<Student>("students", STUDENTS);
 
-  const personas = useMemo<ContactPersonaItem[]>(() => {
+  const stageDistribution = useMemo<ContactStageItem[]>(() => {
     const counts: Record<string, { count: number; totalHealth: number }> = {};
     contacts.forEach(c => {
-      const p = c.personaId || "general";
-      if (!counts[p]) counts[p] = { count: 0, totalHealth: 0 };
-      counts[p].count++;
-      counts[p].totalHealth += calculateProfileHealth(c);
+      const s = c.lifecycleStage || "Lead";
+      if (!counts[s]) counts[s] = { count: 0, totalHealth: 0 };
+      counts[s].count++;
+      counts[s].totalHealth += calculateProfileHealth(c);
     });
-    return Object.entries(counts).map(([persona, data]) => ({
-      persona: persona.charAt(0).toUpperCase() + persona.slice(1),
+    return Object.entries(counts).map(([stage, data]) => ({
+      stage,
       count: data.count,
       health: Math.round(data.totalHealth / data.count)
     }));
@@ -90,23 +90,23 @@ export default function ContactReport(_props: { onEditVisual?: (config: unknown)
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Persona Distribution Pie */}
+        {/* Lifecycle Stage Distribution Pie */}
         <div className="rounded-2xl border border-border/50 bg-card/40 backdrop-blur-xl p-5 space-y-4 shadow-sm">
-          <h3 className="text-sm font-bold text-foreground">Persona Distribution</h3>
+          <h3 className="text-sm font-bold text-foreground">Lifecycle Stage Distribution</h3>
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 1, height: 1 }}>
               <PieChart>
                 <Pie
-                  data={personas}
+                  data={stageDistribution}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
                   outerRadius={80}
                   paddingAngle={5}
                   dataKey="count"
-                  nameKey="persona"
+                  nameKey="stage"
                 >
-                  {personas.map((entry, index) => (
+                  {stageDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -134,26 +134,26 @@ export default function ContactReport(_props: { onEditVisual?: (config: unknown)
         </div>
       </div>
 
-      {/* Health by Persona Table */}
+      {/* Health by Lifecycle Stage Table */}
       <div className="space-y-4">
         <ReportExportBar 
           title="Database Integrity Report" 
-          data={personas}
-          headers={["Persona", "Count", "Avg Health"]}
+          data={stageDistribution}
+          headers={["Stage", "Count", "Avg Health"]}
         />
         <div className="rounded-2xl border border-border/50 bg-card/40 backdrop-blur-xl overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 border-b border-border/50">
               <tr>
-                {["Persona", "Count", "Avg Health", "Completeness"].map((h) => (
+                {["Stage", "Count", "Avg Health", "Completeness"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50 bg-transparent">
-              {personas.map((p, i) => (
-                <tr key={p.persona} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-4 py-4 font-bold text-foreground">{p.persona}</td>
+              {stageDistribution.map((p, i) => (
+                <tr key={p.stage} className="hover:bg-muted/30 transition-colors">
+                  <td className="px-4 py-4 font-bold text-foreground">{p.stage}</td>
                   <td className="px-4 py-4 text-muted-foreground font-medium">{p.count}</td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-2">

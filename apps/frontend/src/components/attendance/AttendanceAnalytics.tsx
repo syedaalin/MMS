@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { useBrandPalette } from "@/lib/BrandingPaletteContext";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -11,8 +12,6 @@ import {
 import { SESSIONS_DATA } from "../../lib/sessionsData";
 import { getCollection } from "../../lib/db";
 import { AlertTriangle, TrendingDown, Award } from "lucide-react";
-
-const COLORS = ["#10b981", "#ef4444", "#f59e0b", "#3b82f6"];
 
 interface StatCardProps {
   label: string;
@@ -69,6 +68,11 @@ interface Session {
  * @returns {React.ReactElement} The rendered analytics dashboard.
  */
 export default function AttendanceAnalytics({ filters, records }: AttendanceAnalyticsProps) {
+  const { primary, secondary, charts } = useBrandPalette();
+  const COLORS = useMemo(
+    () => [primary, "#ef4444", secondary, charts[3]],
+    [primary, secondary, charts],
+  );
   let fetchedSessions: Session[] = [];
   try {
     fetchedSessions = getCollection("sessions", SESSIONS_DATA) || [];

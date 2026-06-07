@@ -192,12 +192,12 @@ export default function StudentDetail({ student, onClose, onEdit }: StudentDetai
                   </div>
 
                   {/* Ordered Attributes & Connections list */}
-                  {orderedFields.some(f => f.isCustom ? ((student as unknown as Record<string, unknown>)[f.id] !== undefined && (student as unknown as Record<string, unknown>)[f.id] !== null && (student as unknown as Record<string, unknown>)[f.id] !== "" && (student as unknown as Record<string, unknown>)[f.id] !== false) : (fields[f.id]?.enabled !== false && (f.id === "fatherLink" ? (fatherContact || student.fatherName) : f.id === "motherLink" ? (motherContact || student.motherName) : true))) && (
+                  {orderedFields.some(f => fields[f.id]?.enabled !== false && (f.id === "fatherLink" ? (fatherContact || student.fatherName) : f.id === "motherLink" ? (motherContact || student.motherName) : true)) && (
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest pl-1">Student Details</h4>
                       <div className="space-y-2.5">
                         {orderedFields.map((field) => {
-                          const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled !== false);
+                          const isEnabled = fields[field.id]?.enabled !== false;
                           if (!isEnabled) return null;
 
                           if (field.id === "gender") {
@@ -298,7 +298,7 @@ export default function StudentDetail({ student, onClose, onEdit }: StudentDetai
                             );
                           }
 
-                          if (field.isCustom) {
+                          if (!["gender", "dob", "registeredDate", "fatherLink", "motherLink"].includes(field.id)) {
                             const val = (student as unknown as Record<string, unknown>)[field.id];
                             if (val === undefined || val === null || val === "" || val === false) return null;
 

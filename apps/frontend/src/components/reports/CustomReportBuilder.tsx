@@ -20,7 +20,7 @@ type DataSource = "students" | "contacts" | "attendance" | "financial" | "academ
 const ALL_FIELDS: Record<DataSource, readonly string[]> = {
   students:   ["Name", "Gender", "Class", "Session", "City", "Age", "Status", "Registration Date", "CNIC", "Discount Type", "Discount %", "Roll No", "Blood Group"],
   contacts:   [
-    "Full Name", "First Name", "Last Name", "Persona", "Gender", "DOB", "Is Syed",
+    "Full Name", "First Name", "Last Name", "Gender", "DOB", "Is Syed",
     "Lifecycle Stage", "Rating", "Profile Health %",
     "Phone Number", "Email Address", "Street Address", "City", "State / Province", "Country",
     "Occupation", "Emergency Contact", "Last Activity", "Notes Count"
@@ -151,7 +151,7 @@ export default function CustomReportBuilder({ onClose, initialSource }: CustomRe
   });
 
   const [selectedFields, setSelectedFields] = useState<string[]>(() => {
-    if (initialSource === "contacts") return ["Full Name", "Persona", "Profile Health %", "City"];
+    if (initialSource === "contacts") return ["Full Name", "Lifecycle Stage", "Profile Health %", "City"];
     if (initialSource === "financial") return ["Student Name", "Class", "Base Fee", "Discount", "Final Amount", "Status"];
     if (initialSource === "attendance") return ["Student Name", "Class", "Status", "Rate %"];
     if (initialSource === "academic") return ["Student Name", "Class", "Subject", "Marks", "Grade"];
@@ -245,7 +245,6 @@ export default function CustomReportBuilder({ onClose, initialSource }: CustomRe
           if (field === "Full Name") row[field] = String(item.name || `${item.firstName || ""} ${item.lastName || ""}`).trim();
           else if (field === "First Name") row[field] = String(item.firstName || "—");
           else if (field === "Last Name") row[field] = String(item.lastName || "—");
-          else if (field === "Persona") row[field] = String(item.personaId || "general").toUpperCase();
           else if (field === "Is Syed") row[field] = item.isSyed ? "Yes" : "No";
           else if (field === "Profile Health %") row[field] = calculateProfileHealth(item as unknown as Contact);
           else if (field === "Lifecycle Stage") row[field] = String(item.lifecycleStage || "Lead");
@@ -471,7 +470,7 @@ export default function CustomReportBuilder({ onClose, initialSource }: CustomRe
                 const newSource = e.target.value as DataSource;
                 setSource(newSource);
                 // Preselect default fields for new source to keep reactive preview hydrated
-                if (newSource === "contacts") setSelectedFields(["Full Name", "Persona", "Profile Health %"]);
+                if (newSource === "contacts") setSelectedFields(["Full Name", "Lifecycle Stage", "Profile Health %"]);
                 else if (newSource === "financial") setSelectedFields(["Student Name", "Class", "Base Fee", "Final Amount"]);
                 else if (newSource === "attendance") setSelectedFields(["Student Name", "Class", "Status", "Rate %"]);
                 else if (newSource === "academic") setSelectedFields(["Student Name", "Class", "Subject", "Marks", "Grade"]);

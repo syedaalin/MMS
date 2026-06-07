@@ -4,7 +4,14 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { getObject } from "../../lib/db"
-import { type GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from "@mms/shared"
+import {
+  type GlobalSettings,
+  DEFAULT_GLOBAL_SETTINGS,
+  formatIsoDateToDisplay,
+  normalizeDateFormat,
+  parseDisplayDateToIso,
+  type DateFormatId,
+} from "@mms/shared"
 
 export interface DatePickerProps {
   value?: string
@@ -42,50 +49,21 @@ export function DatePicker({
     }
   }, [])
 
-  const dateFormat = settings.dateFormat || "DD/MM/YYYY"
+  const dateFormat = normalizeDateFormat(
+    settings.dateFormat,
+    DEFAULT_GLOBAL_SETTINGS.dateFormat as DateFormatId,
+  )
   const resolvedPlaceholder = placeholder || dateFormat
 
-  // Formats stored value (YYYY-MM-DD) to display format
-  const formatValueToDisplay = React.useCallback((val: string, format: string): string => {
-    if (!val) return ""
-    const parts = val.split("-")
-    if (parts.length !== 3) return val
-    const [year, month, day] = parts
-    if (format === "MM/DD/YYYY") return `${month}/${day}/${year}`
-    if (format === "YYYY-MM-DD") return `${year}-${month}-${day}`
-    return `${day}/${month}/${year}` // default DD/MM/YYYY
-  }, [])
+  const formatValueToDisplay = React.useCallback(
+    (val: string, format: string): string => formatIsoDateToDisplay(val, format),
+    [],
+  )
 
-  // Parses display format to stored value (YYYY-MM-DD)
-  const parseDisplayToValue = React.useCallback((display: string, format: string): string => {
-    if (!display) return ""
-    const cleaned = display.replace(/\//g, "-").replace(/\./g, "-")
-    const parts = cleaned.split("-")
-    if (parts.length !== 3) return ""
-    
-    let year = 0, month = 0, day = 0
-    if (format === "MM/DD/YYYY") {
-      month = Number(parts[0])
-      day = Number(parts[1])
-      year = Number(parts[2])
-    } else if (format === "YYYY-MM-DD") {
-      year = Number(parts[0])
-      month = Number(parts[1])
-      day = Number(parts[2])
-    } else {
-      // DD/MM/YYYY
-      day = Number(parts[0])
-      month = Number(parts[1])
-      year = Number(parts[2])
-    }
-    
-    if (isNaN(year) || isNaN(month) || isNaN(day)) return ""
-    const d = new Date(year, month - 1, day)
-    if (d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day) {
-      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    }
-    return ""
-  }, [])
+  const parseDisplayToValue = React.useCallback(
+    (display: string, format: string): string => parseDisplayDateToIso(display, format),
+    [],
+  )
 
   // Sync external value change
   React.useEffect(() => {

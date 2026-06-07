@@ -1,3 +1,4 @@
+import { isServerOnlyObjectKey } from '@mms/shared';
 import {
   getCollection as dbGetCollection,
   saveCollection as dbSaveCollection,
@@ -43,6 +44,7 @@ export async function synchronizeData(payload: SyncPayload): Promise<void> {
 
     if (objects) {
       for (const [key, data] of Object.entries(objects)) {
+        if (isServerOnlyObjectKey(key)) continue;
         await dbSaveObject(key, data);
       }
     }

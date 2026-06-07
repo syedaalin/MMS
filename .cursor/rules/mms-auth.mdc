@@ -1,0 +1,65 @@
+---
+description: Authentication, users shape, JWT, RBAC targets
+globs: apps/backend/src/routes/auth.ts,apps/backend/src/services/authService.ts,apps/backend/src/services/userService.ts,apps/frontend/src/lib/AuthContext.tsx,apps/frontend/src/components/users/**,apps/frontend/src/pages/auth/**,packages/shared/src/index.ts
+alwaysApply: false
+---
+
+# MMS Auth & Users
+
+## Stored user (canonical)
+
+```ts
+interface StoredUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;          // singular — NOT roles[]
+  passwordHash: string;  // scrypt "salt:hash" hex
+  createdAt: string;
+}
+```
+
+JWT / API public shape: `User` from `@mms/shared` — `{ id, email, name, role }`.
+
+## Seeds & UI alignment
+
+- Seeds must include `passwordHash` and `role`. `roles: ['admin']` without hash **breaks login and onboarding**.
+- UI fields for 2FA, `status`, `roles[]` in seeds are **display-only** until backend enforces them.
+
+## Endpoints
+
+| Route | Auth | Notes |
+|-------|------|-------|
+| `POST /api/auth/login` | Public | Returns JWT |
+| `POST /api/auth/onboard` | Public | First admin only → 409 if admin exists |
+| `GET /api/auth/me` | JWT | Current user |
+| `POST /api/auth/logout` | — | Client discards token (stateless JWT) |
+
+`JWT_SECRET` required at startup.
+
+## RBAC
+
+Enforcement rules → **`mms-rbac.mdc`** (`rbacService`, `can()` hook target, registry `permissions`).
+
+JWT / login shape only in this file — do not duplicate collection write matrices here.
+
+## Session storage (current vs target)
+
+| Approach | Status | Notes |
+|----------|--------|-------|
+| Bearer JWT in `localStorage` | **Current** | Simple SPA; vulnerable to XSS token theft — mitigate XSS strictly (`mms-security.mdc`) |
+| httpOnly cookie + refresh | **Target** | Prefer for production hardening; requires CSRF strategy if cookie-based |
+
+Until migration: never log token; clear on logout; treat XSS in rich text fields as security bugs.
+
+## Frontend
+
+- Token in `localStorage`; `AuthProvider` at app root
+- **Single guard set** in `components/routing/`: `GuestRoute`, `ProtectedRoute`, `TenantGate`, `HostRoutes` — `ProtectedRoute.tsx` is canonical and used by `HostRoutes`
+- Do **not** add a second auth wrapper in `App.tsx`, module pages, or layouts; remove duplicate imports when editing `App.tsx` (`mms-frontend.mdc`)
+- Never log token or password values
+
+## Password handling
+
+- Hash/verify only in `userService` (scrypt + `timingSafeEqual`)
+- Never send or store plaintext passwords outside the login/onboard request handler

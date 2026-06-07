@@ -6,12 +6,8 @@ import {
   Users, Loader2,
 } from "lucide-react";
 
-import {
-  Contact,
-  PhoneNumber as ContactPhone,
-  EmailAddress as ContactEmail,
-  Address as ContactAddress
-} from "../../lib/contactFields";
+import { useContactConfig } from "../../lib/ContactConfigContext";
+import { normalizeToE164, parsePhoneNumber, Contact } from "@mms/shared";
 
 
 // ── vCard helpers ──────────────────────────────────────────────────────────────
@@ -19,9 +15,11 @@ import {
 /**
  * Parses a raw vCard (.vcf) formatted string into an array of normalized contact objects.
  * @param text The raw vCard content.
+ * @param mobileLabel Label to use for phone entries.
+ * @param personalLabel Label to use for email entries.
  * @returns Array of parsed contact objects.
  */
-function parseVCard(text: string): Contact[] {
+function parseVCard(text: string, mobileLabel: string, personalLabel: string): Contact[] {
   const contacts: Contact[] = [];
   const cards = text.split(/BEGIN:VCARD/i).filter((c) => c.trim());
   for (const card of cards) {
@@ -36,6 +34,9 @@ function parseVCard(text: string): Contact[] {
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ");
     const phone = (card.match(/^TEL[^:]*:(.+)$/im) || [])[1]?.trim() || "";
+    const parsedRaw = parsePhoneNumber(phone, "+92");
+    const e164 = normalizeToE164(parsedRaw.countryCode, parsedRaw.number);
+    const parsed = parsePhoneNumber(e164, parsedRaw.countryCode);
     const email = (card.match(/^EMAIL[^:]*:(.+)$/im) || [])[1]?.trim() || "";
     const org = get("ORG").split(";")[0];
     const title = get("TITLE");
@@ -46,8 +47,8 @@ function parseVCard(text: string): Contact[] {
       name,
       firstName,
       lastName,
-      phones: phone ? [{ label: "Mobile", number: phone, whatsapp: false }] : [],
-      emails: email ? [{ label: "Personal", address: email }] : [],
+      phones: phone ? [{ label: mobileLabel, countryCode: parsed.countryCode, number: parsed.number }] : [],
+      emails: email ? [{ label: personalLabel, address: email }] : [],
       employer: org || "",
       designation: title || "",
       notes: note || "",
@@ -167,6 +168,7 @@ interface GooglePeopleResponse {
  * GoogleContactsPanel component to configure and run Google Contacts synchronization.
  */
 function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): React.JSX.Element {
+  const { uiStrings } = useContactConfig();
   const [config, setConfig] = useState<GoogleOauthConfig>(() => loadGoogleConfig());
   const [showSetup, setShowSetup] = useState<boolean>(false);
   const [form, setForm] = useState({ clientId: config.clientId || "", clientSecret: config.clientSecret || "" });
@@ -183,7 +185,7 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
   // Step 1: Save credentials
   const handleSaveCredentials = (): void => {
     if (!form.clientId.trim() || !form.clientSecret.trim()) {
-      setError("Both Client ID and Client Secret are required.");
+      setError(uiStrings.clientIdRequiredMsg || "Both Client ID and Client Secret are required.");
       return;
     }
     const cfg: GoogleOauthConfig = { ...config, clientId: form.clientId.trim(), clientSecret: form.clientSecret.trim() };
@@ -204,7 +206,7 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
     )}&response_type=code&scope=${scope}&access_type=offline&state=${state}&prompt=consent`;
     window.open(url, "_blank", "width=500,height=600");
     // Inform user to paste the auth code
-    setError("After authorizing, Google will redirect to your app. Copy the 'code' parameter from the URL and paste it below.");
+    setError(uiStrings.oauthRedirectInstruction || "After authorizing, Google will redirect to your app. Copy the 'code' parameter from the URL and paste it below.");
     setShowAuthCode(true);
   };
 
@@ -233,7 +235,7 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
       setError("");
     } catch (e) {
       const err = e as Error;
-      setError("Token exchange failed: " + err.message);
+      setError((uiStrings.tokenExchangeFailed || "Token exchange failed: ") + err.message);
     } finally {
       setExchanging(false);
     }
@@ -260,7 +262,7 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
           delete cfg.refreshToken;
           setConfig(cfg);
           saveGoogleConfig(cfg);
-          throw new Error("Session expired. Please reconnect your Google account.");
+          throw new Error(uiStrings.sessionExpiredMsg || "Session expired. Please reconnect your Google account.");
         }
         const data = (await res.json()) as GooglePeopleResponse;
         if (data.error) throw new Error(data.error.message);
@@ -269,6 +271,9 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
           const name = nameObj?.displayName || "";
           if (!name) return;
           const phone = p.phoneNumbers?.[0]?.value || "";
+          const parsedRaw = parsePhoneNumber(phone, "+92");
+          const e164 = normalizeToE164(parsedRaw.countryCode, parsedRaw.number);
+          const parsed = parsePhoneNumber(e164, parsedRaw.countryCode);
           const email = p.emailAddresses?.[0]?.value || "";
           const org = p.organizations?.[0]?.name || "";
           const title = p.organizations?.[0]?.title || "";
@@ -280,8 +285,8 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
             name,
             firstName: nameObj?.givenName || name.split(" ")[0],
             lastName: nameObj?.familyName || name.split(" ").slice(1).join(" "),
-            phones: phone ? [{ label: "Mobile", number: phone, whatsapp: false }] : [],
-            emails: email ? [{ label: "Personal", address: email }] : [],
+            phones: phone ? [{ label: uiStrings.mobileLabel, countryCode: parsed.countryCode, number: parsed.number }] : [],
+            emails: email ? [{ label: uiStrings.personalLabel, address: email }] : [],
             employer: org,
             designation: title,
             notes: note,
@@ -335,23 +340,23 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
       {/* Header */}
       <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-red-50 flex items-center justify-center dark:bg-red-950/20">
-            <Globe className="w-3.5 h-3.5 text-red-500" />
+          <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
+            <Globe className="w-3.5 h-3.5 text-muted-foreground" />
           </div>
-          <span className="text-sm font-bold text-foreground">Google Contacts</span>
+          <span className="text-sm font-bold text-foreground">{uiStrings.googleContacts}</span>
           {isConnected && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50">
-              Connected
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-success/10 text-success border border-success/30">
+              {uiStrings.connectedLabel}
             </span>
           )}
         </div>
         <button
           type="button"
           onClick={() => setShowSetup((v) => !v)}
-          className="text-xs font-medium text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+          className="text-xs font-medium min-h-[44px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
         >
           <Key className="w-3 h-3" />
-          <span>{isConfigured ? "Edit Credentials" : "Setup"}</span>
+          <span>{isConfigured ? uiStrings.editCredentials : uiStrings.setup}</span>
           {showSetup ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
       </div>
@@ -359,17 +364,11 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
       <div className="p-4 space-y-4 text-left">
         {/* Setup instructions */}
         {!isConfigured && !showSetup && (
-          <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 dark:bg-amber-950/20 dark:border-amber-900/50 dark:text-amber-400">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-warning/10 border border-warning/30 text-xs text-warning">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-warning" />
             <div>
-              <p className="font-semibold mb-1">Setup required — create a Google OAuth app first</p>
-              <ol className="space-y-0.5 list-decimal list-inside text-amber-700 dark:text-amber-300">
-                <li>Go to <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Google Cloud Console</a></li>
-                <li>Create a project → Enable <strong>Google People API</strong></li>
-                <li>Go to Credentials → Create <strong>OAuth 2.0 Client ID</strong> (Web Application)</li>
-                <li>Add <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">{window.location.origin}/contacts</code> as an Authorized Redirect URI</li>
-                <li>Copy your Client ID &amp; Secret → click <strong>Setup</strong> above</li>
-              </ol>
+              <p className="font-semibold mb-1">{uiStrings.oauthAppSetupMsg}</p>
+              <p className="text-warning/90">{uiStrings.googleCloudInstructions}</p>
             </div>
           </div>
         )}
@@ -377,9 +376,9 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
         {/* Credentials form */}
         {showSetup && (
           <div className="space-y-3 p-3 rounded-xl bg-muted/30 border border-border">
-            <h4 className="text-xs font-bold text-foreground uppercase tracking-wide">Google OAuth Credentials</h4>
+            <h4 className="text-xs font-bold text-foreground uppercase tracking-wide">{uiStrings.googleOauthCredentialsHeader}</h4>
             <div>
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1" htmlFor="clientId">Client ID</label>
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1" htmlFor="clientId">{uiStrings.clientIdLabel}</label>
               <input
                 id="clientId"
                 className="w-full px-3 py-2 rounded-lg border border-border text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -389,7 +388,7 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
               />
             </div>
             <div>
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1" htmlFor="clientSecret">Client Secret</label>
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1" htmlFor="clientSecret">{uiStrings.clientSecretLabel}</label>
               <input
                 id="clientSecret"
                 type="password"
@@ -400,7 +399,7 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
               />
             </div>
             {error && (
-              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 dark:bg-red-950/20 dark:border-red-900/50 dark:text-red-400">
+              <p className="text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
                 {error}
               </p>
             )}
@@ -408,9 +407,9 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
               <button
                 type="button"
                 onClick={handleSaveCredentials}
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors"
+                className="px-4 min-h-[44px] rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors"
               >
-                Save Credentials
+                {uiStrings.saveCredentials}
               </button>
               <button
                 type="button"
@@ -418,9 +417,9 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
                   setShowSetup(false);
                   setError("");
                 }}
-                className="px-4 py-2 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground transition-colors bg-card"
+                className="px-4 min-h-[44px] rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground transition-colors bg-card"
               >
-                Cancel
+                {uiStrings.cancel}
               </button>
             </div>
           </div>
@@ -429,43 +428,43 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
         {/* Connect / Auth code exchange */}
         {isConfigured && !isConnected && !showSetup && (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Your credentials are saved. Click below to authorize access to your Google Contacts.</p>
+            <p className="text-sm text-muted-foreground">{uiStrings.googleCredentialsSavedMsg}</p>
             <button
               type="button"
               onClick={handleConnect}
-              className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-muted transition-colors shadow-sm"
+              className="w-full flex items-center gap-2 px-4 min-h-[44px] rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-muted transition-colors shadow-sm"
             >
-              <Globe className="w-4 h-4 text-red-500" />
-              <span>Connect Google Account</span>
+              <Globe className="w-4 h-4 text-muted-foreground" />
+              <span>{uiStrings.connectGoogleAccountBtn}</span>
               <ExternalLink className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
             </button>
 
             {showAuthCode && (
-              <div className="space-y-2 p-3 rounded-xl bg-blue-50 border border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/50 dark:text-blue-400">
-                <label className="text-xs font-semibold text-blue-800 dark:text-blue-300 block" htmlFor="authCode">
-                  After authorizing, paste the authorization code from the redirect URL:
+              <div className="space-y-2 p-3 rounded-xl bg-info/10 border border-info/30 text-info">
+                <label className="text-xs font-semibold text-info block" htmlFor="authCode">
+                  {uiStrings.pasteAuthCodeLabel}
                 </label>
                 <input
                   id="authCode"
-                  className="w-full px-3 py-2 rounded-lg border border-blue-300 text-sm bg-white dark:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full px-3 py-2 rounded-lg border border-info/40 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-info/30"
                   value={authCode}
                   onChange={(e) => setAuthCode(e.target.value)}
-                  placeholder="Paste authorization code here…"
+                  placeholder={uiStrings.pasteAuthCodePlaceholder}
                 />
                 <button
                   type="button"
                   onClick={handleExchangeCode}
                   disabled={!authCode.trim() || exchanging}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-60 transition-colors border border-transparent"
+                  className="flex items-center gap-2 px-4 min-h-[44px] rounded-lg bg-info text-info-foreground text-xs font-bold hover:bg-info/90 disabled:opacity-60 transition-colors border border-transparent"
                 >
                   {exchanging ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-3.5 h-3.5" />}
-                  <span>Confirm Authorization</span>
+                  <span>{uiStrings.confirmAuthBtn}</span>
                 </button>
               </div>
             )}
 
             {error && !showAuthCode && (
-              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 dark:bg-red-950/20 dark:border-red-900/50 dark:text-red-400">
+              <p className="text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
                 {error}
               </p>
             )}
@@ -475,35 +474,40 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
         {/* Connected state — sync */}
         {isConnected && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-400">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-success/10 border border-success/30 text-success">
+              <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
               <div className="flex-1">
-                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Google Account Connected</p>
-                <p className="text-xs text-emerald-700 dark:text-emerald-400">Click sync to import your Google Contacts.</p>
+                <p className="text-sm font-semibold text-success">{uiStrings.googleAccountConnectedTitle}</p>
+                <p className="text-xs text-success/90">{uiStrings.googleAccountConnectedDesc}</p>
               </div>
               <button
                 type="button"
                 onClick={handleDisconnect}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-600 transition-colors border border-border bg-card rounded-lg px-2.5 py-1.5 hover:border-red-200 hover:bg-red-50"
+                className={`flex items-center gap-1 text-xs transition-colors border border-border bg-card rounded-lg px-2.5 min-h-[44px] ${uiStrings?.deleteActionClass || "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"}`}
               >
                 <Unlink className="w-3 h-3" />
-                <span>Disconnect</span>
+                <span>{uiStrings.disconnectBtn}</span>
               </button>
             </div>
 
             {error && (
-              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 dark:bg-red-950/20 dark:border-red-900/50 dark:text-red-400">
+              <p className="text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
                 {error}
               </p>
             )}
 
             {syncResult && (
-              <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-400">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-success/10 border border-success/30 text-xs text-success">
+                <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold">Sync complete — {syncResult.total} contacts fetched</p>
-                  <p className="text-emerald-700 dark:text-emerald-400 mt-0.5">
-                    {syncResult.imported} imported · {syncResult.skipped} already existed
+                  <p className="font-semibold">
+                    {(uiStrings.syncCompleteTitle || "Sync complete — {total} contacts fetched")
+                      .replace("{total}", String(syncResult.total))}
+                  </p>
+                  <p className="text-success/90 mt-0.5">
+                    {(uiStrings.syncCompleteDesc || "{imported} imported · {skipped} already existed")
+                      .replace("{imported}", String(syncResult.imported))
+                      .replace("{skipped}", String(syncResult.skipped))}
                   </p>
                 </div>
               </div>
@@ -513,17 +517,17 @@ function GoogleContactsPanel({ contacts, onImport }: GoogleContactsPanelProps): 
               type="button"
               onClick={handleSync}
               disabled={syncing}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 transition-colors"
+              className="flex items-center gap-2 px-5 min-h-[44px] rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 transition-colors"
             >
               {syncing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Syncing…</span>
+                  <span>{uiStrings.syncing}</span>
                 </>
               ) : (
                 <>
                   <Users className="w-4 h-4" />
-                  <span>Sync Google Contacts</span>
+                  <span>{uiStrings.syncGoogleContactsBtn}</span>
                 </>
               )}
             </button>
@@ -543,6 +547,9 @@ interface AppleContactsPanelProps {
  * AppleContactsPanel component to import and export vCard files.
  */
 function AppleContactsPanel({ contacts, onImport }: AppleContactsPanelProps): React.JSX.Element {
+  const { uiStrings } = useContactConfig();
+  const mobileLabel = uiStrings.mobileLabel;
+  const personalLabel = uiStrings.personalLabel;
   const [previewList, setPreviewList] = useState<Contact[]>([]);
   const [importing, setImporting] = useState<boolean>(false);
   const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
@@ -555,7 +562,7 @@ function AppleContactsPanel({ contacts, onImport }: AppleContactsPanelProps): Re
     const reader = new FileReader();
     reader.onload = (ev) => {
       if (ev.target && typeof ev.target.result === "string") {
-        setPreviewList(parseVCard(ev.target.result));
+        setPreviewList(parseVCard(ev.target.result, mobileLabel, personalLabel));
         setResult(null);
       }
     };
@@ -585,21 +592,21 @@ function AppleContactsPanel({ contacts, onImport }: AppleContactsPanelProps): Re
   return (
     <section className="rounded-xl border border-border bg-card overflow-hidden">
       <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-2">
-        <div className="w-6 h-6 rounded bg-gray-100 flex items-center justify-center dark:bg-muted">
-          <Smartphone className="w-3.5 h-3.5 text-gray-700 dark:text-foreground" />
+        <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
+          <Smartphone className="w-3.5 h-3.5 text-muted-foreground" />
         </div>
-        <span className="text-sm font-bold text-foreground">Apple Contacts</span>
-        <span className="text-[10px] text-muted-foreground">(vCard / .vcf)</span>
+        <span className="text-sm font-bold text-foreground">{uiStrings.appleContacts || "Apple Contacts"}</span>
+        <span className="text-[10px] text-muted-foreground">{uiStrings.vcardLabel || "(vCard / .vcf)"}</span>
       </div>
       <div className="p-4 space-y-4 text-left">
         {/* How to export */}
         <div className="rounded-lg bg-muted/30 border border-border p-3 text-xs text-muted-foreground space-y-1">
-          <p className="font-semibold text-foreground">How to export from Apple Contacts:</p>
+          <p className="font-semibold text-foreground">{uiStrings.howToExportAppleTitle || "How to export from Apple Contacts:"}</p>
           <ol className="list-decimal list-inside space-y-0.5">
-            <li>Open <strong>Contacts</strong> app on Mac → Select All (⌘A)</li>
-            <li>File → <strong>Export vCard…</strong> → save the .vcf file</li>
-            <li><em>iPhone:</em> Use <strong>iCloud.com</strong> → Contacts → select all → export</li>
-            <li>Upload the .vcf file below</li>
+            <li>{uiStrings.appleExportStep1 || "Open Contacts app on Mac → Select All (⌘A)"}</li>
+            <li>{uiStrings.appleExportStep2 || "File → Export vCard… → save the .vcf file"}</li>
+            <li>{uiStrings.appleExportStep3 || "iPhone: Use iCloud.com → Contacts → select all → export"}</li>
+            <li>{uiStrings.appleExportStep4 || "Upload the .vcf file below"}</li>
           </ol>
         </div>
 
@@ -612,21 +619,23 @@ function AppleContactsPanel({ contacts, onImport }: AppleContactsPanelProps): Re
             className="w-full flex flex-col items-center justify-center gap-2 py-7 border-2 border-dashed border-border rounded-xl text-muted-foreground hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer bg-card"
           >
             <FileText className="w-7 h-7 opacity-40" />
-            <span className="text-sm font-semibold text-foreground">Upload .vcf file</span>
-            <span className="text-xs">Drag & drop or click to browse</span>
+            <span className="text-sm font-semibold text-foreground">{uiStrings.uploadVcfBtn || "Upload .vcf file"}</span>
+            <span className="text-xs">{uiStrings.dragDropBrowse || "Drag & drop or click to browse"}</span>
           </button>
         )}
 
         {previewList.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-foreground">{previewList.length} contacts found</p>
+              <p className="text-sm font-semibold text-foreground">
+                {previewList.length} {uiStrings.contactsFound || "contacts found"}
+              </p>
               <button
                 type="button"
                 onClick={() => setPreviewList([])}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors bg-transparent"
+                className="text-xs min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors bg-transparent"
               >
-                Clear
+                {uiStrings.clear || "Clear"}
               </button>
             </div>
             <div className="max-h-40 overflow-y-auto space-y-1 border border-border rounded-xl p-2 bg-card">
@@ -639,7 +648,9 @@ function AppleContactsPanel({ contacts, onImport }: AppleContactsPanelProps): Re
                 </div>
               ))}
               {previewList.length > 50 && (
-                <p className="text-xs text-center text-muted-foreground py-1">…and {previewList.length - 50} more</p>
+                <p className="text-xs text-center text-muted-foreground py-1">
+                  {(uiStrings.andMore || "…and {count} more").replace("{count}", String(previewList.length - 50))}
+                </p>
               )}
             </div>
             <div className="flex gap-2">
@@ -647,10 +658,12 @@ function AppleContactsPanel({ contacts, onImport }: AppleContactsPanelProps): Re
                 type="button"
                 onClick={handleImport}
                 disabled={importing}
-                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 transition-colors"
+                className="flex items-center gap-2 px-5 min-h-[44px] rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 transition-colors"
               >
                 {importing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                <span>Import {previewList.length} contacts</span>
+                <span>
+                  {(uiStrings.importContactsCount || "Import {count} contacts").replace("{count}", String(previewList.length))}
+                </span>
               </button>
               <button
                 type="button"
@@ -658,21 +671,22 @@ function AppleContactsPanel({ contacts, onImport }: AppleContactsPanelProps): Re
                   setPreviewList([]);
                   fileRef.current?.click();
                 }}
-                className="px-4 py-2 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground transition-colors bg-card"
+                className="px-4 min-h-[44px] rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground transition-colors bg-card"
               >
-                Choose different file
+                {uiStrings.chooseDifferentFile || "Choose different file"}
               </button>
             </div>
           </div>
         )}
 
         {result && (
-          <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-400">
-            <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-success/10 border border-success/30 text-sm text-success">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-success" />
             <div>
-              <p className="font-semibold">Import complete</p>
-              <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
-                {result.imported} imported{result.skipped > 0 ? ` · ${result.skipped} skipped (already exist)` : ""}
+              <p className="font-semibold">{uiStrings.importComplete || "Import complete"}</p>
+              <p className="text-xs text-success/90 mt-0.5">
+                {(uiStrings.importedMsg || "{count} imported").replace("{count}", String(result.imported))}
+                {result.skipped > 0 ? ` · ${(uiStrings.skippedMsg || "{count} skipped (already exist)").replace("{count}", String(result.skipped))}` : ""}
               </p>
             </div>
           </div>
@@ -680,15 +694,17 @@ function AppleContactsPanel({ contacts, onImport }: AppleContactsPanelProps): Re
 
         {/* Export */}
         <div className="border-t border-border pt-3 flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">Export contacts to import into Apple Contacts</span>
+          <span className="text-xs text-muted-foreground">{uiStrings.exportAppleInstructions || "Export contacts to import into Apple Contacts"}</span>
           <button
             type="button"
             onClick={handleExport}
             disabled={contacts.length === 0}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-border text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-50 transition-colors bg-card"
+            className="flex items-center gap-1.5 px-3.5 min-h-[44px] rounded-lg border border-border text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-50 transition-colors bg-card"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Export .vcf ({contacts.length})</span>
+            <span>
+              {(uiStrings.exportVcfBtn || "Export .vcf ({count})").replace("{count}", String(contacts.length))}
+            </span>
           </button>
         </div>
       </div>
@@ -705,15 +721,16 @@ interface ContactSyncPanelProps {
  * ContactSyncPanel component for managing Google and Apple Contacts synchronization.
  */
 export default function ContactSyncPanel({ contacts = [], onImport }: ContactSyncPanelProps): React.JSX.Element {
+  const { uiStrings } = useContactConfig();
   return (
     <div className="space-y-5 max-w-3xl text-left">
       {/* Info */}
-      <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-800 dark:bg-blue-950/20 dark:border-blue-900/50 dark:text-blue-400">
-        <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-info/10 border border-info/30 text-sm text-info">
+        <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-info" />
         <div>
-          <h3 className="font-semibold">Dynamic Contact Sync</h3>
-          <p className="text-xs mt-0.5 text-blue-700 dark:text-blue-300">
-            Connect your Google account for live sync, or upload a vCard file from Apple Contacts. Each madrasa admin manages their own connection independently.
+          <h3 className="font-semibold">{uiStrings.dynamicContactSyncTitle || "Dynamic Contact Sync"}</h3>
+          <p className="text-xs mt-0.5 text-info/90">
+            {uiStrings.dynamicContactSyncDesc || "Connect your Google account for live sync, or upload a vCard file from Apple Contacts. Each madrasa admin manages their own connection independently."}
           </p>
         </div>
       </div>

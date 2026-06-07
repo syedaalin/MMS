@@ -1,4 +1,7 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import useModuleTierTabs from "@/hooks/useModuleTierTabs";
+import useConfigSubTabs from "@/hooks/useConfigSubTabs";
+import useTranslation from "@/hooks/useTranslation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   UserPlus, GraduationCap, Filter, ChevronDown, Users, Settings,
@@ -9,6 +12,8 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import PageHeader from "../components/ui/PageHeader";
+import ResponsiveAccordionTabs from "@/components/ui/ResponsiveAccordionTabs";
+import SubTabBar from "@/components/ui/SubTabBar";
 import SearchBar from "../components/ui/SearchBar";
 import FilterChips from "../components/ui/FilterChips";
 import ActionButton from "../components/ui/ActionButton";
@@ -24,18 +29,9 @@ import { type StudentsSettings, DEFAULT_STUDENTS_SETTINGS } from "@mms/shared";
 // Generic Reports & DB Utils
 import ModuleReports from "../components/reports/ModuleReports";
 import KPISummary from "../components/reports/KPISummary";
-import { getCollection, saveCollection, getObject } from "../lib/db";
-
-const PAGE_TABS = [
-  { id: "operations",    label: "Operations",    icon: LayoutDashboard },
-  { id: "analytics",     label: "Analytics",     icon: BarChart2 },
-  { id: "configuration", label: "Configuration", icon: Settings },
-];
-
-const STUDENT_SETTINGS_SUB_TABS = [
-  { id: "fields",      label: "Fields" },
-  { id: "preferences", label: "Preferences" },
-];
+import { saveCollection, getObject } from "../lib/db";
+import { useLiveCollection } from "../hooks/useLiveCollection";
+import useStudentCount from "@/hooks/useStudentCount";
 
 const STUDENT_STATUS_OPTIONS = ["active", "inactive", "suspended"];
 
@@ -44,19 +40,22 @@ const STUDENT_STATUS_OPTIONS = ["active", "inactive", "suspended"];
  * Implements the standard 3-tier tab system (Operations | Analytics | Configuration).
  */
 export default function Students() {
+  const PAGE_TABS = useModuleTierTabs();
+  const configSubTabs = useConfigSubTabs();
+  const { t } = useTranslation();
+  const { data: serverCount } = useStudentCount();
   const [activeTab, setActiveTab] = useState("operations");
 
   const settings = useMemo(() => getObject<StudentsSettings>("students_settings", DEFAULT_STUDENTS_SETTINGS), []);
+  const rawStudents = useLiveCollection("students", STUDENTS);
 
-  // STUDENT SUB-MODULE STATE & GR Number auto-generation/migration
-  const [students, setStudents] = useState<Student[]>(() => {
-    const raw = getCollection("students", STUDENTS);
+  const { students, didMigrate } = useMemo(() => {
     const template = settings.grNumberTemplate || "{seq}-{year}";
     const digits = settings.grNumberDigits || 4;
     const restartAnnually = settings.grNumberRestartAnnually !== false;
 
     let migrated = false;
-    const migratedList = raw.map((s, idx) => {
+    const migratedList = rawStudents.map((s, idx) => {
       if (!s.grNumber) {
         migrated = true;
         const regDate = s.registeredDate || new Date().toISOString().split("T")[0];
@@ -64,7 +63,7 @@ export default function Students() {
 
         let nextSeq = 1;
         if (restartAnnually) {
-          const yearlyStudents = raw.slice(0, idx).filter((x) => {
+          const yearlyStudents = rawStudents.slice(0, idx).filter((x) => {
             const xDate = x.registeredDate || "";
             if (xDate.startsWith(String(year))) return true;
             if (x.grNumber && x.grNumber.includes(String(year))) return true;
@@ -82,11 +81,17 @@ export default function Students() {
       return s;
     });
 
-    if (migrated) {
-      saveCollection("students", migratedList);
-    }
-    return migratedList;
-  });
+    return { students: migratedList, didMigrate: migrated };
+  }, [rawStudents, settings]);
+
+  useEffect(() => {
+    if (didMigrate) saveCollection("students", students);
+  }, [didMigrate, students]);
+
+  const saveStudents = useCallback((updater: Student[] | ((prev: Student[]) => Student[])) => {
+    const next = typeof updater === "function" ? updater(students) : updater;
+    saveCollection("students", next);
+  }, [students]);
 
   const [studentSearch, setStudentSearch] = useState("");
   const [studentFilterStatus, setStudentFilterStatus] = useState<string[]>([]);
@@ -94,10 +99,6 @@ export default function Students() {
   const [showStudentForm, setShowStudentForm] = useState(false);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [subTab, setSubTab] = useState("fields");
-
-  useEffect(() => {
-    saveCollection("students", students);
-  }, [students]);
 
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
@@ -111,8 +112,8 @@ export default function Students() {
   }, [students, studentSearch, studentFilterStatus, studentFilterGender]);
 
   const handleSaveStudent = (data: Student) => {
-    if (editStudent) setStudents((ss) => ss.map((s) => s.id === data.id ? data : s));
-    else setStudents((ss) => [...ss, data]);
+    if (editStudent) saveStudents((ss) => ss.map((s) => s.id === data.id ? data : s));
+    else saveStudents((ss) => [...ss, data]);
     setShowStudentForm(false);
     setEditStudent(null);
   };
@@ -132,47 +133,29 @@ export default function Students() {
 
       <PageHeader
         icon={GraduationCap}
-        title="Students"
-        subtitle="Manage student directory and records"
+        title={t("nav.students")}
+        subtitle={
+          serverCount != null
+            ? `${t("page.students.subtitle")} · ${serverCount} ${t("nav.students").toLowerCase()}`
+            : t("page.students.subtitle")
+        }
         actions={
           <ActionButton
             variant="primary"
             icon={UserPlus}
             onClick={() => { setEditStudent(null); setShowStudentForm(true); }}
           >
-            Add Student
+            {t("action.addStudent")}
           </ActionButton>
         }
       />
 
-      {/* KPI summaries tied to active subtab context */}
-      <div className="space-y-4">
-        <ErrorBoundary>
-          <KPISummary category="students" />
-        </ErrorBoundary>
-      </div>
-
-      {/* Primary 3-tier Tab Navigation */}
-      <div className="flex border-b border-border overflow-x-auto">
-        {PAGE_TABS.map((t) => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${
-                activeTab === t.id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className="w-4 h-4" /> {t.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Main Content Area */}
+      <ResponsiveAccordionTabs
+        tabs={PAGE_TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        panelIdPrefix="students-tab"
+      >
       <AnimatePresence mode="wait">
         {activeTab === "operations" ? (
           <motion.div
@@ -267,9 +250,9 @@ export default function Students() {
                 students={filteredStudents}
                 layout={settings.defaultViewLayout}
                 onEdit={(s: Student) => { setEditStudent(s); setShowStudentForm(true); }}
-                onDelete={(id: string) => setStudents((ss) => ss.filter((s) => s.id !== id))}
-                onBulkDelete={(ids) => setStudents((ss) => ss.filter((s) => !ids.includes(s.id)))}
-                onBulkStatusChange={(ids, status) => setStudents((ss) => ss.map((s) => ids.includes(s.id) ? { ...s, status } : s))}
+                onDelete={(id: string) => saveStudents((ss) => ss.filter((s) => s.id !== id))}
+                onBulkDelete={(ids) => saveStudents((ss) => ss.filter((s) => !ids.includes(s.id)))}
+                onBulkStatusChange={(ids, status) => saveStudents((ss) => ss.map((s) => ids.includes(s.id) ? { ...s, status } : s))}
               />
             </ErrorBoundary>
           </motion.div>
@@ -282,7 +265,10 @@ export default function Students() {
             transition={{ duration: 0.18 }}
           >
             <ErrorBoundary>
-              <ModuleReports category="students" />
+              <div className="space-y-4">
+                <KPISummary category="students" />
+                <ModuleReports category="students" />
+              </div>
             </ErrorBoundary>
           </motion.div>
         ) : (
@@ -295,21 +281,11 @@ export default function Students() {
           >
             <ErrorBoundary>
               <div className="space-y-4">
-                <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
-                  {STUDENT_SETTINGS_SUB_TABS.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setSubTab(t.id)}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                        subTab === t.id
-                          ? "bg-card text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
+                <SubTabBar
+                  tabs={configSubTabs.map((tab) => ({ key: tab.id, label: tab.label }))}
+                  value={subTab}
+                  onChange={setSubTab}
+                />
                 {subTab === "fields" && <StudentsSettingsPanel mode="fields" />}
                 {subTab === "preferences" && <StudentsSettingsPanel mode="preferences" />}
               </div>
@@ -317,6 +293,7 @@ export default function Students() {
           </motion.div>
         )}
       </AnimatePresence>
+      </ResponsiveAccordionTabs>
 
       {/* overlays/modals */}
       <AnimatePresence>

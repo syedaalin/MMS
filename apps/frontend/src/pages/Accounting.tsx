@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import useTranslation from "@/hooks/useTranslation";
+import useModuleTierTabs from "@/hooks/useModuleTierTabs";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp, List, BookMarked, Scale, BarChart2,
   BookOpen, Settings, LayoutDashboard,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
+import ResponsiveAccordionTabs from "@/components/ui/ResponsiveAccordionTabs";
+import SubTabBar from "@/components/ui/SubTabBar";
+import useConfigSubTabs from "@/hooks/useConfigSubTabs";
 import ChartOfAccounts from "../components/accounting/ChartOfAccounts";
 import JournalEntries from "../components/accounting/JournalEntries";
 import GeneralLedger from "../components/accounting/GeneralLedger";
@@ -12,19 +17,13 @@ import TrialBalance from "../components/accounting/TrialBalance";
 import FinancialReports from "../components/accounting/FinancialReports";
 import AccountingSettings from "../components/accounting/AccountingSettings";
 import AccountingDashboard from "../components/accounting/AccountingDashboard";
-import ModuleReports from "../components/reports/ModuleReports";
 import KPISummary from "../components/reports/KPISummary";
 import {
   CHART_OF_ACCOUNTS, JOURNAL_ENTRIES,
   DEFAULT_SETTINGS, DEFAULT_FISCAL_YEARS, CURRENCIES,
 } from "../lib/accountingData";
-import { getCollection, saveCollection, getObject, saveObject } from "../lib/db";
-
-const PAGE_TABS = [
-  { id: "operations",    label: "Operations",    icon: LayoutDashboard },
-  { id: "analytics",     label: "Analytics",     icon: BarChart2 },
-  { id: "configuration", label: "Configuration", icon: Settings },
-];
+import { saveCollection, getObject, saveObject } from "../lib/db";
+import { useLiveCollection } from "../hooks/useLiveCollection";
 
 const SUB_TABS = [
   { id: "overview",  label: "Overview",          icon: LayoutDashboard },
@@ -41,29 +40,35 @@ const SUB_TABS = [
  * @returns {React.ReactElement} The Accounting page component.
  */
 export default function Accounting() {
+  const PAGE_TABS = useModuleTierTabs();
+  const configSubTabs = useConfigSubTabs();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab]     = useState("operations");
   const [activeSubTab, setActiveSubTab] = useState("overview");
   const [configSubTab, setConfigSubTab] = useState<"fields" | "preferences">("fields");
-  const [accounts,   setAccounts]    = useState(() => getCollection("accounting_accounts", CHART_OF_ACCOUNTS));
-  const [entries,    setEntries]     = useState(() => getCollection("accounting_entries", JOURNAL_ENTRIES));
+  const accounts = useLiveCollection("accounting_accounts", CHART_OF_ACCOUNTS);
+  const entries = useLiveCollection("accounting_entries", JOURNAL_ENTRIES);
+  const fiscalYears = useLiveCollection("accounting_fiscal_years", DEFAULT_FISCAL_YEARS);
   const [settings,   setSettings]    = useState(() => getObject("accounting_settings", DEFAULT_SETTINGS));
-  const [fiscalYears, setFiscalYears] = useState(() => getCollection("accounting_fiscal_years", DEFAULT_FISCAL_YEARS));
 
-  useEffect(() => {
-    saveCollection("accounting_accounts", accounts);
+  const setAccounts = useCallback((updater: typeof accounts | ((prev: typeof accounts) => typeof accounts)) => {
+    const next = typeof updater === "function" ? updater(accounts) : updater;
+    saveCollection("accounting_accounts", next);
   }, [accounts]);
 
-  useEffect(() => {
-    saveCollection("accounting_entries", entries);
+  const setEntries = useCallback((updater: typeof entries | ((prev: typeof entries) => typeof entries)) => {
+    const next = typeof updater === "function" ? updater(entries) : updater;
+    saveCollection("accounting_entries", next);
   }, [entries]);
+
+  const setFiscalYears = useCallback((updater: typeof fiscalYears | ((prev: typeof fiscalYears) => typeof fiscalYears)) => {
+    const next = typeof updater === "function" ? updater(fiscalYears) : updater;
+    saveCollection("accounting_fiscal_years", next);
+  }, [fiscalYears]);
 
   useEffect(() => {
     saveObject("accounting_settings", settings);
   }, [settings]);
-
-  useEffect(() => {
-    saveCollection("accounting_fiscal_years", fiscalYears);
-  }, [fiscalYears]);
 
   const activeFY = fiscalYears.find((f) => f.status === "active");
   const cur = CURRENCIES.find((c) => c.code === settings.currency) || CURRENCIES[0];
@@ -82,8 +87,8 @@ export default function Accounting() {
       <meta name="description" content="View double-entry bookkeeping journals, manage fiscal years, and generate accounting balance reports." />
       <PageHeader
         icon={TrendingUp}
-        title="Accounting"
-        subtitle={`Double-entry bookkeeping${activeFY ? ` · ${activeFY.label}` : ""} · ${cur.code}`}
+        title={t("nav.accounting")}
+        subtitle={`${t("page.accounting.subtitle")}${activeFY ? ` · ${activeFY.label}` : ""} · ${cur.code}`}
         actions={
           activeFY && (
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
@@ -93,45 +98,19 @@ export default function Accounting() {
         }
       />
 
-      <div className="space-y-4">
-        <KPISummary category="accounting" />
-      </div>
-
-      {/* Primary Tabs */}
-      <div className="flex border-b border-border overflow-x-auto">
-        {PAGE_TABS.map((t) => {
-          const Icon   = t.icon;
-          const active = activeTab === t.id;
-          return (
-            <button key={t.id} onClick={() => setActiveTab(t.id)}
-              className={`flex items-center gap-1.5 px-4 py-3 text-[13px] font-semibold whitespace-nowrap border-b-2 transition-all ${
-                active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}>
-              <Icon className="w-3.5 h-3.5" />
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
-
+      <ResponsiveAccordionTabs
+        tabs={PAGE_TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        panelIdPrefix="accounting-tab"
+      >
       {/* Sub-tabs for Operations */}
       {activeTab === "operations" && (
-        <div className="flex gap-1.5 p-1 bg-muted/60 rounded-xl w-fit border border-border/30 overflow-x-auto max-w-full">
-          {SUB_TABS.map((t) => {
-            const active = activeSubTab === t.id;
-            return (
-              <button key={t.id} onClick={() => setActiveSubTab(t.id)}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                  active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}>
-                {t.label}
-                {t.id === "journal" && drafts > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">{drafts}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <SubTabBar
+          tabs={SUB_TABS.map((tab) => ({ key: tab.id, label: tab.label }))}
+          value={activeSubTab}
+          onChange={setActiveSubTab}
+        />
       )}
 
       {/* Content */}
@@ -141,7 +120,18 @@ export default function Accounting() {
           exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
           className="space-y-4">
 
-          {activeTab === "analytics" && <ModuleReports category="financial" />}
+          {activeTab === "analytics" && (
+            <div className="space-y-4">
+              <KPISummary category="accounting" />
+              <FinancialReports
+                accounts={accounts}
+                entries={entries}
+                fiscalYears={fiscalYears}
+                settings={settings}
+                fmt={fmt}
+              />
+            </div>
+          )}
           
           {activeTab === "operations" && activeSubTab === "overview" && (
             <AccountingDashboard accounts={accounts} entries={entries} settings={settings} fiscalYears={fiscalYears} fmt={fmt} />
@@ -161,26 +151,11 @@ export default function Accounting() {
           )}
           {activeTab === "configuration" && (
             <div className="space-y-4">
-              <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit border border-border/30">
-                <button
-                  type="button"
-                  onClick={() => setConfigSubTab("fields")}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    configSubTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Fields
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfigSubTab("preferences")}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    configSubTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Preferences
-                </button>
-              </div>
+              <SubTabBar
+                tabs={configSubTabs.map((tab) => ({ key: tab.id, label: tab.label }))}
+                value={configSubTab}
+                onChange={(key) => setConfigSubTab(key as typeof configSubTab)}
+              />
               <AccountingSettings
                 accounts={accounts}
                 settings={settings}
@@ -193,6 +168,7 @@ export default function Accounting() {
           )}
         </motion.div>
       </AnimatePresence>
+      </ResponsiveAccordionTabs>
     </div>
   );
 }

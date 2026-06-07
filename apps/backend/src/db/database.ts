@@ -5,9 +5,30 @@ import { sql, eq } from 'drizzle-orm';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import * as schema from './schema.js';
-import { getDefaultCollections, getDefaultObjects } from './seeds.js';
+import { getDefaultCollectionsForSeed, getDefaultObjects } from './seeds.js';
+import {
+  WORKSPACES_COLLECTION,
+  tenantCollectionKey,
+  tenantObjectKey,
+  parseTenantScopedStorageKey,
+  isServerOnlyObjectKey,
+} from '@mms/shared';
+import { getRequestTenant } from '../utils/tenantContext.js';
 import { runMigration001 } from './migrations/001_migrate_notification_settings.js';
 import { runMigration002 } from './migrations/002_migrate_global_settings_fields.js';
+import { runMigration003 } from './migrations/003_migrate_multi_tenant.js';
+
+function resolveCollectionStorageName(name: string): string {
+  const tenant = getRequestTenant();
+  if (!tenant || name === WORKSPACES_COLLECTION) return name;
+  return tenantCollectionKey(tenant, name);
+}
+
+function resolveObjectStorageKey(key: string): string {
+  const tenant = getRequestTenant();
+  if (!tenant) return key;
+  return tenantObjectKey(tenant, key);
+}
 
 const { Pool } = pg;
 
@@ -39,6 +60,7 @@ export async function initDb(): Promise<void> {
     // Run pending data migrations — failures are fatal and halt startup
     await runMigration001();
     await runMigration002();
+    await runMigration003();
 
     // Check if seeding is necessary (if no collections exist)
     const results = await db.select({ count: sql<number>`count(*)` }).from(schema.collections);
@@ -64,7 +86,7 @@ export async function seedDatabase(): Promise<void> {
     // Seed using a transaction block for performance
     await runInTransaction(async () => {
       // Seed collections
-      for (const [name, data] of Object.entries(getDefaultCollections())) {
+      for (const [name, data] of Object.entries(await getDefaultCollectionsForSeed())) {
         await saveCollection(name, data as unknown[]);
       }
 
@@ -88,7 +110,8 @@ export async function seedDatabase(): Promise<void> {
  */
 export async function getCollection(name: string): Promise<unknown[] | null> {
   try {
-    const rows = await db.select().from(schema.collections).where(eq(schema.collections.name, name));
+    const storageName = resolveCollectionStorageName(name);
+    const rows = await db.select().from(schema.collections).where(eq(schema.collections.name, storageName));
     const row = rows[0];
     if (!row) {
       return null;
@@ -109,8 +132,9 @@ export async function getCollection(name: string): Promise<unknown[] | null> {
  */
 export async function saveCollection(name: string, data: unknown[]): Promise<void> {
   try {
+    const storageName = resolveCollectionStorageName(name);
     await db.insert(schema.collections)
-      .values({ name, data: JSON.stringify(data) })
+      .values({ name: storageName, data: JSON.stringify(data) })
       .onConflictDoUpdate({
         target: schema.collections.name,
         set: { data: JSON.stringify(data) }
@@ -129,7 +153,8 @@ export async function saveCollection(name: string, data: unknown[]): Promise<voi
  */
 export async function getObject(key: string): Promise<unknown | null> {
   try {
-    const rows = await db.select().from(schema.objects).where(eq(schema.objects.key, key));
+    const storageKey = resolveObjectStorageKey(key);
+    const rows = await db.select().from(schema.objects).where(eq(schema.objects.key, storageKey));
     const row = rows[0];
     if (!row) {
       return null;
@@ -150,8 +175,9 @@ export async function getObject(key: string): Promise<unknown | null> {
  */
 export async function saveObject(key: string, data: unknown): Promise<void> {
   try {
+    const storageKey = resolveObjectStorageKey(key);
     await db.insert(schema.objects)
-      .values({ key, data: JSON.stringify(data) })
+      .values({ key: storageKey, data: JSON.stringify(data) })
       .onConflictDoUpdate({
         target: schema.objects.key,
         set: { data: JSON.stringify(data) }
@@ -169,16 +195,33 @@ export async function saveObject(key: string, data: unknown): Promise<void> {
  */
 export async function getAllData(): Promise<{ collections: Record<string, unknown[]>; objects: Record<string, unknown> }> {
   try {
+    const tenant = getRequestTenant();
     const collections: Record<string, unknown[]> = {};
     const colRows = await db.select().from(schema.collections);
     for (const row of colRows) {
-      collections[row.name] = JSON.parse(row.data) as unknown[];
+      if (row.name === WORKSPACES_COLLECTION) continue;
+      const parsed = parseTenantScopedStorageKey(row.name);
+      if (tenant) {
+        if (!parsed || parsed.subdomain !== tenant) continue;
+        collections[parsed.logicalKey] = JSON.parse(row.data) as unknown[];
+      } else if (!parsed) {
+        collections[row.name] = JSON.parse(row.data) as unknown[];
+      }
     }
 
     const objects: Record<string, unknown> = {};
     const objRows = await db.select().from(schema.objects);
     for (const row of objRows) {
-      objects[row.key] = JSON.parse(row.data) as unknown;
+      const parsed = parseTenantScopedStorageKey(row.key);
+      const logicalKey = parsed?.logicalKey ?? row.key;
+      if (isServerOnlyObjectKey(logicalKey)) continue;
+
+      if (tenant) {
+        if (!parsed || parsed.subdomain !== tenant) continue;
+        objects[parsed.logicalKey] = JSON.parse(row.data) as unknown;
+      } else if (!parsed) {
+        objects[row.key] = JSON.parse(row.data) as unknown;
+      }
     }
 
     return { collections, objects };
@@ -214,6 +257,55 @@ export async function resetDatabase(): Promise<void> {
  * @param {() => Promise<T>} cb - The callback containing operations to run.
  * @returns {Promise<T>} The result of the callback.
  */
+/** Lists all collection storage names (including tenant-prefixed). */
+export async function listCollectionStorageNames(): Promise<string[]> {
+  const colRows = await db.select({ name: schema.collections.name }).from(schema.collections);
+  return colRows.map((row) => row.name);
+}
+
+/** Reads a collection by exact storage name (no tenant prefixing). */
+export async function getCollectionByStorageName(name: string): Promise<unknown[] | null> {
+  const rows = await db.select().from(schema.collections).where(eq(schema.collections.name, name));
+  const row = rows[0];
+  if (!row) return null;
+  return JSON.parse(row.data) as unknown[];
+}
+
+/** Deletes a collection row by exact storage name. */
+export async function deleteCollectionByStorageName(name: string): Promise<void> {
+  await db.delete(schema.collections).where(eq(schema.collections.name, name));
+}
+
+/** Deletes an object row by exact storage key. */
+export async function deleteObjectByStorageKey(key: string): Promise<void> {
+  await db.delete(schema.objects).where(eq(schema.objects.key, key));
+}
+
+/** Lists all object storage keys (including tenant-prefixed). */
+export async function listObjectStorageKeys(): Promise<string[]> {
+  const objRows = await db.select({ key: schema.objects.key }).from(schema.objects);
+  return objRows.map((row) => row.key);
+}
+
+/** Reads an object by exact storage key (no tenant prefixing). */
+export async function getObjectByStorageKey(key: string): Promise<unknown | null> {
+  const rows = await db.select().from(schema.objects).where(eq(schema.objects.key, key));
+  const row = rows[0];
+  if (!row) return null;
+  return JSON.parse(row.data) as unknown;
+}
+
+/** Lightweight DB connectivity check for `/ready`. */
+export async function pingDatabase(): Promise<boolean> {
+  try {
+    if (!pool) return false;
+    await pool.query('SELECT 1');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function runInTransaction<T>(cb: () => Promise<T>): Promise<T> {
   try {
     return await db.transaction(async () => {

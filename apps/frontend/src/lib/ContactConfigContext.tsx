@@ -20,7 +20,7 @@ import React, {
 import { z } from "zod";
 import { loadFieldConfig, saveFieldConfig } from "./contactFieldsStore";
 import {
-  TAB_FIELD_DEFINITIONS,
+
   GENDERS,
   SOCIAL_PLATFORMS,
   RELATIONSHIPS,
@@ -28,12 +28,18 @@ import {
   LIFECYCLE_STAGES,
   FieldConfig,
   ContactPreferences,
-  TabFieldConfig,
-  CustomField,
+  FieldDefinition,
   Contact,
-  PersonaConfig,
-} from "./contactFields";
-import { getCollection, saveCollection } from "./db";
+  WhatsAppTemplate,
+  DEFAULT_LIFECYCLE_COLORS,
+  DEFAULT_WHATSAPP_TEMPLATES,
+  DEFAULT_UI_STRINGS,
+  getContactUiStrings,
+  ColumnRegistryEntry,
+  COLOR_PALETTES,
+} from "@mms/shared";
+import { getCollection, saveCollection, getObject, saveObject } from "./db";
+import useGlobalSettings from "@/hooks/useGlobalSettings";
 
 /**
  * Calculates the completeness / health percentage of a contact profile (0-100).
@@ -108,6 +114,98 @@ export function calculateProfileHealth(c: Partial<Contact>): number {
   return Math.min(score, 100);
 }
 
+// List/collection form tabs → the Contact array property they populate.
+const LIST_TAB_DATA_KEYS: Record<string, string> = {
+  phones: "phones",
+  emails: "emails",
+  addresses: "addresses",
+  socials: "socials",
+  emergency: "emergencyContacts",
+};
+
+// Field types that have no meaningful "empty" state, so they don't count toward
+// completeness (a `false` boolean is still a valid answer; AI summaries are read-only).
+const COMPLETENESS_SKIP_TYPES = new Set(["boolean", "ai_summary"]);
+
+/**
+ * Returns true when a contact field value is considered "filled".
+ *
+ * @param {unknown} v - The value to test.
+ * @returns {boolean}
+ */
+function hasFieldValue(v: unknown): boolean {
+  if (v === null || v === undefined) return false;
+  if (typeof v === "string") return v.trim().length > 0;
+  if (typeof v === "number") return !Number.isNaN(v);
+  if (typeof v === "boolean") return v;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    if ("url" in o) return Boolean(o.url);
+    return Object.keys(o).length > 0;
+  }
+  return false;
+}
+
+/**
+ * Calculates form completeness (0-100) driven entirely by the active field
+ * configuration — only **enabled** fields inside **enabled** form tabs count.
+ *
+ * Scalar tabs (e.g. Identity/basic, custom tabs) contribute one unit per enabled
+ * field; collection tabs (phones, emails, addresses, socials, emergency) count as
+ * a single unit that is "filled" once they hold at least one entry. An empty new
+ * contact therefore reports 0%, and the denominator tracks the configured fields
+ * rather than a hardcoded list.
+ *
+ * @param {Partial<Contact>} c - The contact draft.
+ * @param {FieldConfig} fieldConfig - The active contact field configuration.
+ * @returns {number} Completion percentage (0-100).
+ */
+export function calculateProfileCompleteness(c: Partial<Contact>, fieldConfig: FieldConfig): number {
+  const fields = fieldConfig.fields || {};
+  const formTabs = (fieldConfig.formTabs || []).filter((t) => t.enabled || t.key === "basic");
+  const rec = c as Record<string, unknown>;
+
+  let total = 0;
+  let filled = 0;
+
+  for (const tab of formTabs) {
+    const listKey = LIST_TAB_DATA_KEYS[tab.key];
+    if (listKey) {
+      total += 1;
+      const arr = rec[listKey];
+      if (Array.isArray(arr) && arr.length > 0) filled += 1;
+      continue;
+    }
+    const tabFields = (fields[tab.key] || []).filter(
+      (f) => f.enabled && !COMPLETENESS_SKIP_TYPES.has(f.type)
+    );
+    for (const f of tabFields) {
+      total += 1;
+      if (hasFieldValue(rec[f.key])) filled += 1;
+    }
+  }
+
+  if (total === 0) return 0;
+  return Math.round((filled / total) * 100);
+}
+
+/**
+ * Helper to update options for a specific field inside configurations.
+ */
+function syncOptionsInConfig(cfg: FieldConfig, tabId: string, fieldKey: string, options: string[]): FieldConfig {
+  const nextConfig = { ...cfg };
+  if (nextConfig.fields?.[tabId]) {
+    nextConfig.fields = {
+      ...nextConfig.fields,
+      [tabId]: nextConfig.fields[tabId].map((f) =>
+        f.key === fieldKey ? { ...f, options } : f
+      ),
+    };
+  }
+  return nextConfig;
+}
+
 // ── Storage keys ─────────────────────────────────────────────────────────────
 const PREFS_KEY = "mms_contact_prefs";
 const CONFIG_KEY = "mms_contact_field_config";
@@ -142,10 +240,28 @@ function loadPrefs(): Partial<ContactPreferences> {
 }
 
 const DEFAULT_PREFS: ContactPreferences = {
-  defaultCountry: "Pakistan",
-  defaultProvince: "Sindh",
-  defaultCity: "Karachi",
+  defaultCountry: "",
+  defaultProvince: "",
+  defaultCity: "",
   defaultViewLayout: "list",
+  duplicateDetectionThresholdHigh: 90,
+  duplicateDetectionThresholdMedium: 75,
+  duplicateDetectionColorHigh: COLOR_PALETTES.red.bg,
+  duplicateDetectionColorMedium: COLOR_PALETTES.amber.bg,
+  duplicateDetectionColorLow: COLOR_PALETTES.slate.bg,
+  duplicateDetectionScorePhoneEmail: 99,
+  duplicateDetectionScoreNamePhone: 95,
+  duplicateDetectionScoreNameEmail: 95,
+  duplicateDetectionScorePhone: 80,
+  duplicateDetectionScoreEmail: 80,
+  duplicateDetectionScoreName: 75,
+  duplicateDetectionScoreDefault: 70,
+  duplicateDetectionFields: ["name", "phone", "email"],
+  duplicateDetectionColorWarning: COLOR_PALETTES.amber.bg,
+  duplicateDetectionColorWarningText: COLOR_PALETTES.amber.text,
+  duplicateDetectionColorSuccess: COLOR_PALETTES.emerald.bg,
+  duplicateDetectionColorSuccessText: COLOR_PALETTES.emerald.text,
+  duplicateDetectionColorHighlight: COLOR_PALETTES.blue.bg,
 };
 
 // RFC-5321-compatible pattern: rejects consecutive dots, missing TLD, and
@@ -158,24 +274,21 @@ export interface ContactConfigContextType {
   prefs: ContactPreferences;
   updateConfig: (cfg: FieldConfig) => void;
   updatePrefs: (newPrefs: Partial<ContactPreferences>) => void;
-  
-  // Persona Management
-  activePersonaId: string | null;
-  setActivePersonaId: (id: string | null) => void;
-  getPersona: (id: string) => PersonaConfig | undefined;
 
   enabledTabIds: Set<string>;
   requiredTabIds: Set<string>;
-  tabFieldConfig: Record<string, TabFieldConfig>;
-  tabCustomFields: Record<string, CustomField[]>;
+  fields: Record<string, FieldDefinition[]>;
   isTabFieldEnabled: (tabId: string, fieldId: string) => boolean;
   isTabFieldRequired: (tabId: string, fieldId: string) => boolean;
+  defaultValueFor: (tabId: string, fieldId: string) => unknown;
 
   // Dynamic Collections
   genders: string[];
   socialPlatforms: string[];
   relationships: string[];
   lifecycleStages: string[];
+  lifecycleColors: Record<string, { bg: string; text: string; border: string }>;
+  whatsappTemplates: WhatsAppTemplate[];
   phoneLabels: string[];
   emailLabels: string[];
   addressLabels: string[];
@@ -185,6 +298,7 @@ export interface ContactConfigContextType {
   countryCodesMap: Record<string, string>;
 
   // Dynamic Columns
+  columnRegistry: ColumnRegistryEntry[];
   availableColumns: Array<{ id: string; label: string; sortField?: string }>;
   visibleColumns: Array<{ id: string; label: string; sortField?: string }>;
 
@@ -193,11 +307,18 @@ export interface ContactConfigContextType {
   updateSocialPlatforms: (val: string[]) => void;
   updateRelationships: (val: string[]) => void;
   updateLifecycleStages: (val: string[]) => void;
+  updateLifecycleColors: (val: Record<string, { bg: string; text: string; border: string }>) => void;
+  updateWhatsappTemplates: (val: WhatsAppTemplate[]) => void;
   updatePhoneLabels: (val: string[]) => void;
   updateEmailLabels: (val: string[]) => void;
   updateAddressLabels: (val: string[]) => void;
   updateCountryCodes: (val: Array<{ country: string; code: string }>) => void;
   updateVisibleColumns: (cols: Array<{ id: string } | string>) => void;
+  updateColumnRegistry: (cols: ColumnRegistryEntry[]) => void;
+  updateUiStrings: (strings: Record<string, string>) => void;
+  systemSortOptions: Array<{ field: string; label: string }>;
+  defaultContactRating: number;
+  uiStrings: Record<string, string>;
 }
 
 const ContactConfigContext = createContext<ContactConfigContextType | null>(null);
@@ -211,12 +332,12 @@ const ContactConfigContext = createContext<ContactConfigContextType | null>(null
  * @returns {React.JSX.Element}
  */
 export function ContactConfigProvider({ children }: { children: ReactNode }) {
+  const settings = useGlobalSettings();
   const [fieldConfig, setFieldConfigState] = useState<FieldConfig>(() => loadFieldConfig());
   const [prefs, setPrefsState] = useState<ContactPreferences>(() => ({
     ...DEFAULT_PREFS,
     ...loadPrefs(),
   }));
-  const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
 
   // ── Dynamic Option Lists ────────────────────────────────────────────────────
   const [genders, setGendersState] = useState<string[]>(() =>
@@ -230,6 +351,12 @@ export function ContactConfigProvider({ children }: { children: ReactNode }) {
   );
   const [lifecycleStages, setLifecycleStagesState] = useState<string[]>(() =>
     getCollection("lifecycleStages", LIFECYCLE_STAGES)
+  );
+  const [lifecycleColors, setLifecycleColorsState] = useState<Record<string, { bg: string; text: string; border: string }>>(() =>
+    getObject("lifecycleColors", DEFAULT_LIFECYCLE_COLORS)
+  );
+  const [whatsappTemplates, setWhatsappTemplatesState] = useState<WhatsAppTemplate[]>(() =>
+    getCollection("whatsappTemplates", DEFAULT_WHATSAPP_TEMPLATES)
   );
   const [phoneLabels, setPhoneLabelsState] = useState<string[]>(() =>
     getCollection("phoneLabels", ["Mobile", "Home", "Work", "Other"])
@@ -301,6 +428,8 @@ export function ContactConfigProvider({ children }: { children: ReactNode }) {
             socialPlatforms: setSocialPlatformsState as (val: unknown) => void,
             relationships: setRelationshipsState as (val: unknown) => void,
             lifecycleStages: setLifecycleStagesState as (val: unknown) => void,
+            lifecycleColors: setLifecycleColorsState as (val: unknown) => void,
+            whatsappTemplates: setWhatsappTemplatesState as (val: unknown) => void,
             phoneLabels: setPhoneLabelsState as (val: unknown) => void,
             emailLabels: setEmailLabelsState as (val: unknown) => void,
             addressLabels: setAddressLabelsState as (val: unknown) => void,
@@ -336,30 +465,73 @@ export function ContactConfigProvider({ children }: { children: ReactNode }) {
   const updateGenders = useCallback((val: string[]) => {
     saveCollection("genders", val);
     setGendersState(val);
+    setFieldConfigState((prev) => {
+      const next = syncOptionsInConfig(prev, "basic", "gender", val);
+      saveFieldConfig(next);
+      return next;
+    });
   }, []);
   const updateSocialPlatforms = useCallback((val: string[]) => {
     saveCollection("socialPlatforms", val);
     setSocialPlatformsState(val);
+    setFieldConfigState((prev) => {
+      const next = syncOptionsInConfig(prev, "socials", "platform", val);
+      saveFieldConfig(next);
+      return next;
+    });
   }, []);
   const updateRelationships = useCallback((val: string[]) => {
     saveCollection("relationships", val);
     setRelationshipsState(val);
+    setFieldConfigState((prev) => {
+      const next = syncOptionsInConfig(prev, "emergency", "relationship", val);
+      saveFieldConfig(next);
+      return next;
+    });
   }, []);
   const updateLifecycleStages = useCallback((val: string[]) => {
     saveCollection("lifecycleStages", val);
     setLifecycleStagesState(val);
+    setFieldConfigState((prev) => {
+      const next = syncOptionsInConfig(prev, "basic", "lifecycleStage", val);
+      saveFieldConfig(next);
+      return next;
+    });
+  }, []);
+  const updateLifecycleColors = useCallback((val: Record<string, { bg: string; text: string; border: string }>) => {
+    saveObject("lifecycleColors", val);
+    setLifecycleColorsState(val);
+  }, []);
+  const updateWhatsappTemplates = useCallback((val: WhatsAppTemplate[]) => {
+    saveCollection("whatsappTemplates", val);
+    setWhatsappTemplatesState(val);
   }, []);
   const updatePhoneLabels = useCallback((val: string[]) => {
     saveCollection("phoneLabels", val);
     setPhoneLabelsState(val);
+    setFieldConfigState((prev) => {
+      const next = syncOptionsInConfig(prev, "phones", "label", val);
+      saveFieldConfig(next);
+      return next;
+    });
   }, []);
   const updateEmailLabels = useCallback((val: string[]) => {
     saveCollection("emailLabels", val);
     setEmailLabelsState(val);
+    setFieldConfigState((prev) => {
+      const next = syncOptionsInConfig(prev, "emails", "label", val);
+      saveFieldConfig(next);
+      return next;
+    });
   }, []);
   const updateAddressLabels = useCallback((val: string[]) => {
     saveCollection("addressLabels", val);
     setAddressLabelsState(val);
+    setFieldConfigState((prev) => {
+      const next = syncOptionsInConfig(prev, "addresses", "label", val);
+      saveFieldConfig(next);
+      return next;
+    });
   }, []);
   const updateCountryCodes = useCallback((val: Array<{ country: string; code: string }>) => {
     saveCollection("countryCodes", val);
@@ -376,35 +548,28 @@ export function ContactConfigProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const getPersona = useCallback((id: string) => {
-    return fieldConfig.personas?.find(p => p.id === id);
-  }, [fieldConfig]);
+  const updateColumnRegistry = useCallback((cols: ColumnRegistryEntry[]) => {
+    updateConfig({ ...fieldConfig, columnRegistry: cols });
+  }, [fieldConfig, updateConfig]);
 
-  // ── Derived helpers ───────────────────────────────────────────────────────
-  const activePersona = useMemo(() => {
-    if (!activePersonaId) return null;
-    return fieldConfig.personas?.find(p => p.id === activePersonaId);
-  }, [fieldConfig, activePersonaId]);
+  const updateUiStrings = useCallback((strings: Record<string, string>) => {
+    updateConfig({ ...fieldConfig, uiStrings: strings });
+  }, [fieldConfig, updateConfig]);
 
   const enabledTabIds = useMemo(() => {
-    if (activePersona) return new Set(activePersona.enabledTabs);
+    if (fieldConfig.formTabs) {
+      return new Set(fieldConfig.formTabs.filter(t => t.enabled).map(t => t.key));
+    }
     return new Set(fieldConfig.enabledTabs || ["phones", "emails", "addresses", "socials", "emergency"]);
-  }, [fieldConfig, activePersona]);
+  }, [fieldConfig]);
 
   const requiredTabIds = useMemo(() => {
-    if (activePersona) return new Set(activePersona.requiredTabs);
     return new Set(fieldConfig.requiredTabs || []);
-  }, [fieldConfig, activePersona]);
+  }, [fieldConfig]);
 
-  const tabFieldConfig = useMemo(() => {
-    if (activePersona) return activePersona.tabFieldConfig || {};
-    return fieldConfig.tabFieldConfig || {};
-  }, [fieldConfig, activePersona]);
-
-  const tabCustomFields = useMemo(() => {
-    if (activePersona) return activePersona.tabCustomFields || {};
-    return fieldConfig.tabCustomFields || {};
-  }, [fieldConfig, activePersona]);
+  const fields = useMemo(() => {
+    return fieldConfig.fields || {};
+  }, [fieldConfig]);
 
   const countryCodesMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -414,182 +579,12 @@ export function ContactConfigProvider({ children }: { children: ReactNode }) {
     return map;
   }, [countryCodes]);
 
-  const availableColumns = useMemo(() => {
-    const basicEnabled = new Set(fieldConfig.tabFieldConfig?.basic?.enabled || []);
-    const basicOrder =
-      fieldConfig.tabFieldConfig?.basic?.order ||
-      TAB_FIELD_DEFINITIONS.basic?.map((f) => f.id) ||
-      [];
-    const addrEnabled = new Set(fieldConfig.tabFieldConfig?.addresses?.enabled || []);
-    const addrOrder =
-      fieldConfig.tabFieldConfig?.addresses?.order ||
-      TAB_FIELD_DEFINITIONS.addresses?.map((f) => f.id) ||
-      [];
-    const enabledTabs = new Set(
-      fieldConfig.enabledTabs || ["phones", "emails", "addresses", "socials", "emergency"]
-    );
-
-    const cols: Array<{ id: string; label: string; sortField?: string }> = [];
-
-    // 1. Name is always first and fixed
-    cols.push({ id: "name", label: "Name", sortField: "name" });
-    cols.push({ id: "profileHealth", label: "Profile Health", sortField: "profileHealth" });
-
-    // 2. Basic-tab core fields in saved order if enabled
-    const BASIC_COL_MAP: Record<string, { id: string; label: string; sortField?: string }> = {
-      gender: { id: "gender", label: "Gender", sortField: "gender" },
-      dob: { id: "dob", label: "Date of Birth", sortField: "dob" },
-      isSyed: { id: "isSyed", label: "Is Syed" },
-      lifecycleStage: { id: "lifecycleStage", label: "Lifecycle Stage", sortField: "lifecycleStage" },
-      rating: { id: "rating", label: "Rating", sortField: "rating" },
-    };
-
-    basicOrder.forEach((fieldId) => {
-      const col = BASIC_COL_MAP[fieldId];
-      if (!col) return;
-      const def = TAB_FIELD_DEFINITIONS.basic?.find((f) => f.id === fieldId);
-      if (def?.alwaysOn || basicEnabled.has(fieldId)) {
-        cols.push(col);
-      }
-    });
-
-    // 3. Custom fields on basic tab
-    const basicCustom = tabCustomFields.basic || [];
-    basicCustom.forEach((cf) => {
-      cols.push({ id: cf.id, label: cf.label });
-    });
-
-    // 4. Phone — phones tab is alwaysOn
-    const phonesEnabled = new Set(fieldConfig.tabFieldConfig?.phones?.enabled || ["number", "whatsapp"]);
-    if (phonesEnabled.has("number")) {
-      cols.push({ id: "phone", label: "Phone" });
-    }
-    if (phonesEnabled.has("whatsapp")) {
-      cols.push({ id: "whatsapp", label: "WhatsApp" });
-    }
-
-    // Custom fields on phones tab
-    const phonesCustom = tabCustomFields.phones || [];
-    phonesCustom.forEach((cf) => {
-      cols.push({ id: cf.id, label: cf.label });
-    });
-
-    // 5. Email (if emails tab enabled)
-    if (enabledTabs.has("emails")) {
-      const emailsEnabled = new Set(fieldConfig.tabFieldConfig?.emails?.enabled || ["address"]);
-      if (emailsEnabled.has("address")) {
-        cols.push({ id: "email", label: "Email" });
-      }
-      const emailsCustom = tabCustomFields.emails || [];
-      emailsCustom.forEach((cf) => {
-        cols.push({ id: cf.id, label: cf.label });
-      });
-    }
-
-    // 6. Address fields (line1, city, state, country) in saved order
-    if (enabledTabs.has("addresses")) {
-      const addrFieldDefs = TAB_FIELD_DEFINITIONS.addresses || [];
-      const ADDR_COL_MAP: Record<string, { id: string; label: string; sortField?: string }> = {
-        line1: { id: "line1", label: "Street Address" },
-        city: { id: "city", label: "City", sortField: "city" },
-        state: { id: "state", label: "Province" },
-        country: { id: "country", label: "Country" },
-      };
-
-      addrOrder.forEach((fieldId) => {
-        const col = ADDR_COL_MAP[fieldId];
-        if (!col) return;
-        const def = addrFieldDefs.find((f) => f.id === fieldId);
-        if (def?.alwaysOn || addrEnabled.has(fieldId)) {
-          cols.push(col);
-        }
-      });
-
-      // Custom fields on addresses tab
-      const addressesCustom = tabCustomFields.addresses || [];
-      addressesCustom.forEach((cf) => {
-        cols.push({ id: cf.id, label: cf.label });
-      });
-    }
-
-    // 7. Socials platform and url (if socials tab enabled)
-    if (enabledTabs.has("socials")) {
-      const socialsEnabled = new Set(fieldConfig.tabFieldConfig?.socials?.enabled || ["platform", "url"]);
-      const socialsOrder = fieldConfig.tabFieldConfig?.socials?.order || ["platform", "url"];
-      const SOCIAL_COL_MAP: Record<string, { id: string; label: string }> = {
-        platform: { id: "socials_platform", label: "Social Platform" },
-        url: { id: "socials_url", label: "Social URL" },
-      };
-
-      socialsOrder.forEach((fieldId) => {
-        const col = SOCIAL_COL_MAP[fieldId];
-        if (!col) return;
-        if (socialsEnabled.has(fieldId)) {
-          cols.push(col);
-        }
-      });
-
-      const socialsCustom = tabCustomFields.socials || [];
-      socialsCustom.forEach((cf) => {
-        cols.push({ id: cf.id, label: cf.label });
-      });
-    }
-
-    // 8. Emergency contact and relationship (if emergency tab enabled)
-    if (enabledTabs.has("emergency")) {
-      const emergencyEnabled = new Set(fieldConfig.tabFieldConfig?.emergency?.enabled || ["contactId", "relationship"]);
-      const emergencyOrder = fieldConfig.tabFieldConfig?.emergency?.order || ["contactId", "relationship"];
-      const EMERGENCY_COL_MAP: Record<string, { id: string; label: string }> = {
-        contactId: { id: "emergency_contact", label: "Emergency Contact" },
-        relationship: { id: "emergency_relationship", label: "Emergency Relationship" },
-      };
-
-      emergencyOrder.forEach((fieldId) => {
-        const col = EMERGENCY_COL_MAP[fieldId];
-        if (!col) return;
-        if (emergencyEnabled.has(fieldId)) {
-          cols.push(col);
-        }
-      });
-
-      const emergencyCustom = tabCustomFields.emergency || [];
-      emergencyCustom.forEach((cf) => {
-        cols.push({ id: cf.id, label: cf.label });
-      });
-    }
-
-    return cols;
-  }, [fieldConfig, tabCustomFields]);
-
-  const visibleColumns = useMemo(() => {
-    // Default visible columns: name, isSyed, phone, email, city (filtered by available)
-    const defaultIds = ["name", "isSyed", "phone", "email", "city"];
-    const idsToUse = visibleColumnIds.length > 0 ? visibleColumnIds : defaultIds;
-
-    const availableMap = new Map(availableColumns.map((c) => [c.id, c]));
-    const orderedCols: Array<{ id: string; label: string; sortField?: string }> = [];
-
-    // Add 'name' first if available
-    const nameCol = availableMap.get("name");
-    if (nameCol) {
-      orderedCols.push(nameCol);
-    }
-
-    // Add remaining columns from idsToUse that are actually available
-    idsToUse.forEach((id) => {
-      if (id === "name") return;
-      const col = availableMap.get(id);
-      if (col && !orderedCols.some((c) => c.id === id)) {
-        orderedCols.push(col);
-      }
-    });
-
-    return orderedCols;
-  }, [visibleColumnIds, availableColumns]);
+  const uiStrings = useMemo(() => {
+    return getContactUiStrings(settings.language, fieldConfig.uiStrings);
+  }, [settings.language, fieldConfig.uiStrings]);
 
   /**
    * Returns true if a specific field inside a tab is enabled.
-   * Fields with `alwaysOn: true` are always considered enabled.
    *
    * @param {string} tabId - Tab identifier.
    * @param {string} fieldId - Field identifier.
@@ -597,17 +592,14 @@ export function ContactConfigProvider({ children }: { children: ReactNode }) {
    */
   const isTabFieldEnabled = useCallback(
     (tabId: string, fieldId: string) => {
-      const def = (TAB_FIELD_DEFINITIONS[tabId] || []).find((f) => f.id === fieldId);
-      if (def?.alwaysOn) return true;
-      return (tabFieldConfig[tabId]?.enabled || []).includes(fieldId);
+      const field = (fields[tabId] || []).find((f) => f.key === fieldId);
+      return field?.enabled ?? false;
     },
-    [tabFieldConfig]
+    [fields]
   );
 
   /**
    * Returns true if a specific field inside a tab is required.
-   * Uses the explicit `alwaysRequired` flag — decoupled from `alwaysOn`
-   * so a field can be always visible but not always mandatory.
    *
    * @param {string} tabId - Tab identifier.
    * @param {string} fieldId - Field identifier.
@@ -615,12 +607,137 @@ export function ContactConfigProvider({ children }: { children: ReactNode }) {
    */
   const isTabFieldRequired = useCallback(
     (tabId: string, fieldId: string) => {
-      const def = (TAB_FIELD_DEFINITIONS[tabId] || []).find((f) => f.id === fieldId);
-      if (def?.alwaysRequired) return true;
-      return (tabFieldConfig[tabId]?.required || []).includes(fieldId);
+      const field = (fields[tabId] || []).find((f) => f.key === fieldId);
+      return field?.required ?? false;
     },
-    [tabFieldConfig]
+    [fields]
   );
+
+  const defaultValueFor = useCallback((tabId: string, fieldId: string) => {
+    const field = (fields[tabId] || []).find((f) => f.key === fieldId);
+    return field?.defaultValue;
+  }, [fields]);
+
+  const columnRegistry = useMemo(() => {
+    const registry = [...(fieldConfig.columnRegistry || [])];
+    
+    // Find all active fields across all enabled tabs in the registry
+    const activeFields: Array<{ tabId: string; field: FieldDefinition }> = [];
+    Object.entries(fields).forEach(([tabId, tabFields]) => {
+      const tabEnabled = tabId === "basic" || enabledTabIds.has(tabId);
+      if (tabEnabled) {
+        (tabFields || []).forEach((f) => {
+          if (f.enabled) {
+            activeFields.push({ tabId, field: f });
+          }
+        });
+      }
+    });
+
+    // 1. Filter out columns from registry that don't match active tabs/fields
+    const filteredRegistry = registry.filter((c) => {
+      if (c.key === "name") {
+        return isTabFieldEnabled("basic", "firstName");
+      }
+      if (c.key === "profileHealth") {
+        return true;
+      }
+      if (c.key === "phone") {
+        return enabledTabIds.has("phones") && isTabFieldEnabled("phones", "number");
+      }
+      if (c.key === "whatsapp") {
+        return enabledTabIds.has("phones") && isTabFieldEnabled("phones", "whatsapp");
+      }
+      if (c.key === "email") {
+        return enabledTabIds.has("emails") && isTabFieldEnabled("emails", "address");
+      }
+      if (c.key === "city") {
+        return enabledTabIds.has("addresses") && isTabFieldEnabled("addresses", "city");
+      }
+      if (c.key === "state") {
+        return enabledTabIds.has("addresses") && isTabFieldEnabled("addresses", "state");
+      }
+      if (c.key === "country") {
+        return enabledTabIds.has("addresses") && isTabFieldEnabled("addresses", "country");
+      }
+      if (c.key === "line1") {
+        return enabledTabIds.has("addresses") && isTabFieldEnabled("addresses", "line1");
+      }
+      if (c.key === "gender") {
+        return isTabFieldEnabled("basic", "gender");
+      }
+      if (c.key === "dob") {
+        return isTabFieldEnabled("basic", "dob");
+      }
+      if (c.key === "lifecycleStage") {
+        return isTabFieldEnabled("basic", "lifecycleStage");
+      }
+      if (c.key === "rating") {
+        return isTabFieldEnabled("basic", "rating");
+      }
+      if (c.key === "isSyed") {
+        return isTabFieldEnabled("basic", "isSyed");
+      }
+      if (c.key === "socials_platform") {
+        return enabledTabIds.has("socials") && isTabFieldEnabled("socials", "platform");
+      }
+      if (c.key === "socials_url") {
+        return enabledTabIds.has("socials") && isTabFieldEnabled("socials", "url");
+      }
+      if (c.key === "emergency_contact") {
+        return enabledTabIds.has("emergency") && isTabFieldEnabled("emergency", "contactId");
+      }
+      if (c.key === "emergency_relationship") {
+        return enabledTabIds.has("emergency") && isTabFieldEnabled("emergency", "relationship");
+      }
+
+      // Check if the field is defined and enabled in active fields
+      return activeFields.some((af) => af.field.key === c.key);
+    });
+
+    // 2. Add columns for any active fields that aren't in the registry yet
+    const existingKeys = new Set(filteredRegistry.map((c) => c.key));
+    const specialKeys = new Set([
+      "firstName", "lastName", "avatar", "number", "address", "line1", "city",
+      "state", "country", "label", "platform", "url", "contactId", "relationship"
+    ]);
+
+    activeFields.forEach((af) => {
+      const fieldKey = af.field.key;
+      if (!specialKeys.has(fieldKey) && !existingKeys.has(fieldKey)) {
+        const maxOrder = filteredRegistry.reduce((max, c) => Math.max(max, c.order), -1);
+        filteredRegistry.push({
+          key: fieldKey,
+          label: af.field.label,
+          enabled: false,
+          order: maxOrder + 1,
+          sortable: true
+        });
+      }
+    });
+
+    return filteredRegistry;
+  }, [fieldConfig.columnRegistry, fields, enabledTabIds, isTabFieldEnabled]);
+
+  const availableColumns = useMemo(() => {
+    return columnRegistry.map(c => ({ id: c.key, label: c.label, sortField: c.sortField }));
+  }, [columnRegistry]);
+
+  const visibleColumns = useMemo(() => {
+    return columnRegistry
+      .filter(c => c.enabled)
+      .sort((a, b) => a.order - b.order)
+      .map(c => ({ id: c.key, label: c.label, sortField: c.sortField }));
+  }, [columnRegistry]);
+
+  const systemSortOptions = useMemo<Array<{ field: string; label: string }>>(() => [
+    { field: "createdAt", label: uiStrings.dateAdded || "Date Added" },
+    { field: "updatedAt", label: uiStrings.lastUpdated || "Last Updated" },
+  ], [uiStrings]);
+
+  const defaultContactRating = fieldConfig.defaultRating ?? 3;
+
+
 
   return (
     <ContactConfigContext.Provider
@@ -630,22 +747,20 @@ export function ContactConfigProvider({ children }: { children: ReactNode }) {
         updateConfig,
         updatePrefs,
 
-        activePersonaId,
-        setActivePersonaId,
-        getPersona,
-
         enabledTabIds,
         requiredTabIds,
-        tabFieldConfig,
-        tabCustomFields,
+        fields,
         isTabFieldEnabled,
         isTabFieldRequired,
+        defaultValueFor,
 
         // Dynamic Collections
         genders,
         socialPlatforms,
         relationships,
         lifecycleStages,
+        lifecycleColors,
+        whatsappTemplates,
         phoneLabels,
         emailLabels,
         addressLabels,
@@ -655,6 +770,7 @@ export function ContactConfigProvider({ children }: { children: ReactNode }) {
         countryCodesMap,
 
         // Dynamic Columns
+        columnRegistry,
         availableColumns,
         visibleColumns,
 
@@ -663,11 +779,18 @@ export function ContactConfigProvider({ children }: { children: ReactNode }) {
         updateSocialPlatforms,
         updateRelationships,
         updateLifecycleStages,
+        updateLifecycleColors,
+        updateWhatsappTemplates,
         updatePhoneLabels,
         updateEmailLabels,
         updateAddressLabels,
         updateCountryCodes,
         updateVisibleColumns,
+        updateColumnRegistry,
+        updateUiStrings,
+        systemSortOptions,
+        defaultContactRating,
+        uiStrings,
       }}
     >
       {children}
@@ -709,9 +832,8 @@ export function useContactColumns(): Array<{ id: string; label: string; sortFiel
  * @returns {boolean}
  */
 function isTabFieldRequired(config: FieldConfig, tabId: string, fieldId: string): boolean {
-  const def = (TAB_FIELD_DEFINITIONS[tabId] || []).find((f) => f.id === fieldId);
-  if (def?.alwaysRequired) return true;
-  return (config.tabFieldConfig?.[tabId]?.required || []).includes(fieldId);
+  const field = (config.fields?.[tabId] || []).find((f) => f.key === fieldId);
+  return field?.required ?? false;
 }
 
 /**
@@ -720,7 +842,7 @@ function isTabFieldRequired(config: FieldConfig, tabId: string, fieldId: string)
  * @param {CustomField} cf - The custom field configuration.
  * @returns {z.ZodTypeAny} The compiled Zod validator.
  */
-export function buildCustomFieldSchema(cf: CustomField): z.ZodTypeAny {
+export function buildCustomFieldSchema(cf: FieldDefinition): z.ZodTypeAny {
   let baseSchema: z.ZodTypeAny;
 
   switch (cf.type) {
@@ -794,12 +916,15 @@ export function buildCustomFieldSchema(cf: CustomField): z.ZodTypeAny {
       break;
     }
     case "file": {
-      baseSchema = z.object({
-        name: z.string(),
-        url: z.string(),
-        size: z.number().optional(),
-        type: z.string().optional()
-      });
+      baseSchema = z.union([
+        z.string(),
+        z.object({
+          name: z.string(),
+          url: z.string(),
+          size: z.number().optional(),
+          type: z.string().optional()
+        })
+      ]);
       break;
     }
     case "location": {
@@ -869,55 +994,13 @@ export function buildDynamicContactSchema(
   config: FieldConfig,
   enabledTabIds: Set<string>,
   requiredTabIds: Set<string>,
-  tabCustomFields: Record<string, CustomField[]>
+  fields: Record<string, FieldDefinition[]>
 ): z.ZodTypeAny {
   const schemaObject: Record<string, z.ZodTypeAny> = {};
 
-  // 1. Basic Fields on 'basic' tab
-  // First name is always required
-  schemaObject.firstName = z.string().refine((val) => val.trim() !== "", {
-    message: "First name is required.",
-  });
+  // Standard top-level metadata fields
+  schemaObject.id = z.union([z.string(), z.number()]).optional();
 
-  schemaObject.personaId = z.string().optional().nullable();
-
-  const basicFieldsToCheck = ["gender", "dob", "isSyed", "lastName", "avatar", "lifecycleStage", "rating"];
-  basicFieldsToCheck.forEach((fieldId) => {
-    const isRequired = isTabFieldRequired(config, "basic", fieldId);
-    const def = (TAB_FIELD_DEFINITIONS.basic || []).find((f) => f.id === fieldId);
-    const label = def?.label ?? (fieldId.charAt(0).toUpperCase() + fieldId.slice(1));
-
-    let fieldSchema: z.ZodTypeAny;
-    if (fieldId === "isSyed") {
-      fieldSchema = z.boolean().optional().nullable();
-      if (isRequired) {
-        fieldSchema = fieldSchema.refine((val) => val === true, {
-          message: `${label} is required.`,
-        });
-      }
-    } else if (fieldId === "rating") {
-      // Rating is numeric (1-5) or empty string (coerced)
-      fieldSchema = z.preprocess((val) => {
-        if (val === "" || val === null || val === undefined) return undefined;
-        return Number(val);
-      }, z.number().min(1).max(5).optional());
-      if (isRequired) {
-        fieldSchema = fieldSchema.refine((val) => val !== null && val !== undefined && !isNaN(Number(val)), {
-          message: `${label} is required.`,
-        });
-      }
-    } else {
-      fieldSchema = z.string().optional().nullable();
-      if (isRequired) {
-        fieldSchema = fieldSchema.refine((val) => val !== null && val !== undefined && String(val).trim() !== "", {
-          message: `${label} is required.`,
-        });
-      }
-    }
-    schemaObject[fieldId] = fieldSchema;
-  });
-
-  // CRM Relationships & Activities
   schemaObject.relationships = z.array(z.object({
     contactId: z.union([z.string(), z.number()]),
     type: z.string()
@@ -925,97 +1008,12 @@ export function buildDynamicContactSchema(
 
   schemaObject.activities = z.array(z.object({
     id: z.string(),
-    type: z.enum(["note", "stage_change", "whatsapp", "email", "system"]),
+    type: z.enum(["note", "stage_change", "whatsapp", "email", "system", "task", "call"]),
     content: z.string(),
     date: z.string(),
     by: z.string().optional()
   })).optional().nullable();
 
-  // 2. Phone validation
-  const phoneSchema = z.object({
-    label: z.string().optional(),
-    number: z.string().refine((val) => val.trim() !== "", {
-      message: "number cannot be empty.",
-    }),
-    whatsapp: z.boolean().optional(),
-    countryCode: z.string().optional(),
-  });
-  let phonesSchema: z.ZodTypeAny = z.array(phoneSchema).optional().nullable();
-  if (requiredTabIds.has("phones")) {
-    phonesSchema = z.array(phoneSchema).min(1, "At least one phone number is required.");
-  }
-  schemaObject.phones = phonesSchema;
-
-  // 3. Email validation
-  const emailSchema = z.object({
-    label: z.string().optional(),
-    address: z.string()
-      .refine((val) => val.trim() !== "", {
-        message: "address cannot be empty.",
-      })
-      .refine((val) => EMAIL_RE.test(val.trim()), {
-        message: "isNotValidEmail",
-      }),
-  });
-  let emailsSchema: z.ZodTypeAny = z.array(emailSchema).optional().nullable();
-  if (requiredTabIds.has("emails")) {
-    emailsSchema = z.array(emailSchema).min(1, "At least one email address is required.");
-  }
-  schemaObject.emails = emailsSchema;
-
-  // 4. Address validation
-  const addressSchema = z.object({
-    line1: z.string().optional().nullable(),
-    city: z.string().optional().nullable(),
-    state: z.string().optional().nullable(),
-    country: z.string().optional().nullable(),
-  });
-  let addressesSchema: z.ZodTypeAny = z.array(addressSchema).optional().nullable();
-  if (requiredTabIds.has("addresses")) {
-    addressesSchema = z.array(addressSchema).min(1, "At least one address is required.");
-  }
-  schemaObject.addresses = addressesSchema;
-
-  // 5. Emergency validation
-  const emergencyContactSchema = z.object({
-    name: z.string().optional().nullable(),
-    relationship: z.string().optional().nullable(),
-    phone: z.string().optional().nullable(),
-    contactId: z.union([z.string(), z.number()]).optional().nullable(),
-  });
-  let emergencySchema: z.ZodTypeAny = z.array(emergencyContactSchema).optional().nullable();
-  if (requiredTabIds.has("emergency")) {
-    emergencySchema = z.array(emergencyContactSchema).min(1, "At least one emergency contact is required.");
-  }
-  schemaObject.emergencyContacts = emergencySchema;
-
-  // 6. Social link validation
-  const socialLinkSchema = z.object({
-    platform: z.string().optional().nullable(),
-    url: z.string().optional().nullable(),
-  });
-  let socialsSchema: z.ZodTypeAny = z.array(socialLinkSchema).optional().nullable();
-  if (requiredTabIds.has("socials")) {
-    socialsSchema = z.array(socialLinkSchema).min(1, "At least one social link is required.");
-  }
-  schemaObject.socials = socialsSchema;
-
-  // 7. Custom fields
-  const allCustomFields: CustomField[] = [];
-  if (config.customFields) {
-    allCustomFields.push(...config.customFields);
-  }
-  
-  enabledTabIds.forEach((tabId) => {
-    const fields = tabCustomFields[tabId] || [];
-    fields.forEach((field) => {
-      if (!allCustomFields.some((f) => f.id === field.id)) {
-        allCustomFields.push(field);
-      }
-    });
-  });
-
-  // Attachments
   schemaObject.attachments = z.array(z.object({
     id: z.string(),
     name: z.string(),
@@ -1025,60 +1023,112 @@ export function buildDynamicContactSchema(
     date: z.string()
   })).optional().nullable();
 
-  allCustomFields.forEach((cf) => {
-    schemaObject[cf.id] = buildCustomFieldSchema(cf);
+  // 1. Basic Fields on 'basic' tab (top-level properties of Contact)
+  const basicFields = (fields.basic || []).filter((f) => f.enabled);
+  basicFields.forEach((field) => {
+    schemaObject[field.key] = buildCustomFieldSchema(field);
+  });
+
+  // 2. List Tabs (nested array properties of Contact)
+  const listTabsMapping: Record<string, string> = {
+    phones: "phones",
+    emails: "emails",
+    addresses: "addresses",
+    socials: "socials",
+    emergency: "emergencyContacts",
+  };
+
+  const uiStrings = {
+    ...DEFAULT_UI_STRINGS,
+    ...(config.uiStrings || {}),
+  };
+
+  Object.entries(listTabsMapping).forEach(([tabId, propKey]) => {
+    if (!enabledTabIds.has(tabId)) {
+      return;
+    }
+    const tabFields = (fields[tabId] || []).filter((f) => f.enabled);
+    
+    // Build Zod object schema for the items in the list dynamically
+    const itemSchemaObject: Record<string, z.ZodTypeAny> = {};
+    tabFields.forEach((field) => {
+      itemSchemaObject[field.key] = buildCustomFieldSchema(field);
+    });
+    
+    const itemSchema = z.object(itemSchemaObject);
+    
+    let arraySchema: z.ZodTypeAny = z.array(itemSchema).optional().nullable();
+    if (requiredTabIds.has(tabId)) {
+      const label = uiStrings[`atLeastOne${tabId.charAt(0).toUpperCase() + tabId.slice(1)}Required`] || `At least one entry is required.`;
+      arraySchema = z.array(itemSchema).min(1, label);
+    }
+    schemaObject[propKey] = arraySchema;
   });
 
   return z.object(schemaObject).passthrough();
 }
 
+export interface ValidationError {
+  fieldId: string;
+  tabId: string;
+  message: string;
+}
+
 /**
- * Translates Zod validation errors into a human-readable list of strings
- * that matches the format expected by the legacy form layout.
+ * Translates Zod validation errors into a human-readable list of structured error objects.
  *
  * @param {z.ZodError} error - The Zod validation error.
  * @param {unknown} data - The input data being validated.
- * @returns {string[]} An array of error strings.
+ * @param {Record<string, CustomField[]>} tabCustomFields - Custom fields by tab to map top-level errors.
+ * @returns {ValidationError[]} An array of validation errors.
  */
-export function formatZodIssues(error: z.ZodError, data: unknown): string[] {
-  const errors: string[] = [];
+export function formatZodIssues(error: z.ZodError, data: unknown, fields: Record<string, FieldDefinition[]>): ValidationError[] {
+  const errors: ValidationError[] = [];
   error.issues.forEach((issue) => {
     const path = issue.path;
     const message = issue.message;
 
-    // Handle nested phone entries
-    if (path[0] === "phones" && typeof path[1] === "number") {
+    const listTabKeys = ["phones", "emails", "addresses", "socials", "emergencyContacts"];
+    if (listTabKeys.includes(path[0] as string) && typeof path[1] === "number") {
+      const arrayName = path[0] as string;
       const idx = path[1];
-      const field = path[2];
-      if (field === "number") {
-        errors.push(`Phone #${idx + 1}: number cannot be empty.`);
-      } else {
-        errors.push(`Phone #${idx + 1}: ${message}`);
-      }
-    }
-    // Handle nested email entries
-    else if (path[0] === "emails" && typeof path[1] === "number") {
-      const idx = path[1];
-      const field = path[2];
-      let val = "";
-      if (data && typeof data === "object") {
-        const emailsArr = (data as Record<string, unknown>).emails;
-        if (Array.isArray(emailsArr) && emailsArr[idx]) {
-          const emailObj = emailsArr[idx] as Record<string, unknown> | undefined;
-          val = String(emailObj?.address || "");
+      const fieldId = path[2] as string;
+      
+      const tabIdMap: Record<string, string> = {
+        phones: "phones",
+        emails: "emails",
+        addresses: "addresses",
+        socials: "socials",
+        emergencyContacts: "emergency",
+      };
+      const prefixMap: Record<string, string> = {
+        phones: "Phone",
+        emails: "Email",
+        addresses: "Address",
+        socials: "Social Link",
+        emergencyContacts: "Emergency Contact",
+      };
+      
+      const tabId = tabIdMap[arrayName];
+      const prefix = prefixMap[arrayName];
+      
+      errors.push({
+        fieldId,
+        tabId,
+        message: `${prefix} #${idx + 1}: ${message}`,
+      });
+    } else {
+      const fieldId = path[0] as string;
+      let tabId = "basic";
+      
+      for (const [tId, tabFields] of Object.entries(fields)) {
+        if (tabFields.some(f => f.key === fieldId)) {
+          tabId = tId;
+          break;
         }
       }
-      if (message === "isNotValidEmail") {
-        errors.push(`Email #${idx + 1}: "${val}" is not a valid email address.`);
-      } else if (field === "address" && message.includes("cannot be empty")) {
-        errors.push(`Email #${idx + 1}: address cannot be empty.`);
-      } else {
-        errors.push(`Email #${idx + 1}: ${message}`);
-      }
-    }
-    // Standard top-level errors (including custom fields)
-    else {
-      errors.push(message);
+      
+      errors.push({ fieldId, tabId, message });
     }
   });
   return errors;
@@ -1087,20 +1137,20 @@ export function formatZodIssues(error: z.ZodError, data: unknown): string[] {
 /**
  * Hook to perform dynamic contact validation against the active field configuration.
  *
- * @returns {(data: unknown) => string[]} A function that takes contact data and returns an array of error messages.
+ * @returns {(data: unknown) => ValidationError[]} A function that takes contact data and returns an array of validation errors.
  */
 export function useContactValidation() {
-  const { fieldConfig, enabledTabIds, requiredTabIds, tabCustomFields } = useContactConfig();
+  const { fieldConfig, enabledTabIds, requiredTabIds, fields } = useContactConfig();
 
   return useCallback(
-    (data: unknown) => {
-      const schema = buildDynamicContactSchema(fieldConfig, enabledTabIds, requiredTabIds, tabCustomFields);
+    (data: unknown): ValidationError[] => {
+      const schema = buildDynamicContactSchema(fieldConfig, enabledTabIds, requiredTabIds, fields);
       const result = schema.safeParse(data);
       if (result.success) {
         return [];
       }
-      return formatZodIssues(result.error, data);
+      return formatZodIssues(result.error, data, fields);
     },
-    [fieldConfig, enabledTabIds, requiredTabIds, tabCustomFields]
+    [fieldConfig, enabledTabIds, requiredTabIds, fields]
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useBrandedDashboardChartColors } from "@/hooks/useBrandedDashboardChartColors";
 import {
   ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, TooltipContentProps, TooltipPayloadEntry,
@@ -27,28 +28,13 @@ const CustomTooltip = ({ active = false, payload = [], label = "" }: Partial<Too
   );
 };
 
-interface ThemeColors {
-  revenue: string;
-  expenses: string;
-  fillOpacityRevenue: number;
-  fillOpacityExpenses: number;
-}
-
-const COLOR_THEMES: Record<string, ThemeColors> = {
-  mixed:   { revenue: "#047857", expenses: "#7C3AED", fillOpacityRevenue: 0.85, fillOpacityExpenses: 0.70 },
-  emerald: { revenue: "#059669", expenses: "#34d399", fillOpacityRevenue: 0.85, fillOpacityExpenses: 0.50 },
-  violet:  { revenue: "#7c3aed", expenses: "#a78bfa", fillOpacityRevenue: 0.85, fillOpacityExpenses: 0.50 },
-  blue:    { revenue: "#2563eb", expenses: "#60a5fa", fillOpacityRevenue: 0.85, fillOpacityExpenses: 0.50 },
-  amber:   { revenue: "#d97706", expenses: "#fbbf24", fillOpacityRevenue: 0.85, fillOpacityExpenses: 0.50 },
-  red:     { revenue: "#dc2626", expenses: "#f87171", fillOpacityRevenue: 0.85, fillOpacityExpenses: 0.50 }
-};
-
 /**
  * Revenue Chart component.
  * Displays financial revenue and expenses over a selected period.
  * @returns {React.ReactElement}
  */
 export default function RevenueChart({ isEditMode = false }: { isEditMode?: boolean }) {
+  const { revenue: COLOR_THEMES } = useBrandedDashboardChartColors();
   const [period, setPeriod] = useState<"6m" | "10m">("10m");
   const invoices = getCollection<Invoice>("finance_invoices", INVOICES);
 

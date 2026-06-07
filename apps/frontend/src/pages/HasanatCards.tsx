@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
+import useTranslation from "@/hooks/useTranslation";
+import useModuleTierTabs from "@/hooks/useModuleTierTabs";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, Star, Package, Send, Gift, Settings, BarChart2, Layers, RotateCcw, TrendingUp } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
+import ResponsiveAccordionTabs from "@/components/ui/ResponsiveAccordionTabs";
+import SubTabBar from "@/components/ui/SubTabBar";
+import useConfigSubTabs from "@/hooks/useConfigSubTabs";
 import HasanatDashboard from "../components/hasanat/HasanatDashboard";
 import DenominationsManager from "../components/hasanat/DenominationsManager";
 import StockManager from "../components/hasanat/StockManager";
@@ -11,13 +16,8 @@ import HasanatSettings from "../components/hasanat/HasanatSettings";
 import ModuleReports from "../components/reports/ModuleReports";
 import KPISummary from "../components/reports/KPISummary";
 import { DENOMINATIONS, STOCK_BATCHES, DISTRIBUTIONS, Denomination, StockBatch, Distribution } from "../lib/hasanatData";
-import { getCollection, saveCollection } from "../lib/db";
-
-const PAGE_TABS = [
-  { id: "operations",    label: "Operations",    icon: LayoutDashboard },
-  { id: "analytics",     label: "Analytics",     icon: BarChart2 },
-  { id: "configuration", label: "Configuration", icon: Settings },
-];
+import { saveCollection } from "../lib/db";
+import { useLiveCollection } from "../hooks/useLiveCollection";
 
 const SUB_TABS = [
   { id: "overview",    label: "Overview",     icon: LayoutDashboard },
@@ -33,24 +33,22 @@ const SUB_TABS = [
  * @returns {React.ReactElement} The HasanatCards page component.
  */
 export default function HasanatCards() {
+  const PAGE_TABS = useModuleTierTabs();
+  const configSubTabs = useConfigSubTabs();
+  const { t } = useTranslation();
+  const HASANAT_CONFIG_TABS = useMemo(
+    () => [
+      { id: "denominations" as const, label: t("hasanat.denominations") },
+      ...configSubTabs.map((tab) => ({ id: tab.id as "fields" | "preferences", label: tab.label })),
+    ],
+    [configSubTabs, t],
+  );
   const [activeTab, setActiveTab] = useState("operations");
   const [activeSubTab, setActiveSubTab] = useState("overview");
   const [configSubTab, setConfigSubTab] = useState<"denominations" | "fields" | "preferences">("denominations");
-  const [denoms, setDenoms] = useState<Denomination[]>(() => getCollection("hasanat_denoms", DENOMINATIONS));
-  const [batches, setBatches] = useState<StockBatch[]>(() => getCollection("hasanat_batches", STOCK_BATCHES));
-  const [distributions, setDistributions] = useState<Distribution[]>(() => getCollection("hasanat_distributions", DISTRIBUTIONS));
-
-  useEffect(() => {
-    saveCollection("hasanat_denoms", denoms);
-  }, [denoms]);
-
-  useEffect(() => {
-    saveCollection("hasanat_batches", batches);
-  }, [batches]);
-
-  useEffect(() => {
-    saveCollection("hasanat_distributions", distributions);
-  }, [distributions]);
+  const denoms = useLiveCollection("hasanat_denoms", DENOMINATIONS);
+  const batches = useLiveCollection("hasanat_batches", STOCK_BATCHES);
+  const distributions = useLiveCollection("hasanat_distributions", DISTRIBUTIONS);
 
   const totalStock = batches.reduce((s, b) => s + b.quantity, 0);
   const totalRemaining = batches.reduce((s, b) => s + b.remaining, 0);
@@ -77,51 +75,23 @@ export default function HasanatCards() {
       <meta name="description" content="Configure reward points, manage card stock distribution, and trace card redemption logs." />
       <PageHeader
         icon={Star}
-        title="Hasanat Cards"
-        subtitle="Manage card denominations, stock, distribution and redemptions"
+        title={t("nav.hasanatCards")}
+        subtitle={t("page.hasanat.subtitle")}
       />
 
-      <div className="space-y-4">
-        <KPISummary category="hasanat" />
-      </div>
-
-      {/* Primary Tabs */}
-      <div className="flex border-b border-border overflow-x-auto">
-        {PAGE_TABS.map((t) => {
-          const Icon = t.icon;
-          const active = effectiveTab === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={`flex items-center gap-1.5 px-4 py-3 text-[13px] font-semibold whitespace-nowrap border-b-2 transition-all ${
-                active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />{t.label}
-            </button>
-          );
-        })}
-      </div>
-
+      <ResponsiveAccordionTabs
+        tabs={PAGE_TABS}
+        activeTab={effectiveTab}
+        onTabChange={setActiveTab}
+        panelIdPrefix="hasanat-tab"
+      >
       {/* Sub-tabs for Operations */}
       {effectiveTab === "operations" && (
-        <div className="flex gap-1.5 p-1 bg-muted/60 rounded-xl w-fit border border-border/30 overflow-x-auto max-w-full">
-          {SUB_TABS.map((t) => {
-            const active = effectiveSubTab === t.id;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setActiveSubTab(t.id)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                  active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
+        <SubTabBar
+          tabs={SUB_TABS.map((tab) => ({ key: tab.id, label: tab.label }))}
+          value={effectiveSubTab}
+          onChange={setActiveSubTab}
+        />
       )}
 
       {/* Content */}
@@ -134,50 +104,32 @@ export default function HasanatCards() {
           transition={{ duration: 0.2 }}
           className="space-y-4"
         >
-          {effectiveTab === "analytics" && <ModuleReports category="hasanat" />}
+          {effectiveTab === "analytics" && (
+            <div className="space-y-4">
+              <KPISummary category="hasanat" />
+              <ModuleReports category="hasanat" />
+            </div>
+          )}
           {effectiveTab === "configuration" && (
             <div className="space-y-4">
-              <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit border border-border/30">
-                <button
-                  type="button"
-                  onClick={() => setConfigSubTab("denominations")}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    configSubTab === "denominations" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Denominations
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfigSubTab("fields")}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    configSubTab === "fields" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Fields
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfigSubTab("preferences")}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    configSubTab === "preferences" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Preferences
-                </button>
-              </div>
-              {configSubTab === "denominations" && <DenominationsManager denoms={denoms} onUpdate={setDenoms} />}
+              <SubTabBar
+                tabs={HASANAT_CONFIG_TABS.map((tab) => ({ key: tab.id, label: tab.label }))}
+                value={configSubTab}
+                onChange={(key) => setConfigSubTab(key as typeof configSubTab)}
+              />
+              {configSubTab === "denominations" && <DenominationsManager denoms={denoms} onUpdate={(d) => saveCollection("hasanat_denoms", d)} />}
               {configSubTab === "fields" && <HasanatSettings mode="fields" />}
               {configSubTab === "preferences" && <HasanatSettings mode="preferences" />}
             </div>
           )}
           
           {effectiveTab === "operations" && effectiveSubTab === "overview"     && <HasanatDashboard />}
-          {effectiveTab === "operations" && effectiveSubTab === "stock"         && <StockManager batches={batches} denoms={denoms} onUpdate={setBatches} />}
-          {effectiveTab === "operations" && effectiveSubTab === "distribute"    && <DistributionManager distributions={distributions} denoms={denoms} batches={batches} onUpdate={setDistributions} />}
-          {effectiveTab === "operations" && effectiveSubTab === "redemptions"   && <RedemptionTracker distributions={distributions} onUpdateDistributions={setDistributions} />}
+          {effectiveTab === "operations" && effectiveSubTab === "stock"         && <StockManager batches={batches} denoms={denoms} onUpdate={(b) => saveCollection("hasanat_batches", b)} />}
+          {effectiveTab === "operations" && effectiveSubTab === "distribute"    && <DistributionManager distributions={distributions} denoms={denoms} batches={batches} onUpdate={(d) => saveCollection("hasanat_distributions", d)} />}
+          {effectiveTab === "operations" && effectiveSubTab === "redemptions"   && <RedemptionTracker distributions={distributions} onUpdateDistributions={(d) => saveCollection("hasanat_distributions", d)} />}
         </motion.div>
       </AnimatePresence>
+      </ResponsiveAccordionTabs>
     </div>
   );
 }

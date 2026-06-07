@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
+import { DEFAULT_GLOBAL_SETTINGS, getPasswordPolicyHint } from "@mms/shared";
 import { OnboardingData } from "../OnboardingWizard";
 
 /** The subset of onboarding data used by this step. */
@@ -107,7 +108,11 @@ export default function AdminSetup({ data, onChange }: AdminSetupProps) {
       </FieldRow>
 
       {/* Password */}
-      <FieldRow label="Password" required hint="Min. 8 characters with uppercase, number & symbol">
+      <FieldRow
+        label="Password"
+        required
+        hint={getPasswordPolicyHint(DEFAULT_GLOBAL_SETTINGS.passwordPolicy)}
+      >
         <div className="relative">
           <input
             type={showPw ? "text" : "password"}

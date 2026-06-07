@@ -86,7 +86,7 @@ export default function Step6Confirmation({
 
   const orderedFields = React.useMemo(() => {
     return getSortedFields(DEFAULT_ENROLLMENTS_FIELD_DEFS, fieldOrder, fields, customFields)
-      .filter((f) => f.id === "notes" || f.isCustom);
+      .filter((f) => !["studentId", "sessionId", "classId"].includes(f.id));
   }, [fieldOrder, fields, customFields]);
 
   return (
@@ -131,7 +131,7 @@ export default function Step6Confirmation({
       {/* Dynamic Render Notes & Custom Fields */}
       <div className="space-y-4">
         {orderedFields.map((field) => {
-          const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled !== false);
+          const isEnabled = fields[field.id]?.enabled !== false;
           if (!isEnabled) return null;
 
           if (field.id === "notes") {
@@ -153,7 +153,7 @@ export default function Step6Confirmation({
             );
           }
 
-          if (field.isCustom) {
+          if (!["studentId", "sessionId", "classId", "notes"].includes(field.id)) {
             const val = customFieldValues[field.id] ?? "";
             return (
               <div key={field.id}>

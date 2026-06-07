@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Bell, AlertTriangle, Calendar, User, DollarSign, X, ChevronRight } from "lucide-react";
 import { notifications as defaultNotifications, UserRole } from "../../lib/dashboardData";
 import { getObject } from "../../lib/db";
+import useTranslation from "@/hooks/useTranslation";
 
 interface NotificationItem {
   id: string | number;
@@ -33,7 +34,8 @@ const ICONS: Record<string, { icon: React.ElementType; bg: string; text: string 
  * @param {NotificationsPanelProps} props - The component properties.
  * @returns {React.ReactElement} The notifications panel widget.
  */
-export default function NotificationsPanel({ role }: NotificationsPanelProps) {
+export default function NotificationsPanel({ role }: NotificationsPanelProps): React.JSX.Element {
+  const { t } = useTranslation();
   let items: NotificationItem[] = [];
   try {
     const notifications = getObject("dashboard_notifications", defaultNotifications);
@@ -53,10 +55,10 @@ export default function NotificationsPanel({ role }: NotificationsPanelProps) {
       <header className="px-5 py-4 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <Bell className="w-4 h-4 text-foreground" aria-hidden="true" />
-          <h3 id="notifications-heading" className="text-sm font-semibold text-foreground m-0">Notifications</h3>
+          <h3 id="notifications-heading" className="text-sm font-semibold text-foreground m-0">{t("notifications.title")}</h3>
           {urgent > 0 && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive" aria-label={`${urgent} urgent notifications`}>
-              {urgent} urgent
+              {urgent} {t("notifications.urgent")}
             </span>
           )}
         </div>
@@ -66,7 +68,7 @@ export default function NotificationsPanel({ role }: NotificationsPanelProps) {
             className="text-[11px] text-primary font-medium hover:underline"
             aria-label="Restore all dismissed notifications"
           >
-            Restore all
+            {t("notifications.restoreAll")}
           </button>
         )}
       </header>
@@ -75,7 +77,7 @@ export default function NotificationsPanel({ role }: NotificationsPanelProps) {
         <AnimatePresence initial={false}>
           {visible.length === 0 ? (
             <div className="py-10 text-center">
-              <p className="text-sm text-muted-foreground m-0">All clear — no notifications</p>
+              <p className="text-sm text-muted-foreground m-0">{t("notifications.empty")}</p>
             </div>
           ) : (
             visible.map((notif) => {
@@ -125,7 +127,7 @@ export default function NotificationsPanel({ role }: NotificationsPanelProps) {
 
       <footer className="px-5 py-3 border-t border-border">
         <button className="text-xs text-primary font-medium hover:underline flex items-center gap-1">
-          View all notifications <ChevronRight className="w-3 h-3" aria-hidden="true" />
+          {t("notifications.viewAll")} <ChevronRight className="w-3 h-3" aria-hidden="true" />
         </button>
       </footer>
     </section>

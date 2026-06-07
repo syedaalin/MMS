@@ -106,13 +106,13 @@ export default function ExaminationsSettings({ mode }: ExaminationsSettingsProps
 
   const handleCustomFieldsChange = (newFields: CustomFieldConfig[]) => {
     const coreIds = DEFAULT_EXAMINATIONS_FIELD_DEFS.map(f => f.id);
-    const newIds = newFields.map(f => f.id);
+    const newIds = newFields.map(f => f.key);
     const kept = fieldOrder.filter((id) => coreIds.includes(id) || newIds.includes(id));
     const added = newIds.filter((id) => !kept.includes(id));
 
     setData((d) => ({
       ...d,
-      customFields: newFields as unknown as ModuleCustomField[],
+      customFields: newFields.map(f => ({ ...f, id: f.key })) as unknown as ModuleCustomField[],
       fieldOrder: [...kept, ...added]
     }));
     setSaved(false);
@@ -188,7 +188,6 @@ export default function ExaminationsSettings({ mode }: ExaminationsSettingsProps
             <Toggle label="Allow Exam Retakes" description="Students can retake failed exams" value={data.allowRetake} onChange={(v) => upd("allowRetake", v)} />
             <Toggle label="Auto-publish Results" description="Results visible to students immediately after grading" value={data.autoPublishResults} onChange={(v) => upd("autoPublishResults", v)} />
             <Toggle label="Notify on Result Publication" description="Send notification to students/guardians when results are out" value={data.notifyOnResult} onChange={(v) => upd("notifyOnResult", v)} />
-            <Toggle label="AI-assisted Grading" description="Use AI to help grade subjective answers" value={data.aiGrading} onChange={(v) => upd("aiGrading", v)} />
             <Toggle label="Distinguish Honours" description="Award honours/distinction for high scorers" value={data.distinguishHonours} onChange={(v) => upd("distinguishHonours", v)} />
             <Toggle label="Exam Reminders" description="Notify students and guardians before upcoming exams" value={data.examReminders} onChange={(v) => upd("examReminders", v)} />
           </div>

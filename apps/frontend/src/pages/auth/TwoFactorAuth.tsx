@@ -1,21 +1,53 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, ShieldCheck, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
+import { maskEmail, requiresTwoFactor, resolveNotificationChannel } from "@mms/shared";
+import useTranslation from "@/hooks/useTranslation";
 import AuthLayout from "../../components/auth/AuthLayout";
+import { DEFAULT_AUTH_REDIRECT, ROUTES } from "../../lib/routes";
+import { useAuth } from "../../lib/AuthContext";
+import useGlobalSettings from "../../hooks/useGlobalSettings";
+import { getGlobalSettings } from "../../lib/db";
+import {
+  dispatch2FACode,
+  is2FAPending,
+  is2FAVerified,
+  mark2FAVerified,
+  start2FAChallenge,
+  verify2FACode,
+} from "../../lib/twoFactor";
 
 const CODE_LENGTH = 6;
 
 /**
- * TwoFactorAuth Page Component
- *
- * Renders the two-factor authentication verification form.
- * Handles OTP digit entry, auto-focus shifting across digit inputs, clipboard pastes,
- * submission handling, resending cooldown timer, and navigation back to login.
- *
- * @returns React element representing the 2FA page.
+ * Two-factor verification after login when global settings require it.
  */
-export default function TwoFactorAuth() {
+export default function TwoFactorAuth(): React.JSX.Element {
+  const { isAuthenticated, user } = useAuth();
+  const settings = useGlobalSettings();
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo =
+    (location.state as { from?: string } | null)?.from ?? DEFAULT_AUTH_REDIRECT;
+
+  const maskedEmail = useMemo(() => {
+    const email = user?.email ?? "";
+    return email ? maskEmail(email) : "your email";
+  }, [user?.email]);
+
+  const twoFactorSubtitleKey = useMemo(() => {
+    switch (resolveNotificationChannel(settings)) {
+      case "sms":
+        return "auth.twoFactorSubtitleSms" as const;
+      case "none":
+        return "auth.twoFactorSubtitleNone" as const;
+      default:
+        return "auth.twoFactorSubtitleEmail" as const;
+    }
+  }, [settings]);
+
   const [code, setCode] = useState(Array(CODE_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -28,7 +60,19 @@ export default function TwoFactorAuth() {
     return () => clearTimeout(t);
   }, [resendCountdown]);
 
-  const handleChange = (i: number, val: string) => {
+  if (!isAuthenticated) {
+    return <Navigate to={ROUTES.login} replace />;
+  }
+
+  if (!requiresTwoFactor(settings, user)) {
+    return <Navigate to={redirectTo} replace />;
+  }
+
+  if (is2FAVerified()) {
+    return <Navigate to={redirectTo} replace />;
+  }
+
+  const handleChange = (i: number, val: string): void => {
     if (!/^\d?$/.test(val)) return;
     const next = [...code];
     next[i] = val;
@@ -37,7 +81,7 @@ export default function TwoFactorAuth() {
     if (val && i < CODE_LENGTH - 1) inputs.current[i + 1]?.focus();
   };
 
-  const handleKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === "Backspace" && !code[i] && i > 0) {
       inputs.current[i - 1]?.focus();
     }
@@ -45,7 +89,7 @@ export default function TwoFactorAuth() {
     if (e.key === "ArrowRight" && i < CODE_LENGTH - 1) inputs.current[i + 1]?.focus();
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>): void => {
     e.preventDefault();
     const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, CODE_LENGTH);
     const next = [...code];
@@ -56,19 +100,35 @@ export default function TwoFactorAuth() {
 
   const isComplete = code.every((d) => d !== "");
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
-    if (!isComplete) { setError("Please enter all 6 digits"); return; }
+    if (!isComplete) {
+      setError("Please enter all 6 digits");
+      return;
+    }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
+    setError("");
+
+    const entered = code.join("");
+    if (verify2FACode(entered)) {
+      mark2FAVerified();
+      navigate(redirectTo, { replace: true });
+    } else {
+      setError(
+        is2FAPending()
+          ? "Invalid or expired code. Please try again."
+          : "No active verification. Request a new code."
+      );
+      setCode(Array(CODE_LENGTH).fill(""));
+      inputs.current[0]?.focus();
+    }
     setLoading(false);
-    // demo: wrong code
-    setError("Invalid code. Please try again.");
-    setCode(Array(CODE_LENGTH).fill(""));
-    inputs.current[0]?.focus();
   };
 
-  const handleResend = () => {
+  const handleResend = async (): Promise<void> => {
+    const globalSettings = getGlobalSettings();
+    const newCode = start2FAChallenge();
+    await dispatch2FACode(globalSettings, user?.email ?? "", newCode);
     setResendCountdown(30);
     setError("");
     setCode(Array(CODE_LENGTH).fill(""));
@@ -77,25 +137,23 @@ export default function TwoFactorAuth() {
 
   return (
     <AuthLayout
-      title="Two-factor verification"
-      subtitle="Enter the 6-digit code sent to your email"
+      title={t("auth.twoFactorTitle")}
+      subtitle={t(twoFactorSubtitleKey)}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Icon */}
         <div className="flex justify-center">
           <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
             <ShieldCheck className="w-7 h-7 text-primary" />
           </div>
         </div>
 
-        {/* Info */}
         <div className="bg-muted/40 border border-border rounded-xl px-4 py-3 text-center">
           <p className="text-xs text-muted-foreground">
-            Code sent to <span className="font-medium text-foreground">a***@madrasa.app</span>
+            {t("auth.codeSentTo")}{" "}
+            <span className="font-medium text-foreground">{maskedEmail}</span>
           </p>
         </div>
 
-        {/* OTP inputs */}
         <div className="flex justify-center gap-2.5">
           {code.map((digit, i) => (
             <motion.input
@@ -132,38 +190,35 @@ export default function TwoFactorAuth() {
           </motion.p>
         )}
 
-        {/* Submit */}
         <button
           type="submit"
           disabled={loading || !isComplete}
           className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all disabled:opacity-50"
         >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify & Sign in"}
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t("auth.verifySignIn")}
         </button>
 
-        {/* Resend */}
         <div className="text-center">
           {resendCountdown > 0 ? (
             <p className="text-xs text-muted-foreground">
-              Resend code in{" "}
-              <span className="font-medium text-foreground tabular-nums">{resendCountdown}s</span>
+              {t("auth.resendCountdown", { seconds: resendCountdown })}
             </p>
           ) : (
             <button
               type="button"
-              onClick={handleResend}
+              onClick={() => void handleResend()}
               className="text-xs text-primary font-medium hover:underline inline-flex items-center gap-1"
             >
               <RefreshCw className="w-3 h-3" />
-              Resend code
+              {t("auth.resendCode")}
             </button>
           )}
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
-          <Link to="/login" className="text-primary font-medium hover:underline inline-flex items-center gap-1">
+          <Link to={ROUTES.login} className="text-primary font-medium hover:underline inline-flex items-center gap-1">
             <ArrowLeft className="w-3 h-3" />
-            Back to sign in
+            {t("auth.backToSignIn")}
           </Link>
         </p>
       </form>

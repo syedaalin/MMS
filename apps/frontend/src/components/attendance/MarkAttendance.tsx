@@ -644,7 +644,7 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase w-8">#</th>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase">Student</th>
                 {orderedFields.map((field) => {
-                  const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled !== false);
+                  const isEnabled = fields[field.id]?.enabled !== false;
                   if (!isEnabled) return null;
                   return (
                     <th
@@ -661,7 +661,7 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
             </thead>
             <tbody className="divide-y divide-border">
               {filteredRows.length === 0 ? (
-                <tr><td colSpan={orderedFields.filter(f => f.isCustom ? true : (fields[f.id]?.enabled !== false)).length + 2} className="px-4 py-10 text-center text-muted-foreground text-sm">No students found</td></tr>
+                <tr><td colSpan={orderedFields.filter(f => fields[f.id]?.enabled !== false).length + 2} className="px-4 py-10 text-center text-muted-foreground text-sm">No students found</td></tr>
               ) : filteredRows.map((row) => {
                 const s = STATUS_MAP[row.status as keyof typeof STATUS_MAP];
                 return (
@@ -669,7 +669,7 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
                     <td className="px-3 py-2.5 text-[11px] text-muted-foreground font-mono">{row.rollNo}</td>
                     <td className="px-3 py-2.5 font-semibold text-foreground whitespace-nowrap">{row.name}</td>
                     {orderedFields.map((field) => {
-                      const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled !== false);
+                      const isEnabled = fields[field.id]?.enabled !== false;
                       if (!isEnabled) return null;
 
                       if (field.id === "status") {
@@ -731,7 +731,7 @@ export default function MarkAttendance({ filters, role, records, setRecords }: M
                       }
 
                       // Custom column field
-                      if (field.isCustom) {
+                      if (!["status", "timeIn", "timeOut", "notes"].includes(field.id)) {
                         const val = row[field.id] ?? "";
                         return (
                           <td key={field.id} className="px-3 py-2.5">

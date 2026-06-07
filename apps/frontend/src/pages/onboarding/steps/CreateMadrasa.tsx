@@ -1,34 +1,31 @@
-import React, { useState, useRef } from "react";
-import { Upload, X, Globe, Check } from "lucide-react";
+import React, { useMemo, useEffect } from "react";
+import { Globe, Check, Building2, Palette, Type, Wand2 } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import { OnboardingData } from "../OnboardingWizard";
-import { optimizeImage } from "@/lib/utils";
-
-export interface CreateMadrasaData {
-  logo?: string | null;
-  name?: string;
-  subdomain?: string;
-  subdomainTouched?: boolean;
-  country?: string;
-  brandColor?: string;
-  [key: string]: unknown;
-}
-
-interface BrandColor {
-  label: string;
-  value: string;
-}
-
-const BRAND_COLORS: BrandColor[] = [
-  { label: "Emerald", value: "#047857" },
-  { label: "Teal", value: "#0F766E" },
-  { label: "Blue", value: "#1D4ED8" },
-  { label: "Indigo", value: "#4338CA" },
-  { label: "Purple", value: "#7E22CE" },
-  { label: "Rose", value: "#BE123C" },
-  { label: "Amber", value: "#B45309" },
-  { label: "Slate", value: "#334155" },
-];
+import {
+  DEFAULT_BRANDING_SETTINGS,
+  mergeBrandingSettings,
+  slugifySubdomain,
+} from "@mms/shared";
+import { applyBrandingTheme } from "@/lib/brandingTheme";
+import { getAppDomain } from "@/lib/tenantConfig";
+import useTranslation from "@/hooks/useTranslation";
+import SectionCard from "@/components/ui/SectionCard";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import BrandColorPanel from "@/components/settings/BrandColorPanel";
+import BrandingIdentityPreview from "@/components/settings/BrandingIdentityPreview";
+import {
+  FieldHint,
+  FOOTER_MAX,
+  ImageUploadField,
+  NAME_MAX,
+  TAGLINE_MAX,
+  defaultFooterForMadrasa,
+  LOGO_OPTIMIZE_OPTIONS,
+} from "@/components/settings/brandingShared";
 
 interface CreateMadrasaProps {
   data: OnboardingData;
@@ -36,174 +33,223 @@ interface CreateMadrasaProps {
 }
 
 /**
- * CreateMadrasa step component for onboarding.
+ * Institution identity + theme — mirrors Settings → Institution and Settings → Theme.
  */
-export default function CreateMadrasa({ data, onChange }: CreateMadrasaProps) {
-  const [logoPreview, setLogoPreview] = useState<string | null>((data.logo as string | null) ?? null);
-  const fileRef = useRef<HTMLInputElement>(null);
+export default function CreateMadrasa({ data, onChange }: CreateMadrasaProps): React.ReactElement {
+  const { t, language } = useTranslation();
+  const appDomain = getAppDomain();
 
-  const updateField = (field: keyof OnboardingData, val: unknown) => {
-    onChange((prev) => ({ ...prev, [field]: val } as OnboardingData));
+  const updateField = <K extends keyof OnboardingData>(field: K, val: OnboardingData[K]) => {
+    onChange((prev) => ({ ...prev, [field]: val }));
   };
 
-  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const optimized = await optimizeImage(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const base64Url = ev.target?.result;
-      if (typeof base64Url === "string") {
-        setLogoPreview(base64Url);
-        updateField("logo", base64Url);
-      }
-    };
-    reader.readAsDataURL(optimized);
-  };
+  const previewBranding = useMemo(
+    () =>
+      mergeBrandingSettings({
+        madrasaName: data.name,
+        tagline: data.tagline,
+        logoUrl: data.logoUrl || "",
+        faviconUrl: data.logoUrl || "",
+        country: data.country,
+        website: data.subdomain ? `https://${data.subdomain}.${appDomain}` : "",
+      }),
+    [data.name, data.tagline, data.logoUrl, data.country, data.subdomain, appDomain],
+  );
 
-  const slugify = (val: string): string =>
-    val.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  const resolvedFooter =
+    data.footerText.trim() || defaultFooterForMadrasa(data.name, language);
+
+  useEffect(() => {
+    applyBrandingTheme({
+      primaryColor: data.primaryColor || DEFAULT_BRANDING_SETTINGS.primaryColor,
+      secondaryColor: data.secondaryColor || DEFAULT_BRANDING_SETTINGS.secondaryColor,
+    });
+  }, [data.primaryColor, data.secondaryColor]);
 
   const handleNameChange = (val: string) => {
     onChange((prev) => ({
       ...prev,
-      name: val,
-      subdomain: prev.subdomainTouched ? prev.subdomain : slugify(val),
+      name: val.slice(0, NAME_MAX),
+      subdomain: prev.subdomainTouched ? prev.subdomain : slugifySubdomain(val),
     }));
   };
 
   const handleSubdomainChange = (val: string) => {
     onChange((prev) => ({
       ...prev,
-      subdomain: slugify(val),
+      subdomain: slugifySubdomain(val),
       subdomainTouched: true,
     }));
   };
 
   return (
-    <div className="space-y-5">
-      {/* Logo upload */}
-      <div>
-        <label className="text-sm font-medium text-foreground block mb-2">
-          Madrasa Logo
-        </label>
-        <div className="flex items-center gap-4">
-          <div
-            className="w-16 h-16 rounded-xl border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-primary/40 hover:bg-muted/50 transition-all overflow-hidden"
-            onClick={() => fileRef.current?.click()}
-          >
-            {logoPreview ? (
-              <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
-            ) : (
-              <Upload className="w-5 h-5 text-muted-foreground" />
-            )}
-          </div>
-          <div>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Upload logo
-            </button>
-            <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG up to 2MB</p>
-            {logoPreview && (
-              <button
-                type="button"
-                onClick={() => { setLogoPreview(null); updateField("logo", null); }}
-                className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 mt-1"
-              >
-                <X className="w-3 h-3" /> Remove
-              </button>
-            )}
-          </div>
-          <input type="file" ref={fileRef} accept="image/*" className="hidden" onChange={handleLogoChange} />
-        </div>
-      </div>
+    <div className="space-y-6">
+      <SectionCard title={t("branding.previewTitle")} subtitle={t("branding.previewSubtitle")}>
+        <BrandingIdentityPreview data={previewBranding} />
+      </SectionCard>
 
-      {/* Madrasa name */}
-      <div>
-        <label className="text-sm font-medium text-foreground block mb-1.5">
-          Madrasa Name <span className="text-destructive">*</span>
-        </label>
-        <input
-          type="text"
-          value={data.name || ""}
-          onChange={(e) => handleNameChange(e.target.value)}
-          placeholder="e.g. Al-Noor Academy"
-          className="w-full px-3.5 py-2.5 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-        />
-      </div>
-
-      {/* Subdomain */}
-      <div>
-        <label className="text-sm font-medium text-foreground block mb-1.5">
-          Subdomain <span className="text-destructive">*</span>
-        </label>
-        <div className="flex items-center rounded-lg border border-border overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all">
-          <div className="flex items-center gap-1.5 px-3 py-2.5 bg-muted border-r border-border">
-            <Globe className="w-3.5 h-3.5 text-muted-foreground" />
-          </div>
-          <input
-            type="text"
-            value={data.subdomain || ""}
-            onChange={(e) => handleSubdomainChange(e.target.value)}
-            placeholder="al-noor"
-            className="flex-1 px-3 py-2.5 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none"
+      <SectionCard
+        title={t("branding.identityTitle")}
+        subtitle={t("branding.identitySubtitle")}
+        icon={Type}
+      >
+        <div className="space-y-4">
+          <ImageUploadField
+            id="onboarding-logo"
+            label={t("branding.logo")}
+            hint={t("branding.logoHint")}
+            value={data.logoUrl || ""}
+            optimizeOptions={LOGO_OPTIMIZE_OPTIONS}
+            onChange={(url) => updateField("logoUrl", url)}
+            onClear={() => updateField("logoUrl", "")}
+            onBrandColorsExtracted={(colors) => {
+              onChange((prev) => ({
+                ...prev,
+                primaryColor: colors.primaryColor,
+                secondaryColor: colors.secondaryColor,
+              }));
+            }}
           />
-          <div className="px-3 py-2.5 bg-muted border-l border-border">
-            <span className="text-xs text-muted-foreground">.madrasa.app</span>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="onboarding-name">{t("branding.madrasaName")}</Label>
+              <span className="text-xs text-muted-foreground" aria-live="polite">
+                {data.name.length}/{NAME_MAX}
+              </span>
+            </div>
+            <Input
+              id="onboarding-name"
+              value={data.name}
+              maxLength={NAME_MAX}
+              placeholder={t("branding.madrasaNamePlaceholder")}
+              aria-describedby="onboarding-name-hint"
+              onChange={(e) => handleNameChange(e.target.value)}
+            />
+            <FieldHint id="onboarding-name-hint">{t("branding.madrasaNameHint")}</FieldHint>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="onboarding-tagline">{t("branding.tagline")}</Label>
+              <span className="text-xs text-muted-foreground" aria-live="polite">
+                {data.tagline.length}/{TAGLINE_MAX}
+              </span>
+            </div>
+            <Input
+              id="onboarding-tagline"
+              value={data.tagline}
+              maxLength={TAGLINE_MAX}
+              placeholder={t("branding.taglinePlaceholder")}
+              aria-describedby="onboarding-tagline-hint"
+              onChange={(e) => updateField("tagline", e.target.value)}
+            />
+            <FieldHint id="onboarding-tagline-hint">{t("branding.taglineHint")}</FieldHint>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-country">{t("branding.country")}</Label>
+            <Input
+              id="onboarding-country"
+              value={data.country}
+              autoComplete="country-name"
+              placeholder="United Kingdom"
+              onChange={(e) => updateField("country", e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-subdomain">
+              Workspace subdomain <span className="text-destructive">*</span>
+            </Label>
+            <div className="flex items-center overflow-hidden rounded-lg border border-border focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+              <div className="flex items-center gap-1.5 border-r border-border bg-muted px-3 py-2.5">
+                <Globe className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+              </div>
+              <Input
+                id="onboarding-subdomain"
+                value={data.subdomain}
+                placeholder="al-noor"
+                className="border-0 rounded-none focus-visible:ring-0"
+                onChange={(e) => handleSubdomainChange(e.target.value)}
+              />
+              <div className="border-l border-border bg-muted px-3 py-2.5">
+                <span className="text-xs text-muted-foreground">.{appDomain}</span>
+              </div>
+            </div>
+            {data.subdomain && (
+              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Check className="h-3 w-3 text-primary" aria-hidden />
+                Your URL:{" "}
+                <span className="font-medium text-foreground">
+                  {data.subdomain}.{appDomain}
+                </span>
+              </p>
+            )}
           </div>
         </div>
-        {data.subdomain && (
-          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-            <Check className="w-3 h-3 text-primary" />
-            Your URL: <span className="font-medium text-foreground">{data.subdomain}.madrasa.app</span>
-          </p>
-        )}
-      </div>
+      </SectionCard>
 
-      {/* Country */}
-      <div>
-        <label className="text-sm font-medium text-foreground block mb-1.5">Country</label>
-        <select
-          value={data.country || ""}
-          onChange={(e) => updateField("country", e.target.value)}
-          className="w-full px-3.5 py-2.5 rounded-lg border border-border text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-        >
-          <option value="">Select country</option>
-          <option>United Kingdom</option>
-          <option>United States</option>
-          <option>Canada</option>
-          <option>Australia</option>
-          <option>Malaysia</option>
-          <option>South Africa</option>
-          <option>Pakistan</option>
-          <option>United Arab Emirates</option>
-          <option>Other</option>
-        </select>
-      </div>
+      <SectionCard
+        title={t("theme.coloursTitle")}
+        subtitle={t("theme.coloursSubtitle")}
+        icon={Palette}
+      >
+        <BrandColorPanel
+          primaryColor={data.primaryColor}
+          secondaryColor={data.secondaryColor}
+          previewMode="light"
+          onPrimaryChange={(hex) => updateField("primaryColor", hex)}
+          onSecondaryChange={(hex) => updateField("secondaryColor", hex)}
+          onApplyPreset={(primary, secondary) => {
+            onChange((prev) => ({
+              ...prev,
+              primaryColor: primary,
+              secondaryColor: secondary,
+            }));
+          }}
+        />
+      </SectionCard>
 
-      {/* Brand color */}
-      <div>
-        <label className="text-sm font-medium text-foreground block mb-2">Brand Color</label>
-        <div className="flex flex-wrap gap-2.5">
-          {BRAND_COLORS.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              title={c.label}
-              onClick={() => updateField("brandColor", c.value)}
-              className={`w-8 h-8 rounded-full transition-all flex items-center justify-center border-2 ${
-                data.brandColor === c.value ? "border-foreground scale-110 shadow-md" : "border-transparent"
-              }`}
-              style={{ backgroundColor: c.value }}
-            >
-              {data.brandColor === c.value && <Check className="w-4 h-4 text-white" />}
-            </button>
-          ))}
+      <SectionCard
+        title={t("theme.footerTitle")}
+        subtitle={t("theme.footerSubtitle")}
+        icon={Building2}
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => updateField("footerText", defaultFooterForMadrasa(data.name, language))}
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            {t("theme.footerGenerate")}
+          </Button>
+        }
+      >
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="onboarding-footer">{t("theme.footerLabel")}</Label>
+            <span className="text-xs text-muted-foreground" aria-live="polite">
+              {data.footerText.length}/{FOOTER_MAX}
+            </span>
+          </div>
+          <Textarea
+            id="onboarding-footer"
+            value={data.footerText}
+            maxLength={FOOTER_MAX}
+            rows={2}
+            placeholder={defaultFooterForMadrasa(data.name, language)}
+            aria-describedby="onboarding-footer-hint"
+            onChange={(e) => updateField("footerText", e.target.value)}
+          />
+          <FieldHint id="onboarding-footer-hint">{t("theme.footerHint")}</FieldHint>
         </div>
-      </div>
+        <div className="mt-4 rounded-lg border border-border bg-muted/30 px-4 py-3 text-center">
+          <p className="text-[11px] text-muted-foreground">{t("theme.footerPreviewLabel")}</p>
+          <p className="mt-1 text-xs text-foreground">{resolvedFooter}</p>
+        </div>
+      </SectionCard>
     </div>
   );
 }

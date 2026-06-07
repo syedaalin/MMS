@@ -1,0 +1,85 @@
+import React from "react";
+import { Link } from "react-router-dom";
+import { ArrowLeft, ArrowRight, Globe } from "lucide-react";
+import type { AppTranslationKey } from "@mms/shared";
+import WorkspaceRegistryList from "@/components/routing/WorkspaceRegistryList";
+import ApexEntryNav from "@/components/routing/ApexEntryNav";
+import { ROUTES } from "@/lib/routes";
+import useTranslation from "@/hooks/useTranslation";
+
+export type ApexGateVariant = "default" | "login" | "forgotPassword" | "twoFactor" | "tenantOnly";
+
+const TITLE_KEYS: Record<ApexGateVariant, AppTranslationKey> = {
+  default: "apex.gateTitleDefault",
+  login: "apex.gateLoginTitle",
+  forgotPassword: "apex.gateForgotTitle",
+  twoFactor: "apex.gateTwoFactorTitle",
+  tenantOnly: "apex.gateTenantOnlyTitle",
+};
+
+const MESSAGE_KEYS: Partial<Record<ApexGateVariant, AppTranslationKey>> = {
+  default: "apex.gateMessageDefault",
+  login: "apex.gateLoginMessage",
+  forgotPassword: "apex.gateForgotMessage",
+  tenantOnly: "apex.gateTenantOnlyMessage",
+};
+
+interface ApexWorkspaceGateProps {
+  variant?: ApexGateVariant;
+  showWorkspaceList?: boolean;
+}
+
+/**
+ * Shown on the apex domain when the user hits a tenant-only route (login, app modules).
+ */
+export default function ApexWorkspaceGate({
+  variant = "default",
+  showWorkspaceList = true,
+}: ApexWorkspaceGateProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const messageKey = MESSAGE_KEYS[variant];
+  const isForgotPicker = variant === "forgotPassword";
+
+  return (
+    <div
+      dir="ltr"
+      className="min-h-screen w-full overflow-x-hidden bg-background flex flex-col items-center justify-center p-4 sm:p-6"
+    >
+      <div className="w-full max-w-lg mx-auto text-center space-y-5 px-1">
+        <Globe className="w-10 h-10 text-primary mx-auto" aria-hidden />
+        <h1 className="text-2xl font-bold text-foreground">{t(TITLE_KEYS[variant])}</h1>
+        {messageKey ? (
+          <p className="text-sm text-muted-foreground leading-relaxed">{t(messageKey)}</p>
+        ) : null}
+
+        {showWorkspaceList ? (
+          <WorkspaceRegistryList
+            destinationPath={isForgotPicker ? ROUTES.forgotPassword : ROUTES.login}
+            actionLabelKey={isForgotPicker ? "apex.resetPasswordAt" : "auth.signInTo"}
+          />
+        ) : null}
+
+        <Link
+          to={ROUTES.onboarding}
+          className="inline-flex w-full items-center justify-center gap-2 py-3 px-5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+        >
+          {t("auth.createMadrasa")}
+          <ArrowRight className="w-4 h-4" aria-hidden />
+        </Link>
+
+        <ApexEntryNav
+          showForgotPasswordLink={variant === "login"}
+          showSignInPickerLink={variant === "forgotPassword"}
+        />
+
+        <Link
+          to={ROUTES.home}
+          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
+          {t("apex.backToMain")}
+        </Link>
+      </div>
+    </div>
+  );
+}

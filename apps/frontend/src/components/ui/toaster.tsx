@@ -15,13 +15,18 @@ import {
  * @returns {React.JSX.Element} The rendered toast notification system.
  */
 export function Toaster() {
-  const { toasts } = useToast();
+  const { toasts, dismiss } = useToast();
 
   return (
     <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
+      {toasts.map(function ({ id, title, description, action, open, variant, className }) {
         return (
-          <Toast key={id} {...props}>
+          <Toast
+            key={id}
+            variant={variant}
+            className={className}
+            data-state={open === false ? "closed" : "open"}
+          >
             <div className="grid gap-1">
               {title && <ToastTitle>{title}</ToastTitle>}
               {description && (
@@ -29,7 +34,7 @@ export function Toaster() {
               )}
             </div>
             {action}
-            <ToastClose />
+            <ToastClose onClick={() => dismiss(id)} />
           </Toast>
         );
       })}

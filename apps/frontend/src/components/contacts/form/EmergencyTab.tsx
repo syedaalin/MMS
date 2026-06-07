@@ -1,16 +1,16 @@
 import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { AlertCircle, Heart, Plus, Trash2, Search, X } from "lucide-react";
-import { DEFAULT_TAB_FIELD_CONFIG, CustomField } from "../../../lib/contactFields";
-import { Field, INPUT, SELECT, FormEmptyState, RequiredBanner } from "./FormPrimitives";
-import TabCustomFields from "./TabCustomFields";
+import { AlertCircle, Heart, Plus, Search, X } from "lucide-react";
+import { FieldDefinition } from "@mms/shared";
+import { Field, INPUT, FormEmptyState, RequiredBanner, EditableSelect, CustomFieldInput, COLLECTION_CARD, COLLECTION_BODY, CardRemoveButton } from "./FormPrimitives";
 import { useContactConfig } from "../../../lib/ContactConfigContext";
+import { useSortedFields } from "../../../hooks/useSortedFields";
+import useTranslation from "@/hooks/useTranslation";
 
 interface ContactPhone {
   label: string;
   number: string;
   countryCode?: string;
-  whatsapp?: boolean;
 }
 
 interface ContactEmail {
@@ -29,6 +29,7 @@ interface Contact {
 interface EmergencyContact {
   contactId?: string | number;
   relationship?: string;
+  [key: string]: unknown;
 }
 
 interface ContactFormData extends Omit<Contact, "id"> {
@@ -48,6 +49,7 @@ interface ContactSearchPickerProps {
  * @returns React element.
  */
 function ContactSearchPicker({ available, selectedId, onSelect }: ContactSearchPickerProps): React.JSX.Element {
+  const { t } = useTranslation();
   const [query, setQuery] = useState<string>("");
   const [open, setOpen] = useState<boolean>(false);
 
@@ -81,8 +83,8 @@ function ContactSearchPicker({ available, selectedId, onSelect }: ContactSearchP
               onSelect("");
               setOpen(true);
             }}
-            className="text-muted-foreground hover:text-foreground ml-2 transition-colors"
-            aria-label="Clear selected contact"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground ml-2 transition-colors"
+            aria-label={t("contacts.form.clearSelectedContact")}
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -98,7 +100,7 @@ function ContactSearchPicker({ available, selectedId, onSelect }: ContactSearchP
               setOpen(true);
             }}
             onFocus={() => setOpen(true)}
-            placeholder="Search by name, phone…"
+            placeholder={t("contacts.form.searchByNamePhone")}
           />
         </div>
       )}
@@ -108,18 +110,18 @@ function ContactSearchPicker({ available, selectedId, onSelect }: ContactSearchP
           <div className="fixed inset-0 z-40" onMouseDown={() => setOpen(false)} />
           <div className="absolute z-50 top-full mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-48 overflow-y-auto">
             {filtered.length === 0 ? (
-              <p className="px-4 py-3 text-xs text-muted-foreground bg-card">No contacts found.</p>
+              <p className="px-4 py-3 text-xs text-muted-foreground bg-card">{t("contacts.form.noContactsFound")}</p>
             ) : (
               filtered.map((c) => (
                 <button
-                  key={c.id}
-                  type="button"
-                  onMouseDown={() => {
-                    onSelect(c.id);
-                    setQuery("");
-                    setOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-2.5 hover:bg-muted transition-colors flex items-center justify-between gap-2 bg-card"
+                   key={c.id}
+                   type="button"
+                   onMouseDown={() => {
+                     onSelect(c.id);
+                     setQuery("");
+                     setOpen(false);
+                   }}
+                   className="w-full text-left px-4 py-2.5 hover:bg-muted transition-colors flex items-center justify-between gap-2 bg-card"
                 >
                   <span className="text-sm font-medium text-foreground truncate">{c.name}</span>
                   <span className="text-xs text-muted-foreground">{(c.phones || [])[0]?.number || ""}</span>
@@ -138,15 +140,10 @@ interface EmergencyTabProps {
   onChange: (updatedData: ContactFormData) => void;
   allContacts: Contact[];
   required?: boolean;
-  tabFieldCfg?: {
-    enabled?: string[];
-    required?: string[];
-  };
-  customFields?: CustomField[];
 }
 
 /**
- * EmergencyTab component for managing contact emergency contact linkages.
+ * EmergencyTab component for managing contact emergency contact linkages dynamically.
  * @param props Component properties.
  * @returns React element.
  */
@@ -155,103 +152,122 @@ export default function EmergencyTab({
   onChange,
   allContacts,
   required = false,
-  tabFieldCfg,
-  customFields
 }: EmergencyTabProps): React.JSX.Element {
-  const { relationships } = useContactConfig();
-  const list = data.emergencyContacts && data.emergencyContacts.length > 0 ? data.emergencyContacts : [{ contactId: "", relationship: "" }];
+  const { relationships, updateRelationships } = useContactConfig();
+  const { t } = useTranslation();
+  const enabledFields = useSortedFields("emergency").filter((f) => f.enabled);
+
+  const createNewEmergency = (): EmergencyContact => {
+    const item: Record<string, unknown> = {};
+    enabledFields.forEach((f) => {
+      item[f.key] = f.defaultValue !== undefined ? f.defaultValue : "";
+    });
+    return item as EmergencyContact;
+  };
+
+  const list = data.emergencyContacts && data.emergencyContacts.length > 0 ? data.emergencyContacts : [createNewEmergency()];
+  
   const upd = (l: EmergencyContact[]): void => {
     onChange({ ...data, emergencyContacts: l });
   };
+  
   const available = allContacts.filter((c) => c.id !== data.id);
 
-  const en = tabFieldCfg?.enabled ?? DEFAULT_TAB_FIELD_CONFIG.emergency.enabled;
-  const req = tabFieldCfg?.required ?? DEFAULT_TAB_FIELD_CONFIG.emergency.required;
-  const showContactId = en.includes("contactId");
-  const showRelationship = en.includes("relationship");
-  const reqContactId = req.includes("contactId");
-  const reqRelationship = req.includes("relationship");
+  const updateEmergency = (i: number, patch: Partial<EmergencyContact>): void => {
+    upd(list.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  };
 
   return (
     <div className="space-y-3">
-      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700 dark:bg-amber-950/20 dark:border-amber-900/50 dark:text-amber-400">
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30 text-xs text-warning">
         <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-        <p>Link existing contacts as emergency contacts. They must already be in the system.</p>
+        <p>{t("contacts.form.emergencyInstructions")}</p>
       </div>
 
-      {required && list.length === 0 && <RequiredBanner message="At least one emergency contact is required" />}
-      {list.length === 0 && <FormEmptyState icon={Heart} text="No emergency contacts yet. Add one below." />}
+      {required && list.length === 0 && <RequiredBanner message={t("contacts.form.atLeastOneEmergencyContactRequired")} />}
+      {list.length === 0 && <FormEmptyState icon={Heart} text={t("contacts.form.noEmergencyContactsYet")} />}
 
-      {showContactId &&
-        list.map((ec, i) => {
-          const sel = available.find((c) => String(c.id) === String(ec.contactId));
-          return (
-            <motion.div
-              key={i}
-              layout
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-xl border border-border bg-muted/20 p-3 space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase">Contact {i + 1}</span>
-                <button
-                  type="button"
-                  onClick={() => upd(list.filter((_, j) => j !== i))}
-                  className="p-1 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
-                  aria-label={`Remove emergency contact ${i + 1}`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+      {list.map((ec, i) => {
+        const sel = available.find((c) => String(c.id) === String(ec.contactId));
+        return (
+          <motion.div
+            key={i}
+            layout
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={COLLECTION_CARD}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground uppercase">{t("contacts.form.contact")} {i + 1}</span>
+              <CardRemoveButton
+                onClick={() => upd(list.filter((_, j) => j !== i))}
+                label={t("contacts.form.removeEmergencyContact", { index: i + 1 })}
+              />
+            </div>
+
+            {enabledFields.length > 0 && (
+              <div className={COLLECTION_BODY}>
+                {enabledFields.map((field) => {
+                  if (field.key === "contactId") {
+                    return (
+                      <div key={field.key} className="space-y-2">
+                        <Field label={field.label} required={field.required} hint={field.description}>
+                          <ContactSearchPicker
+                            available={available}
+                            selectedId={ec.contactId ?? ""}
+                            onSelect={(id) => updateEmergency(i, { contactId: id === "" || id == null ? "" : String(id) })}
+                          />
+                        </Field>
+                        {sel && (
+                          <div className="rounded-lg bg-background border border-border px-3 py-2 text-xs space-y-0.5 text-foreground mt-2">
+                            {sel.phones?.[0]?.number && <p className="text-muted-foreground">📞 {sel.phones[0].number}</p>}
+                            {sel.emails?.[0]?.address && <p className="text-muted-foreground">✉️ {sel.emails[0].address}</p>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (field.key === "relationship") {
+                    return (
+                      <Field key={field.key} label={field.label} required={field.required} hint={field.description}>
+                        <EditableSelect
+                          options={relationships || []}
+                          value={(ec.relationship as string) || ""}
+                          onChange={(val) => updateEmergency(i, { relationship: val })}
+                          onUpdateOptions={updateRelationships}
+                          placeholder={t("contacts.form.selectOption")}
+                          className="w-full"
+                        />
+                      </Field>
+                    );
+                  }
+
+                  return (
+                    <Field key={field.key} label={field.label} required={field.required} hint={field.description}>
+                      <CustomFieldInput
+                        field={field}
+                        value={ec[field.key]}
+                        onChange={(val) => updateEmergency(i, { [field.key]: val })}
+                      />
+                    </Field>
+                  );
+                })}
               </div>
-
-              <Field label="Find Contact" required={reqContactId}>
-                <ContactSearchPicker
-                  available={available}
-                  selectedId={ec.contactId ?? ""}
-                  onSelect={(id) => upd(list.map((x, j) => (j === i ? { ...x, contactId: id } : x)))}
-                />
-              </Field>
-
-              {sel && (
-                <div className="rounded-lg bg-background border border-border px-3 py-2 text-xs space-y-0.5 text-foreground">
-                  {sel.phones?.[0]?.number && <p className="text-muted-foreground">📞 {sel.phones[0].number}</p>}
-                  {sel.emails?.[0]?.address && <p className="text-muted-foreground">✉️ {sel.emails[0].address}</p>}
-                </div>
-              )}
-
-              {showRelationship && (
-                <Field label="Relationship" required={reqRelationship}>
-                  <select
-                    className={SELECT}
-                    value={ec.relationship || ""}
-                    onChange={(e) =>
-                      upd(list.map((x, j) => (j === i ? { ...x, relationship: e.target.value } : x)))
-                    }
-                    aria-label={`Relationship to contact ${i + 1}`}
-                  >
-                    <option value="">Select…</option>
-                    {(relationships || []).map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-            </motion.div>
-          );
-        })}
+            )}
+          </motion.div>
+        );
+      })}
 
       <button
         type="button"
-        onClick={() => upd([...list, { contactId: "", relationship: "" }])}
-        className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
+        onClick={() => upd([...list, createNewEmergency()])}
+        className="flex items-center min-h-[44px] gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
       >
         <Plus className="w-4 h-4" />
-        <span>Add emergency contact</span>
+        <span>{t("contacts.form.addEmergencyContact")}</span>
       </button>
-      <TabCustomFields customFields={customFields} data={data} onChange={onChange} />
     </div>
   );
 }
+

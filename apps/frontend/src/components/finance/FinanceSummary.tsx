@@ -1,4 +1,5 @@
 import React from "react";
+import { useBrandPalette } from "@/lib/BrandingPaletteContext";
 import { motion } from "framer-motion";
 import { TrendingUp, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, TooltipProps } from "recharts";
@@ -16,6 +17,7 @@ const fmt = (n: number) => `PKR ${Number(n).toLocaleString()}`;
  * @returns {React.ReactElement}
  */
 export default function FinanceSummary() {
+  const { primary, secondary, charts } = useBrandPalette();
   const invoices = React.useMemo(() => getCollection("finance_invoices", INVOICES), []);
 
   const totalCollected = invoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.finalAmt, 0);
@@ -35,7 +37,7 @@ export default function FinanceSummary() {
       bg: "bg-emerald-50",
       border: "border-emerald-100",
       chart: MONTHLY_REVENUE.map((m) => ({ v: m.collected })),
-      chartColor: "#10b981",
+      chartColor: primary,
     },
     {
       label: "Outstanding",
@@ -46,7 +48,7 @@ export default function FinanceSummary() {
       bg: "bg-amber-50",
       border: "border-amber-100",
       chart: MONTHLY_REVENUE.map((m) => ({ v: m.outstanding })),
-      chartColor: "#f59e0b",
+      chartColor: secondary,
     },
     {
       label: "Overdue",
@@ -68,7 +70,7 @@ export default function FinanceSummary() {
       bg: "bg-primary/10",
       border: "border-primary/10",
       chart: MONTHLY_REVENUE.map((m, i) => ({ v: 70 + i * 3 })),
-      chartColor: "hsl(160 84% 22%)",
+      chartColor: charts[2],
     },
   ];
 

@@ -1,9 +1,8 @@
 import React, { useMemo } from "react";
+import { useBrandPalette } from "@/lib/BrandingPaletteContext";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Users, DollarSign, TrendingUp, BookOpen } from "lucide-react";
 import { ENROLLMENT_STATUSES, Enrollment } from "../../lib/enrollmentData";
-
-const COLORS = ["#047857", "#d97706", "#dc2626", "#2563eb"];
 
 interface KPIProps {
   icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
@@ -51,6 +50,11 @@ interface SessionDataPoint {
  * @returns The EnrollmentReports component.
  */
 export default function EnrollmentReports({ enrollments }: EnrollmentReportsProps): React.ReactElement {
+  const palette = useBrandPalette();
+  const COLORS = useMemo(
+    () => [palette.primary, palette.secondary, "#dc2626", palette.charts[3]],
+    [palette],
+  );
   const total      = enrollments.length;
   const confirmed  = enrollments.filter((e) => e.status === "confirmed").length;
   const pending    = enrollments.filter((e) => e.status === "pending").length;

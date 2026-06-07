@@ -1,12 +1,11 @@
 import React, { useMemo } from "react";
+import { useBrandPalette } from "@/lib/BrandingPaletteContext";
 import {
   TrendingUp, TrendingDown, Scale, DollarSign, AlertCircle, CheckCircle2, Clock,
   ArrowUpRight, ArrowDownRight,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { computeFinancials, Account, JournalEntry, AccountingSettings, FiscalYear } from "../../lib/accountingData";
-
-const COLORS = ["#047857", "#D97706", "#7C3AED", "#1D4ED8", "#DC2626"];
 
 interface KpiCardProps {
   label: string;
@@ -62,6 +61,9 @@ interface AccountingDashboardProps {
  * @returns {React.ReactElement}
  */
 export default function AccountingDashboard({ accounts, entries, settings, fiscalYears, fmt }: AccountingDashboardProps) {
+  const { primary, secondary, charts } = useBrandPalette();
+  const pieColors = useMemo(() => [...charts], [charts]);
+
   const { revenue, expenses, netSurplus, assets, liabilities, equity, netCashFlow, tb } = useMemo(
     () => computeFinancials(accounts, entries), [accounts, entries]
   );
@@ -142,8 +144,8 @@ export default function AccountingDashboard({ accounts, entries, settings, fisca
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
                   <Tooltip formatter={(v) => v !== undefined ? fmt(Number(v)) : ""} />
-                  <Bar dataKey="revenue"  name="Revenue"  fill="#047857" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="expenses" name="Expenses" fill="#D97706" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="revenue"  name="Revenue"  fill={primary} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expenses" name="Expenses" fill={secondary} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -163,7 +165,7 @@ export default function AccountingDashboard({ accounts, entries, settings, fisca
                     <Pie data={expenseBreakdown} cx="50%" cy="50%" innerRadius={40} outerRadius={65}
                       dataKey="value" paddingAngle={2}>
                       {expenseBreakdown.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                        <Cell key={i} fill={pieColors[i % pieColors.length]} />
                       ))}
                     </Pie>
                     <Tooltip formatter={(v) => v !== undefined ? fmt(Number(v)) : ""} />
@@ -173,7 +175,7 @@ export default function AccountingDashboard({ accounts, entries, settings, fisca
               <div className="space-y-1 mt-2">
                 {expenseBreakdown.map((item, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs" aria-label={`${item.name}: ${fmt(item.value)}`}>
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: COLORS[i % COLORS.length] }} aria-hidden="true" />
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pieColors[i % pieColors.length] }} aria-hidden="true" />
                     <span className="truncate text-muted-foreground flex-1">{item.name}</span>
                     <span className="font-mono font-semibold text-foreground">{fmt(item.value)}</span>
                   </div>

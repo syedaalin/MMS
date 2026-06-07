@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "project": "mms-monorepo",
+  "skills": [
+    {
+      "name": "antigravity-workspace",
+      "path": "skills/antigravity-workspace",
+      "keywords": ["antigravity", "workspace", "setup", "orientation", "agents", "rules"]
+    },
+    {
+      "name": "mms-dev-setup",
+      "path": "skills/mms-dev-setup",
+      "keywords": ["install", "pnpm", "dev server", "env", "postgresql", "typecheck", "lint"]
+    },
+    {
+      "name": "mms-module-page",
+      "path": "skills/mms-module-page",
+      "keywords": ["module page", "operations", "analytics", "configuration", "new module"]
+    },
+    {
+      "name": "mms-contacts",
+      "path": "skills/mms-contacts",
+      "keywords": ["contacts", "crm", "whatsapp", "phone", "kanban", "avatar"]
+    },
+    {
+      "name": "mms-fields-registry",
+      "path": "skills/mms-fields-registry",
+      "keywords": ["custom field", "tab registry", "CustomFieldsBuilder", "DraggableFieldList"]
+    },
+    {
+      "name": "mms-data-sync",
+      "path": "skills/mms-data-sync",
+      "keywords": ["db.ts", "localStorage", "sync", "useLiveCollection", "collections"]
+    },
+    {
+      "name": "mms-auth-users",
+      "path": "skills/mms-auth-users",
+      "keywords": ["auth", "login", "jwt", "users", "password", "rbac", "onboard"]
+    },
+    {
+      "name": "mms-shared-package",
+      "path": "skills/mms-shared-package",
+      "keywords": ["@mms/shared", "shared package", "contactTypes", "settingsTypes"]
+    },
+    {
+      "name": "mms-backend-api",
+      "path": "skills/mms-backend-api",
+      "keywords": ["fastify", "backend", "api route", "whatsapp service"]
+    },
+    {
+      "name": "mms-reports-export",
+      "path": "skills/mms-reports-export",
+      "keywords": ["reports", "analytics", "recharts", "pdf", "excel", "export"]
+    },
+    {
+      "name": "mms-migration-fixes",
+      "path": "skills/mms-migration-fixes",
+      "keywords": ["migration", "tech debt", "seed mismatch", "nested provider"]
+    },
+    {
+      "name": "mms-code-review",
+      "path": "skills/mms-code-review",
+      "keywords": ["code review", "pr review", "compliance", "audit"]
+    }
+  ],
+  "rules": {
+    "always_on": [
+      "rules/antigravity-global.md",
+      "rules/mms-core.md",
+      "rules/mms-migration-status.md"
+    ],
+    "directory": "rules/"
+  },
+  "workflows": {
+    "directory": "workflows/"
+  }
+}

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronUp, Bell, Scale } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getCollection } from "../../lib/db";
+import { ROUTES } from "@/lib/routes";
 
 export interface OverdueStudent {
   id: number;
@@ -179,7 +180,7 @@ export default function OverdueObligationsWidget({ title }: { title?: string }) 
             <p className="text-xs text-muted-foreground m-0">
               {remindedIds.size > 0 && `${remindedIds.size} reminder${remindedIds.size > 1 ? "s" : ""} sent`}
             </p>
-            <Link to="/obligations" className="text-xs font-semibold text-primary hover:underline">
+            <Link to={ROUTES.obligations} className="text-xs font-semibold text-primary hover:underline">
               View Obligations →
             </Link>
           </footer>

@@ -1,0 +1,70 @@
+---
+trigger: model_decision
+---
+
+# MMS Observability
+
+## Backend logging
+
+- Fastify logger via `LOG_LEVEL` env (`mms-ops.md`) — default `info` in prod, `debug` in dev
+- Log **structured context**: `requestId`, `route`, `userId` (when authenticated), `tenant` (when resolved)
+- **Never log**: passwords, JWTs, full `passwordHash`, bulk collection payloads with PII
+
+```ts
+// ✅
+request.log.warn({ err, userId, collection: name }, 'collection write failed');
+
+// ❌
+console.log('user login', { email, password, token });
+```
+
+## Health endpoints
+
+| Route | Purpose | Current |
+|-------|---------|---------|
+| `GET /health` | Liveness — process up | Implemented |
+| `GET /ready` | Readiness — DB connected | **Target** — add when hardening deploy |
+
+`AuthContext` uses `/health` on load — keep it fast and unauthenticated.
+
+## API errors
+
+Stable JSON shape (`mms-backend.md`):
+
+```json
+{ "type": "validation_error", "message": "…" }
+```
+
+- `message` is for dev/debug or generic display — user-facing copy maps `type` → `t('errors.*')` on the frontend (`mms-i18n.md`)
+- Do not leak internal PG errors verbatim in production
+
+## Frontend resilience
+
+| Pattern | Rule |
+|---------|------|
+| Heavy module sections | Wrap in `ErrorBoundary` (`mms-ui-rendering.md`) — Operations/Analytics tiers on module pages |
+| API failures | `notify.error` with `t()` — no silent `catch` (`antigravity-global.md`) |
+| Query errors | Surface `isError` from TanStack Query — `mms-query.md` |
+
+## Client error reporting (target)
+
+Optional integration (Sentry or similar):
+
+- Init once in `main.tsx` / `App.tsx`
+- Capture unhandled rejections + `ErrorBoundary` `componentDidCatch`
+- Scrub tokens and PII from breadcrumbs
+- Until wired: rely on console + user-reported toasts
+
+## Metrics (target)
+
+- Request duration histogram per route prefix
+- DB sync payload size on `/api/db/sync`
+- Failed login counter (security dashboard)
+
+Not required until production deploy hardening (`mms-migration-status.md`).
+
+## Checklist
+
+- [ ] New route logs failures with context, not raw secrets
+- [ ] User-visible failures use `notify.error` + translated copy
+- [ ] Module page heavy trees have `ErrorBoundary`

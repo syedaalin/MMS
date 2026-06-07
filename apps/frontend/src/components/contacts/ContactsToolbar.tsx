@@ -4,20 +4,14 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import ColumnCustomizer, { ColumnSpec } from "./ColumnCustomizer";
+import ColumnCustomizer from "./ColumnCustomizer";
 import { useContactConfig } from "@/lib/ContactConfigContext";
+import useTranslation from "@/hooks/useTranslation";
 
 interface SortOption {
   field: string;
   label: string;
 }
-
-const SORT_OPTIONS: SortOption[] = [
-  { field: "name", label: "Name" },
-  { field: "city", label: "City" },
-  { field: "createdAt", label: "Date Added" },
-  { field: "updatedAt", label: "Last Updated" },
-];
 
 interface ContactsToolbarProps {
   search: string;
@@ -26,8 +20,6 @@ interface ContactsToolbarProps {
   onGenderChange: (gender: string) => void;
   sortField: string;
   onSort: (field: string) => void;
-  tableColumns: ColumnSpec[];
-  onColumnsChange: (columns: ColumnSpec[]) => void;
   hasActiveFilters: boolean;
   activeFilterCount: number;
   onClearFilters: () => void;
@@ -46,14 +38,31 @@ export default function ContactsToolbar({
   onGenderChange,
   sortField,
   onSort,
-  tableColumns,
-  onColumnsChange,
   hasActiveFilters,
   activeFilterCount,
   onClearFilters,
 }: ContactsToolbarProps): React.JSX.Element {
-  const { availableColumns } = useContactConfig();
+  const { availableColumns, genders, systemSortOptions } = useContactConfig();
+  const { t } = useTranslation();
+ 
+  const sortOptions = React.useMemo(() => {
+    const dynamicSorts = availableColumns
+      .filter((col) => col.sortField)
+      .map((col) => ({
+        field: col.sortField!,
+        label: col.label,
+      }));
 
+    const combined = [...dynamicSorts];
+    systemSortOptions.forEach((ss) => {
+      if (!combined.some((c) => c.field === ss.field)) {
+        combined.push(ss);
+      }
+    });
+
+    return combined;
+  }, [availableColumns, systemSortOptions]);
+ 
   return (
     <div className="flex flex-col sm:flex-row gap-2">
       {/* Search */}
@@ -62,35 +71,35 @@ export default function ContactsToolbar({
         <input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search name, phone, email, ID, city, area…"
+          placeholder={t("contacts.searchPlaceholder")}
           className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
         />
         {search && (
-          <button
-            type="button"
-            onClick={() => onSearchChange("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Clear search query"
-          >
+            <button
+              type="button"
+              onClick={() => onSearchChange("")}
+              className="absolute right-1 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={t("contacts.clearFilters")}
+            >
             <X className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
-
+ 
       <div className="flex items-center gap-2 flex-shrink-0">
         {/* Filters + Sort */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 min-h-[44px] rounded-xl border text-sm font-medium transition-colors ${
                 activeFilterCount > 0
                   ? "border-primary/30 bg-primary/5 text-primary"
                   : "border-border bg-card text-foreground hover:bg-muted"
               }`}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>Filters</span>
+              <span>{t("contacts.filters")}</span>
               {activeFilterCount > 0 && (
                 <span className="w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
                   {activeFilterCount}
@@ -99,20 +108,20 @@ export default function ContactsToolbar({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48 bg-card border border-border">
-            <DropdownMenuLabel className="text-xs text-foreground">Gender</DropdownMenuLabel>
-            {["", "male", "female", "other"].map((g) => (
+            <DropdownMenuLabel className="text-xs text-foreground">{t("contacts.genderFilter")}</DropdownMenuLabel>
+            {["", ...genders].map((g) => (
               <DropdownMenuCheckboxItem
                 key={g}
                 checked={filterGender === g}
                 onCheckedChange={() => onGenderChange(g)}
                 className="text-sm"
               >
-                {g ? g.charAt(0).toUpperCase() + g.slice(1) : "All genders"}
+                {g ? g.charAt(0).toUpperCase() + g.slice(1) : t("contacts.allGenders")}
               </DropdownMenuCheckboxItem>
             ))}
             <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuLabel className="text-xs text-foreground">Sort by</DropdownMenuLabel>
-            {SORT_OPTIONS.map((s) => (
+            <DropdownMenuLabel className="text-xs text-foreground">{t("contacts.sortBy")}</DropdownMenuLabel>
+            {sortOptions.map((s) => (
               <DropdownMenuCheckboxItem
                 key={s.field}
                 checked={sortField === s.field}
@@ -130,19 +139,15 @@ export default function ContactsToolbar({
           <button
             type="button"
             onClick={onClearFilters}
-            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="flex items-center gap-1.5 px-3 min-h-[44px] rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Clear</span>
+            <span>{t("contacts.clearFilters")}</span>
           </button>
         )}
 
         {/* Column customizer */}
-        <ColumnCustomizer
-          columns={tableColumns}
-          onChange={onColumnsChange}
-          availableColumns={availableColumns}
-        />
+        <ColumnCustomizer />
       </div>
     </div>
   );

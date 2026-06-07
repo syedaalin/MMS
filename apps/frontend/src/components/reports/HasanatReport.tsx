@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { useBrandPalette } from "@/lib/BrandingPaletteContext";
 import { Star, Gift, TrendingDown, Users } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -10,8 +11,6 @@ import { useLiveCollection } from "../../hooks/useLiveCollection";
 import ReportSummaryCard from "./ReportSummaryCard";
 import ReportExportBar from "./ReportExportBar";
 import EmptyState from "../ui/EmptyState";
-
-const PIE_COLORS: string[] = ["hsl(var(--primary))", "#D4A853", "#4F46E5"];
 
 /** Active filter state passed down from the parent report view. */
 import { HasanatChart } from "../dashboard/charts/AttendanceChart";
@@ -67,6 +66,11 @@ interface PieDatum {
  * @returns The HasanatReport component.
  */
 export default function HasanatReport({ filters }: HasanatReportProps): React.JSX.Element {
+  const palette = useBrandPalette();
+  const PIE_COLORS = useMemo(
+    () => [palette.primary, palette.secondary, palette.charts[2]],
+    [palette],
+  );
   const distributions = useLiveCollection<Distribution>("hasanat_distributions", DISTRIBUTIONS);
 
   const { distributionData, hasanatByFaculty } = useMemo(() => {

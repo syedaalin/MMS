@@ -1,38 +1,26 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import useConfigSubTabs from "@/hooks/useConfigSubTabs";
+import useTranslation from "@/hooks/useTranslation";
+import useModuleTierTabs from "@/hooks/useModuleTierTabs";
 import { motion, AnimatePresence } from "framer-motion";
 import { ClipboardList, Plus, UserCheck, BarChart2, Settings, LayoutDashboard } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
+import ResponsiveAccordionTabs from "@/components/ui/ResponsiveAccordionTabs";
+import SubTabBar from "@/components/ui/SubTabBar";
+import usePermissions from "@/hooks/usePermissions";
 import EnrollmentWizard from "../components/enrollment/EnrollmentWizard";
 import EnrollmentList from "../components/enrollment/EnrollmentList";
 import EnrollmentDetail from "../components/enrollment/EnrollmentDetail";
 import EligibilityCheck from "../components/enrollment/EligibilityCheck";
 import EnrollmentReports from "../components/enrollment/EnrollmentReports";
 import EnrollmentsSettings from "../components/enrollment/EnrollmentsSettings";
-import ModuleReports from "../components/reports/ModuleReports";
 import KPISummary from "../components/reports/KPISummary";
 import ErrorBoundary from "../components/ui/ErrorBoundary";
 import { SAMPLE_ENROLLMENTS, Enrollment } from "../lib/enrollmentData";
 import { STUDENTS } from "../lib/studentsData";
 import { getCollection, saveCollection } from "../lib/db";
-
-const TABS = [
-  { id: "operations",    label: "Operations",    icon: LayoutDashboard },
-  { id: "analytics",     label: "Analytics",     icon: BarChart2 },
-  { id: "configuration", label: "Configuration", icon: Settings },
-];
-
-const SUB_TABS = [
-  { id: "list",        label: "Enrollment List",  icon: ClipboardList },
-  { id: "new",         label: "New Enrollment",   icon: Plus },
-  { id: "eligibility", label: "Eligibility Check", icon: UserCheck },
-];
-
-const ROLE_OPTIONS = ["admin", "staff", "accountant"];
-
-const ENROLLMENT_SETTINGS_SUB_TABS = [
-  { id: "fields", label: "Fields" },
-  { id: "preferences", label: "Preferences" },
-];
+import { useLiveCollection } from "../hooks/useLiveCollection";
+import { useEnrollmentViewerRole } from "@/hooks/useViewerRole";
 
 /**
  * Enrollments management page.
@@ -41,26 +29,40 @@ const ENROLLMENT_SETTINGS_SUB_TABS = [
  * @returns {React.ReactElement} The Enrollments page component.
  */
 export default function Enrollments() {
+  const configSubTabs = useConfigSubTabs();
+  const { t } = useTranslation();
+  const SUB_TABS = useMemo(
+    () => [
+      { id: "list", label: t("enrollments.list"), icon: ClipboardList },
+      { id: "new", label: t("enrollments.new"), icon: Plus },
+      { id: "eligibility", label: t("enrollments.eligibility"), icon: UserCheck },
+    ],
+    [t]
+  );
+  const TABS = useModuleTierTabs();
   const [tab, setTab]                 = useState("operations");
   const [activeSubTab, setActiveSubTab] = useState("list");
-  const [role, setRole]               = useState("admin");
-  const [enrollments, setEnrollments] = useState<Enrollment[]>(() => getCollection("enrollments", SAMPLE_ENROLLMENTS));
+  const role = useEnrollmentViewerRole();
+  const { can } = usePermissions();
+  const canWriteEnrollments = can("enrollments.write");
+  const enrollments = useLiveCollection("enrollments", SAMPLE_ENROLLMENTS);
   const [viewing, setViewing]         = useState<Enrollment | null>(null);
   const [subTab, setSubTab]           = useState("fields");
 
-  useEffect(() => {
-    saveCollection("enrollments", enrollments);
+  const saveEnrollments = useCallback((updater: Enrollment[] | ((prev: Enrollment[]) => Enrollment[])) => {
+    const next = typeof updater === "function" ? updater(enrollments) : updater;
+    saveCollection("enrollments", next);
   }, [enrollments]);
 
   // Reset activeSubTab to list if role changes to accountant (since new and eligibility are restricted)
   useEffect(() => {
-    if (role === "accountant" && (activeSubTab === "new" || activeSubTab === "eligibility")) {
+    if (!canWriteEnrollments && (activeSubTab === "new" || activeSubTab === "eligibility")) {
       setActiveSubTab("list");
     }
-  }, [role, activeSubTab]);
+  }, [canWriteEnrollments, activeSubTab]);
 
   const handleComplete = (enrollment: Enrollment) => {
-    setEnrollments((prev) => [enrollment, ...prev]);
+    saveEnrollments((prev) => [enrollment, ...prev]);
     
     // Update student's enrolledSessions in localStorage
     const currentStudents = getCollection("students", STUDENTS);
@@ -79,7 +81,7 @@ export default function Enrollments() {
   };
 
   const handleCancel = (id: string) => {
-    setEnrollments((prev) => prev.map((e) =>
+    saveEnrollments((prev) => prev.map((e) =>
       e.id === id
         ? { ...e, status: "cancelled" as const, timeline: [...(e.timeline || []), { ts: new Date().toISOString(), event: "Enrollment cancelled", by: role }] }
         : e
@@ -87,7 +89,7 @@ export default function Enrollments() {
   };
 
   const handleStatusChange = (id: string, newStatus: Enrollment["status"]) => {
-    setEnrollments((prev) => prev.map((e) =>
+    saveEnrollments((prev) => prev.map((e) =>
       e.id === id
         ? { ...e, status: newStatus, timeline: [...(e.timeline || []), { ts: new Date().toISOString(), event: `Status → ${newStatus}`, by: role }] }
         : e
@@ -107,74 +109,35 @@ export default function Enrollments() {
       <meta name="description" content="Review and register class enrollments, verify student class allocations, and generate admissions reports." />
       <PageHeader
         icon={ClipboardList}
-        title="Enrollments"
-        subtitle="Manage student enrollment into sessions and classes"
+        title={t("nav.enrollments")}
+        subtitle={t("page.enrollments.subtitle")}
         actions={
           <div className="flex items-center gap-2">
-            {/* Role switcher */}
-            {tab !== "configuration" && (
-              <div className="flex rounded-lg border border-border/80 bg-card/60 backdrop-blur-md overflow-hidden text-[11px] font-bold shadow-sm">
-                {ROLE_OPTIONS.map((r) => (
-                  <button key={r} onClick={() => setRole(r)}
-                    className={`px-3 py-2 capitalize transition-colors ${role === r ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>
-                    {r}
-                  </button>
-                ))}
-              </div>
-            )}
-            {role !== "accountant" && tab !== "configuration" && (
+            {canWriteEnrollments && (
               <button onClick={() => { setTab("operations"); setActiveSubTab("new"); }}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
-                <Plus className="w-3.5 h-3.5" /> New Enrollment
+                <Plus className="w-3.5 h-3.5" /> {t("enrollments.new")}
               </button>
             )}
           </div>
         }
       />
 
-      <div className="space-y-4">
-        <ErrorBoundary>
-          <KPISummary category="academic" />
-        </ErrorBoundary>
-      </div>
-
-      {/* Primary Tabs */}
-      <div className="flex border-b border-border overflow-x-auto">
-        {TABS.map((t) => {
-          const Icon   = t.icon;
-          const active = tab === t.id;
-          return (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-4 py-3 text-[13px] font-semibold whitespace-nowrap border-b-2 transition-all ${
-                active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}>
-              <Icon className="w-3.5 h-3.5" />
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
-
+      <ResponsiveAccordionTabs
+        tabs={TABS}
+        activeTab={tab}
+        onTabChange={setTab}
+        panelIdPrefix="enrollments-tab"
+      >
       {/* Sub-tabs for Operations */}
       {tab === "operations" && (
-        <div className="flex gap-1.5 p-1 bg-card/45 backdrop-blur-xl border border-border/50 rounded-xl w-fit overflow-x-auto max-w-full shadow-sm">
-          {SUB_TABS.filter((t) => !(role === "accountant" && (t.id === "new" || t.id === "eligibility"))).map((t) => {
-            const active = activeSubTab === t.id;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setActiveSubTab(t.id)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                  active
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
+        <SubTabBar
+          tabs={SUB_TABS
+            .filter((item) => canWriteEnrollments || (item.id !== "new" && item.id !== "eligibility"))
+            .map((item) => ({ key: item.id, label: item.label }))}
+          value={activeSubTab}
+          onChange={setActiveSubTab}
+        />
       )}
 
       {/* Content */}
@@ -186,7 +149,10 @@ export default function Enrollments() {
         >
           {tab === "analytics" && (
             <ErrorBoundary>
-              <ModuleReports category="academic" role={role} />
+              <div className="space-y-4">
+                <KPISummary category="enrollments" />
+                <EnrollmentReports enrollments={enrollments} />
+              </div>
             </ErrorBoundary>
           )}
           {tab === "operations" && activeSubTab === "new" && (
@@ -217,36 +183,21 @@ export default function Enrollments() {
             </ErrorBoundary>
           )}
 
-          {tab === "operations" && activeSubTab === "reports" && (
-            <ErrorBoundary>
-              <EnrollmentReports enrollments={enrollments} />
-            </ErrorBoundary>
-          )}
-
           {tab === "configuration" && (
             <ErrorBoundary>
               <div className="space-y-4">
-                <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
-                  {ENROLLMENT_SETTINGS_SUB_TABS.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setSubTab(t.id)}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                        subTab === t.id
-                          ? "bg-card text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
+                <SubTabBar
+                  tabs={configSubTabs.map((item) => ({ key: item.id, label: item.label }))}
+                  value={subTab}
+                  onChange={setSubTab}
+                />
                 <EnrollmentsSettings mode={subTab as "fields" | "preferences"} />
               </div>
             </ErrorBoundary>
           )}
         </motion.div>
       </AnimatePresence>
+      </ResponsiveAccordionTabs>
 
       {/* Detail panel */}
       <AnimatePresence>

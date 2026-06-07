@@ -63,8 +63,8 @@ function DistributeModal({ denoms, batches, onClose, onSave }: DistributeModalPr
   const isValid = useMemo(() => {
     if (totalAvailable === 0) return false;
     for (const f of orderedFields) {
-      const isEnabled = f.isCustom ? true : (fields[f.id]?.enabled !== false);
-      const isRequired = f.isCustom ? !!f.required : (f.alwaysOn ? !!f.required : fields[f.id]?.required);
+      const isEnabled = fields[f.id]?.enabled !== false;
+      const isRequired = !!fields[f.id]?.required;
       if (isEnabled && isRequired) {
         const val = (data as any)[f.id];
         if (val === undefined || val === null || val === "") return false;
@@ -91,7 +91,7 @@ function DistributeModal({ denoms, batches, onClose, onSave }: DistributeModalPr
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {orderedFields.map((field) => {
-              const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled !== false);
+              const isEnabled = fields[field.id]?.enabled !== false;
               if (!isEnabled) return null;
 
               if (field.id === "denominationId") {
@@ -204,7 +204,8 @@ function DistributeModal({ denoms, batches, onClose, onSave }: DistributeModalPr
               }
 
               // Custom Field
-              if (field.isCustom) {
+              const isCustom = !DEFAULT_HASANAT_FIELD_DEFS.some(df => df.id === field.id);
+              if (isCustom) {
                 const value = (data as any)[field.id] ?? "";
                 return (
                   <div key={field.id} className={field.type === "textarea" ? "sm:col-span-2" : ""}>

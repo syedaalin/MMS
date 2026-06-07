@@ -1,3 +1,4 @@
+import { DEFAULT_BRANDING_SETTINGS, formatBrandingAddress, mergeBrandingSettings, type BrandingSettings } from "@mms/shared";
 import { getObject } from "./db";
 
 const STORAGE_KEY = "mms_invoice_template";
@@ -43,16 +44,7 @@ export interface InvoiceTemplate {
   elements: TemplateElement[];
 }
 
-export interface BrandingInfo {
-  madrasaName: string;
-  tagline: string;
-  logoUrl: string;
-  primaryColor: string;
-  footerText: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-}
+export type BrandingInfo = BrandingSettings;
 
 export interface LookupItem {
   id: string | number;
@@ -76,18 +68,8 @@ export interface FieldLookupInfo {
  * @returns {BrandingInfo} The branding settings object.
  */
 function getBranding(): BrandingInfo {
-  const DEFAULT_BRANDING: BrandingInfo = {
-    madrasaName: "MMS",
-    tagline: "Nurturing Knowledge & Character",
-    logoUrl: "",
-    primaryColor: "#047857",
-    footerText: "© 2026 MMS. All rights reserved.",
-    address: "",
-    phone: "",
-    email: "",
-  };
   const b = getObject<BrandingInfo | null>("branding", null);
-  if (b) return b;
+  if (b) return mergeBrandingSettings(b);
   try {
     const raw = localStorage.getItem("madrasa_branding");
     if (raw) {
@@ -95,15 +77,15 @@ function getBranding(): BrandingInfo {
       localStorage.setItem("mms_branding", raw);
       try {
         localStorage.removeItem("madrasa_branding");
-      } catch (err) {
+      } catch {
         // Ignore removal error
       }
-      return parsed;
+      return mergeBrandingSettings(parsed);
     }
   } catch {
     // Ignore read error
   }
-  return DEFAULT_BRANDING;
+  return DEFAULT_BRANDING_SETTINGS;
 }
 
 /**
@@ -361,7 +343,7 @@ export function getDefaultTemplate(): InvoiceTemplate {
       {
         id: "footer_address",
         type: "static",
-        label: b.address || "123 Islamic Street, Karachi, Pakistan",
+        label: formatBrandingAddress(b) || "123 Islamic Street, Karachi, Pakistan",
         x: 20, y: 398, w: 357, h: 14,
         style: { fontSize: 9, textAlign: "center", color: "#888" },
       },

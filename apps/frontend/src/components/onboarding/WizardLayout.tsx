@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import useBranding from "@/hooks/useBranding";
 
 const steps = [
-  { id: 1, label: "Create Madrasa" },
+  { id: 1, label: "Institution & Theme" },
   { id: 2, label: "Select Plan" },
   { id: 3, label: "Admin Setup" },
 ];
@@ -106,7 +106,7 @@ export default function WizardLayout({ currentStep, children, title, subtitle }:
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
-          className="w-full max-w-xl bg-card border border-border rounded-2xl shadow-sm overflow-hidden"
+          className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-sm overflow-hidden"
           aria-labelledby="wizard-step-title"
         >
           <header className="px-6 py-5 border-b border-border bg-muted/20">

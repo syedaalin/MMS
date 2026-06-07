@@ -8,17 +8,20 @@ The **Contact Module** serves as the central directory and CRM (Customer Relatio
 
 The Contact Module spans the following files in the project workspace:
 
-### Page Entry Point (`frontend/src/pages/`)
-* **[Contacts.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/pages/Contacts.tsx)**: Main page wrapper that orchestrates tab routes: **Operations** (switching between List and Kanban views), **Analytics** (rendering live KPI summaries and reports), and **Configuration** (rendering field registries, preferences, and device synchronizers). Handles global triggers for deduplication, bulk actions, and modals.
+### Page Entry Point (`apps/frontend/src/pages/`)
+* **[Contacts.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/pages/Contacts.tsx)**: Main page wrapper that orchestrates tab routes: **Operations** (switching between List and Kanban views), **Analytics** (rendering live KPI summaries and reports), and **Configuration** (rendering field registries, preferences, and device synchronizers). Handles global triggers for deduplication, bulk actions, and modals. `ContactConfigProvider` mounts once in `App.tsx` — not on this page.
 
-### Frontend State & Utilities (`frontend/src/lib/`)
-* **[contactFields.ts](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/lib/contactFields.ts)**: Declares all core TypeScript interfaces (`Contact`, `PhoneNumber`, `Address`, etc.), built-in field registries, default configs, and option lists.
+### Shared Types (`packages/shared/src/`)
+* **[contactTypes.ts](file:///Users/syedaalin/Downloads/MMS 2/packages/shared/src/contactTypes.ts)**: Canonical TypeScript types (`Contact`, `PhoneNumber`, `Address`, `FieldDefinition`, `FieldConfig`, `TAB_REGISTRY`, etc.) and field/tab registries consumed by frontend and backend.
+* **[utils.ts](file:///Users/syedaalin/Downloads/MMS 2/packages/shared/src/utils.ts)**: Shared utilities — `parsePhoneNumber`, `formatDate`, `getInitials`, `getAvatarColor`, `toTitleCase`, `optimizeImage`.
+
+### Frontend State & Utilities (`apps/frontend/src/lib/`)
+* **[contactFields.ts](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/lib/contactFields.ts)**: Re-exports from `@mms/shared` plus frontend-specific field helpers.
 * **[ContactConfigContext.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/lib/ContactConfigContext.tsx)**: Global React context facilitating real-time field configuration changes, dynamic validation (via Zod), dynamic active columns representation, and profile completeness algorithms.
 * **[contactFieldsStore.ts](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/lib/contactFieldsStore.ts)**: Handles synchronization of field configuration metadata with the local storage database.
 * **[contactsData.ts](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/lib/contactsData.ts)**: Declares initial mock contact datasets and seed helper configurations.
-* **[contactConstants.ts](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/lib/contactConstants.ts)**: Exposes formatting and parsing tools for telephone numbers.
 
-### Frontend Components (`frontend/src/components/contacts/`)
+### Frontend Components (`apps/frontend/src/components/contacts/`)
 * **[ContactsTable.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactsTable.tsx)**: Tabular layout supporting dynamic visible columns, quick search, rating edits, and direct row selection.
 * **[ContactKanban.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactKanban.tsx)**: Drag-and-drop board organized by **Lifecycle Stage** (Lead, Active Student, Alumnus, Staff, Donor, Volunteer, Parent).
 * **[ContactDetailDrawer.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactDetailDrawer.tsx)**: Rich slide-out panel containing complete tabs, activity feeds (calls, notes, WhatsApp logs), document attachments, and relationships.
@@ -32,10 +35,8 @@ The Contact Module spans the following files in the project workspace:
 * **[ContactStatsBar.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactStatsBar.tsx)**: Displays metrics counts (Total, Active, Verified phones) and database profile health breakdowns (Complete, Partial, Stale).
 * **[ContactsToolbar.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/ContactsToolbar.tsx)**: Toolbar container for text search, sorting selectors, dynamic filters, and column customization triggers.
 
-### Form Subcomponents (`frontend/src/components/contacts/form/`)
-* **[FormPrimitives.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/FormPrimitives.tsx)**: Shared CSS variables, labels, warning banners, and generic inputs for tags, custom files, location, and AI summaries.
-* **[DynamicField.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/DynamicField.tsx)**: Dynamic wrapper for standard input controls based on field type registry (select, checkbox, text, text area, date).
-* **[TabCustomFields.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/TabCustomFields.tsx)**: Dynamic grid injection rendering custom field values registered under secondary tabs.
+### Form Subcomponents (`apps/frontend/src/components/contacts/form/`)
+* **[FormPrimitives.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/FormPrimitives.tsx)**: Shared styles, labels, warning banners, and registry-driven field renderers (`RegistryField`, `EditableSelect`, file/location/AI inputs) — replaces the deleted `DynamicField.tsx` and `TabCustomFields.tsx`.
 * **[BasicTab.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/BasicTab.tsx)**: Form inputs for identity attributes, DOB, gender, and avatar triggers.
 * **[PhoneTab.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/PhoneTab.tsx)**: Form inputs for phone numbers, WhatsApp status toggles, and country dial code selectors.
 * **[EmailTab.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/EmailTab.tsx)**: Form inputs for email addresses and custom label assignments.
@@ -44,8 +45,9 @@ The Contact Module spans the following files in the project workspace:
 * **[EmergencyTab.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/EmergencyTab.tsx)**: Form inputs for emergency contacts, utilizing a contact picker to link records.
 * **[RelationshipsTab.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/form/RelationshipsTab.tsx)**: Form inputs to define family or CRM links between contacts.
 
-### Settings Subcomponents (`frontend/src/components/contacts/settings/`)
-* **[DraggableFieldList.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/contacts/settings/DraggableFieldList.tsx)**: Drag-and-drop list container using `@hello-pangea/dnd` to reorder built-in or custom fields, toggle optional/required constraints, and toggle enabling.
+### Shared UI (`apps/frontend/src/components/ui/`)
+* **[ContactDraggableFieldList.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/ui/ContactDraggableFieldList.tsx)**: Contact-specific drag-and-drop field list (`@hello-pangea/dnd`) for reordering built-in or custom fields and toggling enabled/required/unique constraints. Canonical replacement for the deleted `contacts/settings/DraggableFieldList.tsx`.
+* **[DraggableFieldList.tsx](file:///Users/syedaalin/Downloads/MMS 2/apps/frontend/src/components/ui/DraggableFieldList.tsx)**: Generic field list used by other modules (students, finance, etc.).
 
 ---
 
@@ -54,6 +56,8 @@ The Contact Module spans the following files in the project workspace:
 The data model for contacts is designed to handle rich hierarchical structures (like multiple phone numbers, addresses, and relations) and arbitrary key-value pairs representing runtime custom fields.
 
 ### TypeScript Specifications
+
+Types live in `@mms/shared` (`packages/shared/src/contactTypes.ts`). Summary:
 
 ```typescript
 export interface PhoneNumber {
@@ -113,7 +117,6 @@ export interface ContactAttachment {
 
 export interface Contact {
   id: string | number;
-  personaId?: string;           // Links to a PersonaConfig (e.g., "student")
   name: string;                 // Composite full name
   firstName: string;
   lastName?: string;
@@ -151,18 +154,11 @@ The system shifts control of the UI schema layout from code to a configurable da
 ```mermaid
 graph TD
     A[Admin UI Settings] -->|Writes to| B[FieldConfig Object]
-    B -->|Defines| C[Persona Configurations]
     B -->|Defines| D[Custom Fields Schema]
-    C & D -->|Loaded by| E[ContactConfigContext]
+    D -->|Loaded by| E[ContactConfigContext]
     E -->|Generates Zod Schema| F[ContactForm Validation]
     E -->|Determines Visible Headers| G[ContactsTable Layout]
 ```
-
-### Persona Gating
-Each contact belongs to a **Persona** (such as Student, Donor, or Staff). The `PersonaConfig` determines:
-* Which tabs (Phone numbers, Social links, Emergency contacts) are visible.
-* Which fields within those tabs are active or required.
-* Which custom attributes apply.
 
 ### Custom Fields Schema
 Administrators can register new custom fields dynamically with variables like:
@@ -176,7 +172,7 @@ Administrators can register new custom fields dynamically with variables like:
 
 ### Draggable Reordering Engine
 Administrators can reorder fields within any tab.
-1. The **Settings Panel** renders lists in `DraggableFieldList` using `@hello-pangea/dnd`.
+1. The **Settings Panel** renders lists in `ContactDraggableFieldList` (`components/ui/`) using `@hello-pangea/dnd`.
 2. Drag events modify the `order` array inside `tabFieldConfig`.
 3. The custom order is stored, prompting `ContactForm` to render inputs in that layout and `ContactConfigContext` to order table columns identically.
 

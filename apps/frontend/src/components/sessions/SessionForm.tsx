@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from "react";
-import { motion } from "framer-motion";
-import { X, Save, Loader2 } from "lucide-react";
+import { Calendar } from "lucide-react";
+import FormModal from "@/components/ui/FormModal";
+import { FORM_INPUT, FORM_LABEL } from "@/components/ui/formStyles";
 import { SESSION_TYPES, Session } from "../../lib/sessionsData";
-import { toTitleCase } from "../../lib/utils";
+import { toTitleCase } from "@mms/shared";
 import { getObject } from "../../lib/db";
 import {
   type SessionsSettings,
@@ -12,12 +13,13 @@ import {
 } from "@mms/shared";
 import { DatePicker } from "../ui/DatePicker";
 
-const INPUT = "w-full px-3.5 py-2.5 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
-const LABEL = "text-[12px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
+const INPUT = FORM_INPUT;
+const LABEL = FORM_LABEL;
 
 const EMPTY: Partial<Session> = { name: "", type: "Hifz", status: "active", startDate: "", endDate: "", baseFee: 0, currency: "PKR", description: "" };
 
 interface SessionFormProps {
+  open?: boolean;
   session?: Session | null;
   onClose: () => void;
   onSave: (session: Session) => void;
@@ -28,7 +30,7 @@ interface SessionFormProps {
  *
  * A modal form for creating or editing a session.
  */
-export default function SessionForm({ session, onClose, onSave }: SessionFormProps) {
+export default function SessionForm({ open = true, session, onClose, onSave }: SessionFormProps) {
   const [data, setData] = useState<Partial<Session>>(session ? { ...session } : { ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -98,35 +100,23 @@ export default function SessionForm({ session, onClose, onSave }: SessionFormPro
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="session-form-title">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <motion.form
-        onSubmit={(e) => { e.preventDefault(); handleSave(); }}
-        initial={{ opacity: 0, scale: 0.97, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97 }}
-        className="relative bg-card rounded-2xl border border-border shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col z-10"
-      >
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
-          <div>
-            <h2 id="session-form-title" className="text-base font-bold text-foreground m-0">{session ? "Edit Session" : "New Session"}</h2>
-            <p className="text-xs text-muted-foreground mt-0.5 m-0">Fill in the session details below</p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="p-2 rounded-lg hover:bg-muted text-muted-foreground">
-            <X className="w-4 h-4" aria-hidden="true" />
-          </button>
-        </header>
-
-        <fieldset className="flex-1 overflow-y-auto px-6 py-5 border-none p-0 m-0">
-          {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs font-semibold text-left">
-              {error}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={session ? "Edit Session" : "New Session"}
+      subtitle="Fill in the session details below"
+      icon={Calendar}
+      size="md"
+      error={error}
+      cancelLabel="Cancel"
+      saveLabel={session ? "Update" : "Create Session"}
+      onSave={() => void handleSave()}
+      saving={saving}
+      saveDisabled={!data.name || !data.startDate || !data.endDate}
+    >
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {orderedFields.map((field) => {
-              const isEnabled = field.isCustom ? true : (fields[field.id]?.enabled !== false);
+              const isEnabled = fields[field.id]?.enabled !== false;
               if (!isEnabled) return null;
 
               if (field.id === "name") {
@@ -221,7 +211,7 @@ export default function SessionForm({ session, onClose, onSave }: SessionFormPro
               }
 
               // Custom field
-              if (field.isCustom) {
+              if (!["name", "type", "status", "startDate", "endDate", "baseFee", "currency", "description"].includes(field.id)) {
                 const val = (data as Record<string, unknown>)[field.id] ?? "";
                 return (
                   <div key={field.id} className={field.type === "textarea" ? "sm:col-span-2" : ""}>
@@ -292,20 +282,6 @@ export default function SessionForm({ session, onClose, onSave }: SessionFormPro
               return null;
             })}
           </div>
-        </fieldset>
-
-        <footer className="px-6 py-4 border-t border-border flex justify-end gap-2.5 flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
-          <button
-            type="submit"
-            disabled={saving || !data.name || !data.startDate || !data.endDate}
-            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 transition-all"
-          >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Save className="w-4 h-4" aria-hidden="true" />}
-            {saving ? "Saving…" : session ? "Update" : "Create Session"}
-          </button>
-        </footer>
-      </motion.form>
-    </div>
+    </FormModal>
   );
 }

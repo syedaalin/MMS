@@ -52,40 +52,28 @@ function optionsToString(arr: string[]): string {
   return arr.join(", ");
 }
 
-export interface CustomFieldConfig {
-  id: string;
-  label: string;
-  type: string;
-  required: boolean;
-  unique: boolean;
-  placeholder?: string;
-  description?: string;
-  defaultValue?: string;
-  options?: string[];
-  showInForm?: boolean;
-  minLength?: number;
-  maxLength?: number;
-  min?: number;
-  max?: number;
-  mask?: string;
-}
+import { FieldDefinition } from "@mms/shared";
+
+export type CustomFieldConfig = FieldDefinition;
 
 /**
  * Returns a blank new custom field with sensible defaults.
  * @returns A new custom field configuration object.
  */
 function newField(): CustomFieldConfig {
+  const uniqueKey = generateFieldId();
   return {
-    id: generateFieldId(),
+    key: uniqueKey,
     label: "",
     type: "text",
+    enabled: true,
+    order: 0,
     required: false,
     unique: false,
     placeholder: "",
     description: "",
     defaultValue: "",
-    options: [], // string[] — stored as array, not comma string
-    showInForm: true,
+    options: [],
   };
 }
 
@@ -106,7 +94,7 @@ interface DraftFieldState extends Omit<CustomFieldConfig, "options"> {
  * @param props Component properties.
  * @returns React element.
  */
-function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEditorProps): React.JSX.Element {
+export function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEditorProps): React.JSX.Element {
   const [draft, setDraft] = useState<DraftFieldState>(() => ({
     ...field,
     options: normalizeOptions(field.options),
@@ -141,9 +129,9 @@ function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEdit
       {/* Row 1: Label + Type */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={LABEL} htmlFor={`label-${draft.id}`}>Field Name *</label>
+          <label className={LABEL} htmlFor={`label-${draft.key}`}>Field Name *</label>
           <input
-            id={`label-${draft.id}`}
+            id={`label-${draft.key}`}
             className={INPUT}
             value={draft.label}
             onChange={(e) => upd("label", e.target.value)}
@@ -158,12 +146,12 @@ function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEdit
           )}
         </div>
         <div>
-          <label className={LABEL} htmlFor={`type-${draft.id}`}>Field Type</label>
+          <label className={LABEL} htmlFor={`type-${draft.key}`}>Field Type</label>
           <select
-            id={`type-${draft.id}`}
+            id={`type-${draft.key}`}
             className={INPUT}
             value={draft.type}
-            onChange={(e) => upd("type", e.target.value)}
+            onChange={(e) => upd("type", e.target.value as FieldDefinition["type"])}
           >
             {FIELD_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
@@ -177,11 +165,11 @@ function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEdit
       {/* Row 2: Description + Placeholder */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={LABEL} htmlFor={`desc-${draft.id}`}>
+          <label className={LABEL} htmlFor={`desc-${draft.key}`}>
             Description <span className="normal-case font-normal text-muted-foreground/70">(admin note)</span>
           </label>
           <input
-            id={`desc-${draft.id}`}
+            id={`desc-${draft.key}`}
             className={INPUT}
             value={draft.description || ""}
             onChange={(e) => upd("description", e.target.value)}
@@ -189,9 +177,9 @@ function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEdit
           />
         </div>
         <div>
-          <label className={LABEL} htmlFor={`placeholder-${draft.id}`}>Placeholder</label>
+          <label className={LABEL} htmlFor={`placeholder-${draft.key}`}>Placeholder</label>
           <input
-            id={`placeholder-${draft.id}`}
+            id={`placeholder-${draft.key}`}
             className={INPUT}
             value={draft.placeholder || ""}
             onChange={(e) => upd("placeholder", e.target.value)}
@@ -203,13 +191,13 @@ function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEdit
       {/* Row 3: Default Value */}
       {draft.type !== "boolean" && draft.type !== "tags" && (
         <div>
-          <label className={LABEL} htmlFor={`defVal-${draft.id}`}>
+          <label className={LABEL} htmlFor={`defVal-${draft.key}`}>
             Default Value <span className="normal-case font-normal text-muted-foreground/70">(optional, pre-filled in the form)</span>
           </label>
           <input
-            id={`defVal-${draft.id}`}
+            id={`defVal-${draft.key}`}
             className={INPUT}
-            value={draft.defaultValue || ""}
+            value={(draft.defaultValue as string | number | undefined) || ""}
             onChange={(e) => upd("defaultValue", e.target.value)}
             placeholder="Leave blank for no default"
           />
@@ -219,12 +207,12 @@ function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEdit
       {/* Row 4: Type-specific constraints */}
       {hasOptions && (
         <div>
-          <label className={LABEL} htmlFor={`opts-${draft.id}`}>
+          <label className={LABEL} htmlFor={`opts-${draft.key}`}>
             {draft.type === "tags" ? "Predefined Tags" : "Options"}{" "}
             <span className="normal-case font-normal text-muted-foreground/70">(comma-separated)</span>
           </label>
           <input
-            id={`opts-${draft.id}`}
+            id={`opts-${draft.key}`}
             className={INPUT}
             value={draft._optionsString}
             onChange={(e) => upd("_optionsString", e.target.value)}
@@ -239,9 +227,9 @@ function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEdit
       {hasTextLength && (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={LABEL} htmlFor={`minlen-${draft.id}`}>Min Length</label>
+            <label className={LABEL} htmlFor={`minlen-${draft.key}`}>Min Length</label>
             <input
-              id={`minlen-${draft.id}`}
+              id={`minlen-${draft.key}`}
               type="number"
               min={0}
               className={INPUT}
@@ -251,9 +239,9 @@ function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEdit
             />
           </div>
           <div>
-            <label className={LABEL} htmlFor={`maxlen-${draft.id}`}>Max Length</label>
+            <label className={LABEL} htmlFor={`maxlen-${draft.key}`}>Max Length</label>
             <input
-              id={`maxlen-${draft.id}`}
+              id={`maxlen-${draft.key}`}
               type="number"
               min={1}
               className={INPUT}
@@ -268,9 +256,9 @@ function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEdit
       {hasNumRange && (
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className={LABEL} htmlFor={`min-${draft.id}`}>Min Value</label>
+            <label className={LABEL} htmlFor={`min-${draft.key}`}>Min Value</label>
             <input
-              id={`min-${draft.id}`}
+              id={`min-${draft.key}`}
               type="number"
               className={INPUT}
               value={draft.min ?? ""}
@@ -279,9 +267,9 @@ function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEdit
             />
           </div>
           <div>
-            <label className={LABEL} htmlFor={`max-${draft.id}`}>Max Value</label>
+            <label className={LABEL} htmlFor={`max-${draft.key}`}>Max Value</label>
             <input
-              id={`max-${draft.id}`}
+              id={`max-${draft.key}`}
               type="number"
               className={INPUT}
               value={draft.max ?? ""}
@@ -290,11 +278,11 @@ function FieldEditor({ field, existingLabels = [], onSave, onCancel }: FieldEdit
             />
           </div>
           <div>
-            <label className={LABEL} htmlFor={`mask-${draft.id}`}>
+            <label className={LABEL} htmlFor={`mask-${draft.key}`}>
               Input Mask <span className="normal-case font-normal text-muted-foreground/70">(optional)</span>
             </label>
             <input
-              id={`mask-${draft.id}`}
+              id={`mask-${draft.key}`}
               className={INPUT}
               value={draft.mask || ""}
               onChange={(e) => upd("mask", e.target.value)}
@@ -361,7 +349,6 @@ interface FieldRowProps {
   dragHandleProps?: DraggableProvidedDragHandleProps | null;
   onEdit: () => void;
   onDelete: () => void;
-  onToggleShowInForm: (id: string, val: boolean) => void;
 }
 
 /**
@@ -373,7 +360,6 @@ function FieldRow({
   dragHandleProps,
   onEdit,
   onDelete,
-  onToggleShowInForm
 }: FieldRowProps): React.JSX.Element {
   const [confirming, setConfirming] = useState<boolean>(false);
   const typeLabel = FIELD_TYPES.find((t) => t.value === field.type)?.label ?? field.type;
@@ -420,17 +406,6 @@ function FieldRow({
       >
         <GripVertical className="w-4 h-4" />
       </span>
-
-      {/* Show-in-form toggle */}
-      <button
-        type="button"
-        title="Show in Add Contact form"
-        onClick={() => onToggleShowInForm(field.id, !(field.showInForm !== false))}
-        className={`w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-all cursor-pointer
-          ${field.showInForm !== false ? "bg-primary border-primary" : "border-border bg-background"}`}
-      >
-        {field.showInForm !== false && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
-      </button>
 
       {/* Field metadata */}
       <div className="flex-1 min-w-0 text-left">
@@ -516,16 +491,12 @@ export default function CustomFieldsBuilder({
   };
 
   const handleSaveEdit = (f: CustomFieldConfig): void => {
-    onChange(fields.map((x) => (x.id === f.id ? f : x)));
+    onChange(fields.map((x) => (x.key === f.key ? f : x)));
     setEditingId(null);
   };
 
-  const handleDelete = (id: string): void => {
-    onChange(fields.filter((f) => f.id !== id));
-  };
-
-  const handleToggleShowInForm = (id: string, val: boolean): void => {
-    onChange(fields.map((f) => (f.id === id ? { ...f, showInForm: val } : f)));
+  const handleDelete = (key: string): void => {
+    onChange(fields.filter((f) => f.key !== key));
   };
 
   const handleDragEnd = (result: DropResult): void => {
@@ -558,55 +529,7 @@ export default function CustomFieldsBuilder({
         )}
       </div>
 
-      {/* Field list */}
-      {fields.length === 0 && !adding ? (
-        <div className="flex flex-col items-center justify-center py-8 rounded-xl border-2 border-dashed border-border text-muted-foreground gap-2 bg-card">
-          <Plus className="w-6 h-6 opacity-30" />
-          <p className="text-xs font-semibold">No custom fields yet</p>
-          <p className="text-[11px] text-center max-w-xs px-4">
-            Click &ldquo;Add Field&rdquo; to create fields that will appear in the contact form.
-          </p>
-        </div>
-      ) : (
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Droppable droppableId={droppableId}>
-            {(provided) => (
-              <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2">
-                {fields.map((field, index) =>
-                  editingId === field.id ? (
-                    <FieldEditor
-                      key={field.id}
-                      field={field}
-                      existingLabels={existingLabels}
-                      onSave={handleSaveEdit}
-                      onCancel={() => setEditingId(null)}
-                    />
-                  ) : (
-                    <Draggable key={field.id} draggableId={field.id} index={index}>
-                      {(drag, snapshot) => (
-                        <div ref={drag.innerRef} {...drag.draggableProps}>
-                          <FieldRow
-                            field={field}
-                            isDragging={snapshot.isDragging}
-                            dragHandleProps={drag.dragHandleProps}
-                            onEdit={() => {
-                              setEditingId(field.id);
-                              setAdding(false);
-                            }}
-                            onDelete={() => handleDelete(field.id)}
-                            onToggleShowInForm={handleToggleShowInForm}
-                          />
-                        </div>
-                      )}
-                    </Draggable>
-                  )
-                )}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
-      )}
+      {/* Field list removed to unify with DraggableFieldList */}
 
       {/* New field editor */}
       {adding && draft && (

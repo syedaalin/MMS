@@ -1,10 +1,11 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Share2, Plus, Trash2 } from "lucide-react";
-import { DEFAULT_TAB_FIELD_CONFIG } from "../../../lib/contactFields";
-import { INPUT, SELECT, LABEL, Field, FormEmptyState, RequiredBanner, CustomFieldInput, CustomFieldConfig, EditableSelect } from "./FormPrimitives";
+import { Share2, Plus } from "lucide-react";
+
+import { Field, FormEmptyState, RequiredBanner, CustomFieldInput, EditableSelect, COLLECTION_CARD, COLLECTION_BODY, CardTypeLabel, CardRemoveButton, TYPE_SELECT_WIDTH } from "./FormPrimitives";
 import { useSortedFields } from "../../../hooks/useSortedFields";
 import { useContactConfig } from "../../../lib/ContactConfigContext";
+import useTranslation from "@/hooks/useTranslation";
 
 const SOCIAL_PLACEHOLDERS: Record<string, string> = {
   Facebook: "https://facebook.com/username",
@@ -21,6 +22,7 @@ const SOCIAL_PLACEHOLDERS: Record<string, string> = {
 interface ContactSocial {
   platform: string;
   url: string;
+  [key: string]: unknown;
 }
 
 interface ContactFormData {
@@ -40,7 +42,7 @@ interface SocialTabProps {
 }
 
 /**
- * SocialTab component for managing contact social media links.
+ * SocialTab component for managing contact social media links dynamically.
  * @param props Component properties.
  * @returns React element.
  */
@@ -48,35 +50,47 @@ export default function SocialTab({
   data,
   onChange,
   required = false,
-  tabFieldCfg,
-  customFields
 }: SocialTabProps): React.JSX.Element {
-  const sortedCustomFields = useSortedFields("socials").filter((f) => f.isCustom && f.showInForm !== false);
-  const { socialPlatforms, updateSocialPlatforms } = useContactConfig();
-  const socials = data.socials && data.socials.length > 0 ? data.socials : [{ platform: (socialPlatforms && socialPlatforms[0]) || "Facebook", url: "" }];
+  const { socialPlatforms, updateSocialPlatforms, uiStrings } = useContactConfig();
+  const { t } = useTranslation();
+  const enabledFields = useSortedFields("socials").filter((f) => f.enabled);
+
+  const createNewSocial = (): ContactSocial => {
+    const item: Record<string, unknown> = {};
+    enabledFields.forEach((f) => {
+      if (f.key === "platform") {
+        item[f.key] = (socialPlatforms && socialPlatforms[0]) || uiStrings.facebookLabel;
+      } else {
+        item[f.key] = f.defaultValue !== undefined ? f.defaultValue : "";
+      }
+    });
+    return item as ContactSocial;
+  };
+
+  const socials = data.socials && data.socials.length > 0 ? data.socials : [createNewSocial()];
 
   const upd = (list: ContactSocial[]): void => {
     onChange({ ...data, socials: list });
   };
 
-  const updField = (id: string, value: unknown): void => {
-    onChange({ ...data, [id]: value });
-  };
-
-  const en = tabFieldCfg?.enabled ?? DEFAULT_TAB_FIELD_CONFIG.socials.enabled;
-  const req = tabFieldCfg?.required ?? DEFAULT_TAB_FIELD_CONFIG.socials.required;
-  const showPlatform = en.includes("platform");
-  const showUrl = en.includes("url");
-  const reqUrl = req.includes("url");
-
   const updateSocial = (i: number, patch: Partial<ContactSocial>): void => {
     upd(socials.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   };
 
+  const showPlatformField = enabledFields.find((f) => f.key === "platform");
+  const bodyFields = enabledFields.filter((f) => f.key !== "platform");
+
+  const getPlaceholder = (field: FieldDefinition, platform: string): string => {
+    if (field.key === "url") {
+      return SOCIAL_PLACEHOLDERS[platform] || field.placeholder || t("contacts.form.urlPlaceholderDefault");
+    }
+    return field.placeholder || "";
+  };
+
   return (
     <div className="space-y-3">
-      {required && socials.length === 0 && <RequiredBanner message="At least one social link is required" />}
-      {socials.length === 0 && <FormEmptyState icon={Share2} text="No social links yet. Add one below." />}
+      {required && socials.length === 0 && <RequiredBanner message={t("contacts.form.atLeastOneSocialRequired")} />}
+      {socials.length === 0 && <FormEmptyState icon={Share2} text={t("contacts.form.noSocialLinksYet")} />}
 
       {socials.map((s, i) => (
         <motion.div
@@ -84,74 +98,57 @@ export default function SocialTab({
           layout
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-border bg-muted/20 p-3 space-y-2.5"
+          className={COLLECTION_CARD}
         >
           <div className="flex items-center justify-between">
-            {showPlatform ? (
+            {showPlatformField ? (
               <div className="flex items-center gap-2">
-                <span className={LABEL + " !mb-0 text-[10px]"}>Type:</span>
+                <CardTypeLabel>{t("contacts.form.type")}</CardTypeLabel>
                 <EditableSelect
                   options={socialPlatforms || []}
-                  value={s.platform}
+                  value={s.platform || ""}
                   onChange={(val) => updateSocial(i, { platform: val })}
                   onUpdateOptions={updateSocialPlatforms}
-                  placeholder="Select platform..."
-                  className="w-40"
+                  placeholder={t("contacts.form.selectLabel")}
+                  className={TYPE_SELECT_WIDTH}
                 />
               </div>
             ) : (
               <div />
             )}
-            <button
-              type="button"
+            <CardRemoveButton
               onClick={() => upd(socials.filter((_, j) => j !== i))}
-              className="p-1 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
-              aria-label={`Remove social link ${i + 1}`}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-          {showUrl && reqUrl && (
-            <span className={LABEL}>
-              URL / Handle <span className="text-red-500">*</span>
-            </span>
-          )}
-          {showUrl && (
-            <input
-              className={INPUT}
-              value={s.url || ""}
-              onChange={(e) => updateSocial(i, { url: e.target.value })}
-              placeholder={SOCIAL_PLACEHOLDERS[s.platform] || "https://…"}
-              aria-label={`Social URL ${i + 1}`}
+              label={t("contacts.form.removeSocialLink", { index: i + 1 })}
             />
+          </div>
+
+          {bodyFields.length > 0 && (
+            <div className={COLLECTION_BODY}>
+              {bodyFields.map((field) => (
+                <Field key={field.key} label={field.label} required={field.required} hint={field.description}>
+                  <CustomFieldInput
+                    field={{ ...field, placeholder: getPlaceholder(field, s.platform || uiStrings.facebookLabel) }}
+                    value={s[field.key]}
+                    onChange={(val) => updateSocial(i, { [field.key]: val })}
+                  />
+                </Field>
+              ))}
+            </div>
           )}
         </motion.div>
       ))}
 
       <button
         type="button"
-        onClick={() =>
-          upd([...socials, { platform: (socialPlatforms && socialPlatforms[0]) || "Facebook", url: "" }])
-        }
-        className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
+        onClick={() => upd([...socials, createNewSocial()])}
+        className="flex items-center min-h-[44px] gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
       >
         <Plus className="w-4 h-4" />
-        <span>Add social link</span>
+        <span>{t("contacts.form.addSocialLink")}</span>
       </button>
-
-      {sortedCustomFields.map((field) => {
-        const label = field.label as string;
-        const reqField = field.required as boolean | undefined;
-        return (
-          <Field key={field.id} label={label} required={reqField}>
-            <CustomFieldInput
-              field={field as unknown as CustomFieldConfig}
-              value={data[field.id]}
-              onChange={(val) => updField(field.id, val)}
-            />
-          </Field>
-        );
-      })}
     </div>
   );
 }
+
+import { FieldDefinition } from "@mms/shared";
+

@@ -9,10 +9,20 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            const host = req.headers.host;
+            if (host) {
+              proxyReq.setHeader('x-forwarded-host', host);
+            }
+          });
+        },
       }
     }
   },

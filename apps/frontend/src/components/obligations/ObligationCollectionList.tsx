@@ -98,10 +98,6 @@ export default function ObligationCollectionList({ collections, obligationTypes,
           <option value="all">All Types</option>
           {obligationTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
-        <button type="button" onClick={onAddNew}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors ml-auto">
-          <Plus className="w-3.5 h-3.5" aria-hidden="true" /> New Collection
-        </button>
       </section>
 
       {/* Summary strip */}

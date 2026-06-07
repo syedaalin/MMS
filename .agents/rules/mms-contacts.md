@@ -1,0 +1,69 @@
+---
+trigger: model_decision
+---
+
+# MMS Contacts Module
+
+**Authoritative rules:** this file. `contact.md` is a blueprint — update it when architecture changes (several paths there are stale).
+
+## File map
+
+| Area | Path |
+|------|------|
+| Page | `pages/Contacts.tsx` |
+| Config | `lib/ContactConfigContext.tsx` (provider in `App.tsx` only) |
+| Field store | `lib/contactFieldsStore.ts` |
+| Types | `@mms/shared/contactTypes.ts` |
+| Forms | `components/contacts/form/*Tab.tsx`, `FormPrimitives.tsx` |
+| Backend | `routes/contacts.ts`, `services/whatsApp*.ts` |
+
+## Operations views
+
+List (`ContactsTable`) | Kanban (`ContactKanban` by lifecycle stage).
+
+Lazy-load: `DuplicateDetection`, `WhatsAppPanel`, `ContactSyncPanel`.
+
+## Data model
+
+`Contact` from `@mms/shared` — nested `phones[]`, `emails[]`, `addresses[]`, `relationships[]`, plus dynamic custom keys.
+
+## Security
+
+- WhatsApp checks server-side only — no client-side credential storage (`mms-security.md`)
+- Imported CSV/VCF: validate columns; reject formula-injection cells in spreadsheet exports (`mms-reports.md`)
+
+## Phones & WhatsApp
+
+- E.164 on save
+- `whatsappStatus`: `REGISTERED` | `NOT_REGISTERED` | `FAILED` | `PENDING` — backend only
+- No manual WhatsApp toggles in `PhoneTab`
+- UI reads `GET /api/contacts/:id/whatsapp-status`
+
+## Avatar & health
+
+- `ContactAvatar` + `AvatarCropper` — `getInitials`, `getAvatarColor` from shared
+- `calculateProfileHealth` — driven by required fields in registry
+
+## Import/export
+
+`ContactSyncPanel` — CSV/VCF; validate imported columns against field registry.
+
+## Copy / i18n
+
+- **Legacy:** `uiStrings` from `useContactConfig()` for contact toasts and toolbar copy
+- **New copy:** add `contacts.*` keys to `appTranslations` and use `t()` — **do not extend `uiStrings`** (`mms-i18n.md`)
+- Field labels: registry `label` today; prefer `labelKey: AppTranslationKey` when adding fields (`mms-fields.md`)
+
+## Images
+
+`AvatarCropper` and file uploads: `optimizeImage` / `canvasToOptimizedDataUrl` from `@mms/shared` (`mms-frontend.md`).
+
+## Forms
+
+`ContactForm` uses **`FormModal`** + `SubTabBar` — `mms-ui-forms.md`. Tab bodies use `FormPrimitives` + `useSortedFields`.
+
+## Do not reintroduce
+
+- `DynamicField.tsx`, `TabCustomFields.tsx` (use `FormPrimitives`)
+- Nested `ContactConfigProvider`
+- Second `DraggableFieldList` variant

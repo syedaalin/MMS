@@ -1,6 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+import useBodyScrollLock from "@/hooks/useBodyScrollLock";
 
 export interface ModalProps {
   open: boolean;
@@ -9,6 +10,10 @@ export interface ModalProps {
   subtitle?: React.ReactNode;
   icon?: React.ComponentType<{ className?: string }>;
   size?: "sm" | "md" | "lg" | "xl";
+  /** Extra block below the title row (e.g. progress bar). */
+  headerExtra?: React.ReactNode;
+  /** Applied to the dialog panel (e.g. fixed height for tabbed forms). */
+  panelClassName?: string;
   footer?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -33,9 +38,12 @@ export default function Modal({
   subtitle,
   icon: Icon,
   size = "md",
+  headerExtra,
+  panelClassName,
   footer,
   children,
 }: ModalProps): React.ReactElement {
+  useBodyScrollLock(open);
   return (
     <AnimatePresence>
       {open && (
@@ -52,31 +60,36 @@ export default function Modal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className={`relative bg-card rounded-2xl border border-border shadow-2xl w-full ${SIZE[size]} z-10 max-h-[90vh] flex flex-col`}
+            className={`relative bg-card rounded-2xl border border-border shadow-2xl w-full ${SIZE[size]} z-10 max-h-[90vh] flex flex-col ${panelClassName ?? ""}`}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
-              <div className="flex items-center gap-2.5">
-                {Icon && (
-                  <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Icon className="w-4 h-4 text-primary" />
+            <div className="flex-shrink-0 border-b border-border px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  {Icon && (
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Icon className="w-4 h-4 text-primary" />
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="text-[14px] font-bold text-foreground leading-tight">{title}</h3>
+                    {subtitle && <p className="text-[11px] text-muted-foreground">{subtitle}</p>}
                   </div>
-                )}
-                <div>
-                  <h3 className="text-[14px] font-bold text-foreground leading-tight">{title}</h3>
-                  {subtitle && <p className="text-[11px] text-muted-foreground">{subtitle}</p>}
                 </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close"
+                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                onClick={onClose}
-                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              {headerExtra ? <div className="mt-3">{headerExtra}</div> : null}
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 min-h-0">
               {children}
             </div>
 

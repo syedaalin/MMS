@@ -14,6 +14,32 @@
  *   "contact_prefs"         → ContactPrefs
  *   "accounting_settings"   → AccountingSettings
  */
+import {
+  formatDateParts,
+  formatDatePartsWithMonthName,
+} from "./dateFormatUtils.js";
+import { normalizeDateFormat, type DateFormatId } from "./dateFormatUtils.js";
+import type { AppTranslationKey } from "./appTranslations.js";
+import {
+  DEFAULT_QUESTION_CATEGORIES,
+  DEFAULT_QUESTION_SOURCE_BOOKS,
+  QUESTION_DIFFICULTY_IDS,
+  QUESTION_SOURCE_FIELD_IDS,
+  QUESTION_TYPE_IDS,
+} from "./questionBankTypes.js";
+import {
+  normalizePasswordPolicy,
+  normalizeSessionTimeout,
+  normalizeThemeMode,
+} from "./globalSettingsUtils.js";
+import { normalizeTimezone } from "./timezoneUtils.js";
+import {
+  normalizeAppLanguage,
+  getIntlLocaleForLanguage,
+  type AppLanguageCode,
+} from "./languageUtils.js";
+
+export type { AppLanguageCode };
 
 // ─── Customizable Form Fields Schema ──────────────────────────────────────────
 
@@ -43,8 +69,6 @@ export interface ModuleCustomField {
 export interface ModuleFieldDef {
   id: string;
   label: string;
-  isCustom?: boolean;
-  alwaysOn?: boolean;
   type?: string;
   required?: boolean;
   options?: string[];
@@ -53,7 +77,6 @@ export interface ModuleFieldDef {
   placeholder?: string;
   defaultValue?: string;
   unique?: boolean;
-  showInForm?: boolean;
 }
 
 /**
@@ -75,16 +98,14 @@ export function getSortedFields(
     const cfg = fieldsConfig?.[f.id] || { enabled: true, required: !!f.required };
     return {
       ...f,
-      enabled: f.alwaysOn ? true : cfg.enabled,
-      required: f.alwaysOn ? !!f.required : cfg.required,
+      enabled: cfg.enabled,
+      required: cfg.required,
     };
   });
 
   const customs = (customFields || []).map((f) => ({
     id: f.id,
     label: f.label,
-    isCustom: true,
-    alwaysOn: false,
     type: f.type,
     required: !!f.required,
     options: f.options,
@@ -92,7 +113,6 @@ export function getSortedFields(
     description: f.description,
     defaultValue: f.defaultValue,
     unique: f.unique,
-    showInForm: f.showInForm !== false,
     enabled: true,
   }));
 
@@ -114,8 +134,8 @@ export function getSortedFields(
  * This is intentionally kept lean — domain-specific flags live in their own settings objects.
  */
 export interface GlobalSettings {
-  /** UI language code, e.g. "en", "ar". */
-  language: string;
+  /** UI language code — see `APP_LANGUAGES` in `languageUtils`. */
+  language: AppLanguageCode;
   /** IANA timezone string, e.g. "Asia/Karachi". */
   timezone: string;
   /** Display date format token, e.g. "DD/MM/YYYY". */
@@ -146,17 +166,59 @@ export interface ModuleDefinition {
   required?: boolean;
 }
 
-/** List of all system modules for configuration. */
+/** All toggleable modules — ids align with sidebar `moduleId` in navConfig. */
 export const SYSTEM_MODULES: ModuleDefinition[] = [
-  { id: "dashboard",   label: "Dashboard",   description: "Central overview and analytics",   icon: "LayoutDashboard", category: "core", required: true },
-  { id: "students",    label: "Academics",   description: "Students directory, enrollments, sessions & scheduling", icon: "GraduationCap", category: "core" },
-  { id: "contacts",    label: "Contacts",    description: "Comprehensive CRM and personas",   icon: "Users",           category: "core" },
-  { id: "attendance",  label: "Attendance",  description: "Tracking and reporting",           icon: "UserCheck",       category: "academic" },
-  { id: "examination", label: "Examinations",description: "Testing and grading systems",      icon: "FileText",        category: "academic" },
-  { id: "finance",     label: "Finance",     description: "Invoicing and fee management",     icon: "DollarSign",      category: "finance" },
-  { id: "accounting",  label: "Accounting",  description: "General ledger and reports",       icon: "Briefcase",       category: "finance" },
-  { id: "hasanat",     label: "Hasanat",     description: "Incentive and reward points",      icon: "Star",            category: "admin" },
-  { id: "users",       label: "User Access", description: "Role-based permissions",           icon: "Shield",          category: "admin", required: true },
+  { id: "dashboard",   label: "Dashboard",      description: "Central overview and analytics",        icon: "LayoutDashboard", category: "core",     required: true },
+  { id: "contacts",    label: "Contacts",       description: "Comprehensive CRM directory",         icon: "Users",           category: "core",     required: true },
+  { id: "students",    label: "Students",       description: "Student directory and records",       icon: "GraduationCap",   category: "academic", required: true },
+  { id: "sessions",    label: "Sessions",       description: "Classes, schedules and timetables",   icon: "Calendar",        category: "academic" },
+  { id: "attendance",  label: "Attendance",     description: "Tracking and reporting",              icon: "UserCheck",       category: "academic" },
+  { id: "enrollment",  label: "Enrollments",    description: "Student enrollment into sessions",    icon: "ClipboardList",   category: "academic" },
+  { id: "hasanat",     label: "Hasanat Cards",  description: "Incentive and reward points",         icon: "Star",            category: "academic" },
+  { id: "examination", label: "Examinations",   description: "Testing and grading systems",         icon: "FileText",        category: "academic" },
+  { id: "questionBank", label: "Question Bank", description: "Question repository and test papers", icon: "Library",         category: "academic" },
+  { id: "finance",     label: "Finance",        description: "Invoicing and fee management",        icon: "DollarSign",      category: "finance" },
+  { id: "accounting",  label: "Accounting",     description: "General ledger and reports",          icon: "TrendingUp",      category: "finance" },
+  { id: "users",       label: "Users",          description: "Role-based permissions and access",   icon: "UserCog",         category: "admin",    required: true },
+];
+
+/** Lookup map for module definitions by id. */
+export const SYSTEM_MODULES_BY_ID: Record<string, ModuleDefinition> = Object.fromEntries(
+  SYSTEM_MODULES.map((m) => [m.id, m])
+);
+
+/** Standalone module entry in the system-modules settings nav. */
+export interface SystemModuleNavItem {
+  type: "module";
+  moduleId: string;
+}
+
+/** Grouped modules — mirrors grouped sections in app navigation. */
+export interface SystemModuleNavGroup {
+  type: "group";
+  labelKey: AppTranslationKey;
+  icon: string;
+  moduleIds: string[];
+}
+
+export type SystemModuleNavEntry = SystemModuleNavItem | SystemModuleNavGroup;
+
+/**
+ * Settings-page layout for system modules — mirrors `NAV_ITEMS` grouping:
+ * standalone items plus an Academics group for academic sub-modules.
+ */
+export const SYSTEM_MODULE_NAV: SystemModuleNavEntry[] = [
+  { type: "module", moduleId: "dashboard" },
+  { type: "module", moduleId: "contacts" },
+  {
+    type: "group",
+    labelKey: "nav.academics",
+    icon: "BookOpen",
+    moduleIds: ["students", "sessions", "attendance", "enrollment", "hasanat", "examination", "questionBank"],
+  },
+  { type: "module", moduleId: "finance" },
+  { type: "module", moduleId: "accounting" },
+  { type: "module", moduleId: "users" },
 ];
 
 /** Authoritative default values for GlobalSettings. */
@@ -178,12 +240,84 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
     enrollment: true,
     attendance: true,
     examination: true,
+    questionBank: true,
     finance: true,
     accounting: true,
     hasanat: true,
     users: true,
   },
 };
+
+/**
+ * Merges module visibility flags with defaults; required modules always stay enabled.
+ */
+export function normalizeEnabledModules(
+  partial?: Record<string, boolean> | null
+): Record<string, boolean> {
+  const merged: Record<string, boolean> = {
+    ...DEFAULT_GLOBAL_SETTINGS.enabledModules,
+    ...(partial ?? {}),
+  };
+  for (const mod of SYSTEM_MODULES) {
+    if (mod.required) {
+      merged[mod.id] = true;
+    } else if (!(mod.id in merged)) {
+      merged[mod.id] = DEFAULT_GLOBAL_SETTINGS.enabledModules[mod.id] ?? true;
+    }
+  }
+  return merged;
+}
+
+function coerceBoolean(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === 1 || value === "1") return true;
+  if (value === "false" || value === 0 || value === "0") return false;
+  return fallback;
+}
+
+/**
+ * Deep-merges stored global settings with defaults (including `enabledModules` keys).
+ */
+export function mergeGlobalSettings(
+  partial?: Partial<GlobalSettings> | null
+): GlobalSettings {
+  const sessionTimeout = normalizeSessionTimeout(
+    partial?.sessionTimeout ?? DEFAULT_GLOBAL_SETTINGS.sessionTimeout
+  );
+  const passwordPolicy = normalizePasswordPolicy(
+    partial?.passwordPolicy ?? DEFAULT_GLOBAL_SETTINGS.passwordPolicy
+  );
+  const timezone = normalizeTimezone(
+    partial?.timezone,
+    DEFAULT_GLOBAL_SETTINGS.timezone
+  );
+  const dateFormat = normalizeDateFormat(
+    partial?.dateFormat,
+    DEFAULT_GLOBAL_SETTINGS.dateFormat as DateFormatId
+  );
+  const theme = normalizeThemeMode(partial?.theme ?? DEFAULT_GLOBAL_SETTINGS.theme);
+
+  return {
+    ...DEFAULT_GLOBAL_SETTINGS,
+    ...partial,
+    language: normalizeAppLanguage(partial?.language),
+    timezone,
+    dateFormat,
+    theme,
+    emailNotifications: coerceBoolean(
+      partial?.emailNotifications,
+      DEFAULT_GLOBAL_SETTINGS.emailNotifications
+    ),
+    smsNotifications: coerceBoolean(
+      partial?.smsNotifications,
+      DEFAULT_GLOBAL_SETTINGS.smsNotifications
+    ),
+    twoFactor: coerceBoolean(partial?.twoFactor, DEFAULT_GLOBAL_SETTINGS.twoFactor),
+    sessionTimeout,
+    passwordPolicy,
+    enabledModules: normalizeEnabledModules(partial?.enabledModules),
+  };
+}
 
 // ─── Attendance Module Settings ───────────────────────────────────────────────
 
@@ -237,7 +371,7 @@ export const DEFAULT_ATTENDANCE_SETTINGS: AttendanceModuleSettings = {
 };
 
 export const DEFAULT_ATTENDANCE_FIELD_DEFS: ModuleFieldDef[] = [
-  { id: "status", label: "Attendance Status", alwaysOn: true, required: true },
+  { id: "status", label: "Attendance Status", required: true },
   { id: "timeIn", label: "Time In" },
   { id: "timeOut", label: "Time Out" },
   { id: "notes", label: "Notes / Comments" },
@@ -291,7 +425,7 @@ export const DEFAULT_FINANCE_SETTINGS: FinanceSettings = {
 };
 
 export const DEFAULT_FINANCE_FIELD_DEFS: ModuleFieldDef[] = [
-  { id: "amount", label: "Amount", alwaysOn: true, required: true },
+  { id: "amount", label: "Amount", required: true },
   { id: "method", label: "Payment Method" },
   { id: "date", label: "Payment Date" },
   { id: "receivedBy", label: "Received By" },
@@ -359,15 +493,167 @@ export const DEFAULT_EXAMINATIONS_SETTINGS: ExaminationsSettings = {
   fieldOrder: ["subject", "status", "totalMarks", "passingMarks", "duration", "description"],
 };
 
+// ─── Question Bank Module Settings ────────────────────────────────────────────
+
+export interface QuestionBankSettings {
+  aiGrading: boolean;
+  defaultTestDuration: number;
+  categories: import('./questionBankTypes.js').QuestionCategory[];
+  sourceBooks?: import('./questionBankTypes.js').QuestionSourceBook[];
+  questionTypes?: import('./questionBankTypes.js').QuestionTypeRegistryEntry[];
+  difficultyLevels?: import('./questionBankTypes.js').QuestionDifficultyRegistryEntry[];
+  defaultViewLayout?: string;
+  fields?: Record<string, ModuleFieldConfig>;
+  customFields?: ModuleCustomField[];
+  fieldOrder?: string[];
+}
+
+export const DEFAULT_QUESTION_BANK_SETTINGS: QuestionBankSettings = {
+  aiGrading: false,
+  defaultTestDuration: 30,
+  categories: [],
+  sourceBooks: [],
+  questionTypes: [
+    { id: 'mcq', enabled: true },
+    { id: 'true_false', enabled: true },
+    { id: 'short', enabled: true },
+    { id: 'fill_blank', enabled: true },
+    { id: 'matching', enabled: true },
+    { id: 'numeric', enabled: true },
+    { id: 'ordering', enabled: true },
+  ],
+  difficultyLevels: [
+    { id: 'easy', enabled: true },
+    { id: 'medium', enabled: true },
+    { id: 'hard', enabled: true },
+  ],
+  defaultViewLayout: 'list',
+  fields: {
+    text: { enabled: true, required: true },
+    categoryId: { enabled: true, required: true },
+    questionLanguage: { enabled: true, required: true },
+    type: { enabled: true, required: true },
+    difficulty: { enabled: true, required: true },
+    options: { enabled: true, required: false },
+    answer: { enabled: true, required: false },
+  },
+  customFields: [],
+  fieldOrder: [
+    'text',
+    'categoryId',
+    'questionLanguage',
+    'type',
+    'difficulty',
+    'options',
+    'answer',
+    ...QUESTION_SOURCE_FIELD_IDS,
+  ],
+};
+
+export const DEFAULT_QUESTION_BANK_FIELD_DEFS: ModuleFieldDef[] = [
+  { id: 'text', label: 'Question text', type: 'textarea', required: true },
+  { id: 'categoryId', label: 'Category', type: 'select', required: true },
+  { id: 'questionLanguage', label: 'Question language', type: 'select', required: true },
+  { id: 'type', label: 'Question type', type: 'select', required: true },
+  { id: 'difficulty', label: 'Difficulty', type: 'select', required: true },
+  { id: 'options', label: 'Options', type: 'options' },
+  { id: 'answer', label: 'Answer', type: 'answer' },
+  { id: 'sourceBookName', label: 'Book name', type: 'text' },
+  { id: 'sourceSeries', label: 'Book series', type: 'text' },
+  { id: 'sourceBookVolume', label: 'Book volume', type: 'text' },
+  { id: 'sourceVolumePart', label: 'Volume part', type: 'text' },
+  { id: 'sourceEdition', label: 'Edition', type: 'text' },
+  { id: 'sourceIsbn', label: 'ISBN', type: 'text' },
+  { id: 'sourceAuthor', label: 'Author', type: 'text' },
+  { id: 'sourceEditor', label: 'Editor', type: 'text' },
+  { id: 'sourceTranslator', label: 'Translator', type: 'text' },
+  { id: 'sourcePublisher', label: 'Publisher', type: 'text' },
+  { id: 'sourceCityOfPublication', label: 'City of publication', type: 'text' },
+  { id: 'sourcePublishDate', label: 'Publishing date', type: 'date' },
+  { id: 'sourceYearHijri', label: 'Hijri year', type: 'text' },
+  { id: 'sourceLanguage', label: 'Source language', type: 'text' },
+  { id: 'sourceChapter', label: 'Chapter / section', type: 'text' },
+  { id: 'sourcePageNumber', label: 'Page number', type: 'text' },
+  { id: 'sourceParagraph', label: 'Paragraph', type: 'text' },
+  { id: 'sourceFootnote', label: 'Footnote', type: 'text' },
+  { id: 'sourceSurah', label: 'Surah', type: 'text' },
+  { id: 'sourceAyah', label: 'Ayah / verse', type: 'text' },
+  { id: 'sourceJuz', label: 'Juz', type: 'text' },
+  { id: 'sourceHizb', label: 'Hizb / rub', type: 'text' },
+  { id: 'sourceHadithCollection', label: 'Hadith collection', type: 'text' },
+  { id: 'sourceHadithNumber', label: 'Hadith number', type: 'text' },
+  { id: 'sourceManuscript', label: 'Manuscript', type: 'text' },
+  { id: 'sourceCatalogNumber', label: 'Catalog / shelf number', type: 'text' },
+  { id: 'sourceQuote', label: 'Quoted excerpt', type: 'textarea' },
+  { id: 'sourceNotes', label: 'Source notes', type: 'textarea' },
+];
+
+/**
+ * Merges stored question-bank settings with defaults (categories, type/difficulty registries).
+ */
+export function normalizeQuestionBankSettings(
+  stored?: Partial<QuestionBankSettings> | null,
+): QuestionBankSettings {
+  const merged: QuestionBankSettings = {
+    ...DEFAULT_QUESTION_BANK_SETTINGS,
+    ...(stored ?? {}),
+  };
+
+  merged.categories =
+    stored?.categories && stored.categories.length > 0
+      ? stored.categories
+      : DEFAULT_QUESTION_CATEGORIES;
+
+  merged.sourceBooks =
+    stored?.sourceBooks && stored.sourceBooks.length > 0
+      ? stored.sourceBooks
+      : DEFAULT_QUESTION_SOURCE_BOOKS;
+
+  const typeById = new Map(
+    (stored?.questionTypes ?? []).map((e) => [e.id, e]),
+  );
+  merged.questionTypes = QUESTION_TYPE_IDS.map((id) => ({
+    id,
+    enabled: typeById.get(id)?.enabled ?? true,
+  }));
+
+  const diffById = new Map(
+    (stored?.difficultyLevels ?? []).map((e) => [e.id, e]),
+  );
+  merged.difficultyLevels = QUESTION_DIFFICULTY_IDS.map((id) => ({
+    id,
+    enabled: diffById.get(id)?.enabled ?? true,
+  }));
+
+  merged.fields = {
+    ...DEFAULT_QUESTION_BANK_SETTINGS.fields,
+    ...(stored?.fields ?? {}),
+  };
+  const defaultOrder = DEFAULT_QUESTION_BANK_SETTINGS.fieldOrder ?? [];
+  const storedOrder =
+    stored?.fieldOrder && stored.fieldOrder.length > 0 ? stored.fieldOrder : defaultOrder;
+  const missingSource = QUESTION_SOURCE_FIELD_IDS.filter((id) => !storedOrder.includes(id));
+  merged.fieldOrder = [...storedOrder, ...missingSource];
+
+  for (const id of QUESTION_SOURCE_FIELD_IDS) {
+    merged.fields![id] = {
+      enabled: stored?.fields?.[id]?.enabled ?? true,
+      required: stored?.fields?.[id]?.required ?? false,
+    };
+  }
+
+  return merged;
+}
+
 export const DEFAULT_EXAMINATIONS_FIELD_DEFS: ModuleFieldDef[] = [
-  { id: "name", label: "Exam Name", alwaysOn: true, required: true },
+  { id: "name", label: "Exam Name", required: true },
   { id: "subject", label: "Subject" },
   { id: "status", label: "Status" },
   { id: "totalMarks", label: "Total Marks" },
   { id: "passingMarks", label: "Passing Marks" },
   { id: "duration", label: "Duration (min)" },
-  { id: "date", label: "Exam Date", alwaysOn: true, required: true },
-  { id: "classIds", label: "Assign to Classes", alwaysOn: true, required: true },
+  { id: "date", label: "Exam Date", required: true },
+  { id: "classIds", label: "Assign to Classes", required: true },
   { id: "description", label: "Description" },
 ];
 
@@ -426,11 +712,11 @@ export const DEFAULT_SESSIONS_SETTINGS: SessionsSettings = {
 };
 
 export const DEFAULT_SESSIONS_FIELD_DEFS: ModuleFieldDef[] = [
-  { id: "name", label: "Session Name", alwaysOn: true, required: true },
+  { id: "name", label: "Session Name", required: true },
   { id: "type", label: "Session Type" },
   { id: "status", label: "Status" },
-  { id: "startDate", label: "Start Date", alwaysOn: true, required: true },
-  { id: "endDate", label: "End Date", alwaysOn: true, required: true },
+  { id: "startDate", label: "Start Date", required: true },
+  { id: "endDate", label: "End Date", required: true },
   { id: "baseFee", label: "Base Fee" },
   { id: "currency", label: "Currency" },
   { id: "description", label: "Description" },
@@ -484,9 +770,9 @@ export const DEFAULT_ENROLLMENTS_SETTINGS: EnrollmentsSettings = {
 };
 
 export const DEFAULT_ENROLLMENTS_FIELD_DEFS: ModuleFieldDef[] = [
-  { id: "studentId", label: "Select Student", alwaysOn: true, required: true },
-  { id: "sessionId", label: "Select Session", alwaysOn: true, required: true },
-  { id: "classId", label: "Assign Class", alwaysOn: true, required: true },
+  { id: "studentId", label: "Select Student", required: true },
+  { id: "sessionId", label: "Select Session", required: true },
+  { id: "classId", label: "Assign Class", required: true },
   { id: "notes", label: "Notes" },
 ];
 
@@ -572,12 +858,11 @@ export const DEFAULT_STUDENTS_SETTINGS: StudentsSettings = {
 export interface StudentFieldDef {
   id: string;
   label: string;
-  isCustom?: boolean;
-  alwaysOn?: boolean;
   type?: string;
   required?: boolean;
   options?: string[];
   enabled?: boolean;
+  isCustom?: boolean;
 }
 
 export const DEFAULT_STUDENT_FIELD_DEFS: StudentFieldDef[] = [
@@ -603,19 +888,18 @@ export function getSortedStudentFields(
       ...f,
       enabled: cfg.enabled,
       required: cfg.required,
-      alwaysOn: false,
+      isCustom: false,
     };
   });
 
   const customs = (customFields || []).map((f) => ({
     id: f.id,
     label: f.label,
-    isCustom: true,
-    alwaysOn: false,
     type: f.type,
     required: f.required,
     options: f.options,
     enabled: true,
+    isCustom: true,
   }));
 
   const all = [...defaults, ...customs];
@@ -646,6 +930,10 @@ export interface ContactPrefs {
   defaultCountry: string;
   /** Whether WhatsApp messaging actions are shown in the contacts UI. */
   showWhatsApp: boolean;
+  /** Name prefixes to ignore during duplicate detection. */
+  namePrefixesToIgnore?: string[];
+  /** Fields to display in duplicate detection cards. */
+  duplicateDetectionFields?: string[];
 }
 
 /** Authoritative default values for ContactPrefs. */
@@ -655,6 +943,8 @@ export const DEFAULT_CONTACT_PREFS: ContactPrefs = {
   autoMergeSuggestions: true,
   defaultCountry: "Pakistan",
   showWhatsApp: true,
+  namePrefixesToIgnore: ["syed", "syeda"],
+  duplicateDetectionFields: ["name", "phone", "email", "gender", "dob"],
 };
 
 // ─── Accounting Settings ─────────────────────────────────────────────────────
@@ -701,9 +991,9 @@ export const DEFAULT_ACCOUNTING_SETTINGS: AccountingSettings = {
 };
 
 export const DEFAULT_ACCOUNT_FIELD_DEFS: ModuleFieldDef[] = [
-  { id: "code", label: "Account Code", alwaysOn: true, required: true },
-  { id: "type", label: "Type", alwaysOn: true, required: true },
-  { id: "name", label: "Account Name", alwaysOn: true, required: true },
+  { id: "code", label: "Account Code", required: true },
+  { id: "type", label: "Type", required: true },
+  { id: "name", label: "Account Name", required: true },
   { id: "subtype", label: "Sub-type" },
   { id: "description", label: "Description" },
 ];
@@ -732,13 +1022,13 @@ export const DEFAULT_HASANAT_SETTINGS: HasanatSettings = {
 };
 
 export const DEFAULT_HASANAT_FIELD_DEFS: ModuleFieldDef[] = [
-  { id: "denominationId", label: "Denomination", alwaysOn: true, required: true },
-  { id: "recipientType", label: "Recipient Type", alwaysOn: true, required: true },
-  { id: "recipientName", label: "Recipient Name", alwaysOn: true, required: true },
+  { id: "denominationId", label: "Denomination", required: true },
+  { id: "recipientType", label: "Recipient Type", required: true },
+  { id: "recipientName", label: "Recipient Name", required: true },
   { id: "recipientClass", label: "Class / Department" },
-  { id: "quantity", label: "Quantity", alwaysOn: true, required: true },
-  { id: "issuedDate", label: "Issued Date", alwaysOn: true, required: true },
-  { id: "reason", label: "Reason / Achievement", alwaysOn: true, required: true },
+  { id: "quantity", label: "Quantity", required: true },
+  { id: "issuedDate", label: "Issued Date", required: true },
+  { id: "reason", label: "Reason / Achievement", required: true },
   { id: "issuedBy", label: "Issued By" },
 ];
 
@@ -751,6 +1041,8 @@ export interface UsersSettings {
   fields?: Record<string, ModuleFieldConfig>;
   customFields?: ModuleCustomField[];
   fieldOrder?: string[];
+  /** Persisted workspace roles (system + custom); falls back to `DEFAULT_WORKSPACE_ROLES`. */
+  workspaceRoles?: import("./userTypes.js").WorkspaceRole[];
 }
 
 export const DEFAULT_USERS_SETTINGS: UsersSettings = {
@@ -758,15 +1050,223 @@ export const DEFAULT_USERS_SETTINGS: UsersSettings = {
   requireEmailVerification: true,
   defaultViewLayout: "list",
   fields: {
-    roles: { enabled: true, required: true },
+    role: { enabled: true, required: true },
   },
   customFields: [],
-  fieldOrder: ["roles"],
+  fieldOrder: ["role"],
 };
 
 export const DEFAULT_USERS_FIELD_DEFS: ModuleFieldDef[] = [
-  { id: "name", label: "Full Name", alwaysOn: true, required: true },
-  { id: "email", label: "Email Address", alwaysOn: true, required: true },
-  { id: "roles", label: "System Roles", alwaysOn: true, required: true },
+  { id: "name", label: "Full Name", required: true },
+  { id: "email", label: "Email Address", required: true },
+  { id: "role", label: "System Role", required: true },
 ];
+
+/**
+ * Formats a Date object or date string according to the active global date format.
+ *
+ * @param {string | Date | null | undefined} date - The date to format.
+ * @param {string | boolean} [dateFormatOrShowMonthName] - Optional explicit format string or showMonthName boolean.
+ * @param {boolean} [showMonthName] - Whether to show the short month name instead of numeric.
+ * @returns {string} The formatted date string.
+ */
+export function formatDate(
+  date: string | Date | null | undefined,
+  dateFormatOrShowMonthName?: string | boolean,
+  showMonthName = false
+): string {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(d.getTime())) return "—";
+
+  let actualDateFormat = "DD/MM/YYYY";
+  let actualShowMonthName = showMonthName;
+  let timezone = "UTC";
+  let language: AppLanguageCode = "en";
+
+  if (typeof dateFormatOrShowMonthName === "boolean") {
+    actualShowMonthName = dateFormatOrShowMonthName;
+  } else if (typeof dateFormatOrShowMonthName === "string") {
+    actualDateFormat = dateFormatOrShowMonthName;
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      let saved: string | null = localStorage.getItem("mms_global_settings");
+      if (!saved) {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.endsWith(":global_settings")) {
+            saved = localStorage.getItem(key);
+            break;
+          }
+        }
+      }
+      if (saved) {
+        const settings = JSON.parse(saved);
+        if (typeof dateFormatOrShowMonthName !== "string" && settings?.dateFormat) {
+          actualDateFormat = settings.dateFormat;
+        }
+        if (settings?.timezone) {
+          timezone = settings.timezone;
+        }
+        if (settings?.language) {
+          language = normalizeAppLanguage(settings.language);
+        }
+      }
+    } catch {
+      // Ignored
+    }
+  }
+
+  const intlLocale = getIntlLocaleForLanguage(language);
+  const parts = new Intl.DateTimeFormat(intlLocale, {
+    timeZone: timezone,
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+  }).formatToParts(d);
+  const dayNum = Number(parts.find((p) => p.type === "day")?.value ?? d.getDate());
+  const monthNum = Number(parts.find((p) => p.type === "month")?.value ?? d.getMonth() + 1);
+  const yearNum = Number(parts.find((p) => p.type === "year")?.value ?? d.getFullYear());
+
+  if (actualShowMonthName) {
+    const month =
+      new Intl.DateTimeFormat(intlLocale, {
+        timeZone: timezone,
+        month: "short",
+      })
+        .formatToParts(d)
+        .find((p) => p.type === "month")?.value ?? String(monthNum);
+    return formatDatePartsWithMonthName(dayNum, month, monthNum, yearNum, actualDateFormat);
+  }
+
+  return formatDateParts(dayNum, monthNum, yearNum, actualDateFormat);
+}
+
+/**
+ * Preferred client-side encode formats, best-first.
+ * AVIF gives the smallest files; WebP is the broad-support fallback.
+ */
+export const IMAGE_ENCODE_FORMATS = ["image/avif", "image/webp"] as const;
+
+const IMAGE_EXT_BY_TYPE: Record<string, string> = {
+  "image/avif": ".avif",
+  "image/webp": ".webp"
+};
+
+function canvasToBlobAsync(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), type, quality);
+  });
+}
+
+/**
+ * Encodes a canvas to the best-available modern format (AVIF → WebP), returning
+ * the encoded blob and its actual MIME type. Browsers that cannot encode a format
+ * silently return a different type, so we verify `blob.type` before accepting it.
+ *
+ * @param canvas - Source canvas.
+ * @param quality - Encode quality 0–1.
+ * @returns The encoded blob + type, or `null` if encoding failed entirely.
+ */
+export async function canvasToOptimizedBlob(
+  canvas: HTMLCanvasElement,
+  quality = 0.82
+): Promise<{ blob: Blob; type: string } | null> {
+  for (const type of IMAGE_ENCODE_FORMATS) {
+    const blob = await canvasToBlobAsync(canvas, type, quality);
+    if (blob && blob.type === type) return { blob, type };
+  }
+  const fallback = await canvasToBlobAsync(canvas, "image/webp", quality);
+  if (fallback) return { blob: fallback, type: fallback.type || "image/webp" };
+  return null;
+}
+
+/**
+ * Encodes a canvas to an optimized data URL (AVIF → WebP). When a format is not
+ * supported the browser returns a PNG data URL, which we detect via the prefix
+ * and skip in favour of the next candidate.
+ *
+ * @param canvas - Source canvas.
+ * @param quality - Encode quality 0–1.
+ * @returns A data URL string in the best available format.
+ */
+export function canvasToOptimizedDataUrl(canvas: HTMLCanvasElement, quality = 0.82): string {
+  for (const type of IMAGE_ENCODE_FORMATS) {
+    const url = canvas.toDataURL(type, quality);
+    if (url.startsWith(`data:${type}`)) return url;
+  }
+  return canvas.toDataURL("image/webp", quality);
+}
+
+/**
+ * Resizes and compresses an image file on the client-side to a modern format,
+ * preferring AVIF and falling back to WebP (then the original file) when a
+ * format is unsupported or conversion fails.
+ *
+ * This is the single global entry point for image uploads — every uploader must
+ * route files through it so all stored images are optimized client-side.
+ *
+ * @param file - The input image file.
+ * @param options - Configuration for resizing/quality.
+ * @returns A promise resolving to the optimized File (or original if failed).
+ */
+export function optimizeImage(
+  file: File,
+  options: { maxWidth?: number; maxHeight?: number; quality?: number } = {}
+): Promise<File> {
+  const { maxWidth = 800, maxHeight = 800, quality = 0.82 } = options;
+
+  if (typeof window === "undefined" || typeof FileReader === "undefined" || !file.type.startsWith("image/")) {
+    return Promise.resolve(file);
+  }
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const encoded = await canvasToOptimizedBlob(canvas, quality);
+        if (!encoded) {
+          resolve(file);
+          return;
+        }
+
+        const ext = IMAGE_EXT_BY_TYPE[encoded.type] || ".webp";
+        const optimizedFile = new File([encoded.blob], file.name.replace(/\.[^/.]+$/, "") + ext, {
+          type: encoded.type,
+          lastModified: Date.now()
+        });
+        resolve(optimizedFile);
+      };
+      img.onerror = () => resolve(file);
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
 

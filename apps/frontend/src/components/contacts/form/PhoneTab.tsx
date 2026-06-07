@@ -1,16 +1,16 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Phone, Plus, Trash2 } from "lucide-react";
-import { DEFAULT_TAB_FIELD_CONFIG } from "../../../lib/contactFields";
-import { INPUT, SELECT, LABEL, Field, FormEmptyState, RequiredBanner, CustomFieldInput, CustomFieldConfig, EditableSelect } from "./FormPrimitives";
+import { Phone, Plus } from "lucide-react";
+import { normalizeToE164, parsePhoneNumber } from "@mms/shared";
+import { INPUT, LABEL, Field, FormEmptyState, RequiredBanner, CustomFieldInput, CustomFieldConfig, EditableSelect, COLLECTION_CARD, CardTypeLabel, CardRemoveButton, TYPE_SELECT_WIDTH } from "./FormPrimitives";
 import { useSortedFields } from "../../../hooks/useSortedFields";
 import { useContactConfig } from "../../../lib/ContactConfigContext";
+import useTranslation from "@/hooks/useTranslation";
 
 interface ContactPhone {
   label: string;
   number: string;
   countryCode?: string;
-  whatsapp?: boolean;
 }
 
 interface ContactFormData {
@@ -43,9 +43,12 @@ export default function PhoneTab({
   defaultCountry,
   customFields
 }: PhoneTabProps): React.JSX.Element {
-  const sortedCustomFields = useSortedFields("phones").filter((f) => f.isCustom && f.showInForm !== false);
-  const { phoneLabels, countryCodesMap, updatePhoneLabels } = useContactConfig();
-  const phones = data.phones && data.phones.length > 0 ? data.phones : [{ label: "Mobile", number: "", countryCode: countryCodesMap[defaultCountry] || "+92", whatsapp: false }];
+  const fields = useSortedFields("phones");
+  const standardKeys = ["label", "number", "countryCode"];
+  const sortedCustomFields = fields.filter((f) => !standardKeys.includes(f.key) && f.enabled !== false);
+  const { phoneLabels, countryCodesMap, updatePhoneLabels, uiStrings } = useContactConfig();
+  const { t } = useTranslation();
+  const phones = data.phones && data.phones.length > 0 ? data.phones : [{ label: uiStrings.mobileLabel, number: "", countryCode: countryCodesMap[defaultCountry] || "+92" }];
 
   const upd = (list: ContactPhone[]): void => {
     onChange({ ...data, phones: list });
@@ -55,20 +58,29 @@ export default function PhoneTab({
     onChange({ ...data, [id]: value });
   };
 
-  const en = tabFieldCfg?.enabled ?? DEFAULT_TAB_FIELD_CONFIG.phones.enabled;
-  const req = tabFieldCfg?.required ?? DEFAULT_TAB_FIELD_CONFIG.phones.required;
-  const showLabel = en.includes("label");
-  const reqNumber = req.includes("number");
+  const labelField = fields.find((f) => f.key === "label");
+  const numberField = fields.find((f) => f.key === "number");
+
+  const showLabel = tabFieldCfg?.enabled ? tabFieldCfg.enabled.includes("label") : (labelField?.enabled !== false);
+  const reqNumber = tabFieldCfg?.required ? tabFieldCfg.required.includes("number") : (numberField?.required === true);
   const defaultCode = countryCodesMap[defaultCountry] || "+92";
 
   const updatePhone = (i: number, patch: Partial<ContactPhone>): void => {
     upd(phones.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   };
 
+  const handlePhoneBlur = (i: number): void => {
+    const p = phones[i];
+    if (!p.number) return;
+    const e164 = normalizeToE164(p.countryCode || defaultCode, p.number);
+    const parsed = parsePhoneNumber(e164, p.countryCode || defaultCode);
+    updatePhone(i, { countryCode: parsed.countryCode, number: parsed.number });
+  };
+
   return (
     <div className="space-y-3">
-      {required && phones.length === 0 && <RequiredBanner message="At least one phone number is required" />}
-      {phones.length === 0 && <FormEmptyState icon={Phone} text="No phone numbers yet. Add one below." />}
+      {required && phones.length === 0 && <RequiredBanner message={t("contacts.form.atLeastOnePhoneRequired")} />}
+      {phones.length === 0 && <FormEmptyState icon={Phone} text={t("contacts.form.noPhoneNumbersYet")} />}
 
       {phones.map((p, i) => (
         <motion.div
@@ -76,37 +88,33 @@ export default function PhoneTab({
           layout
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-border bg-muted/20 p-3 space-y-2.5"
+          className={COLLECTION_CARD}
         >
           <div className="flex items-center justify-between">
             {showLabel ? (
               <div className="flex items-center gap-2">
-                <span className={LABEL + " !mb-0 text-[10px]"}>Type:</span>
+                <CardTypeLabel>{t("contacts.form.type")}</CardTypeLabel>
                 <EditableSelect
                   options={phoneLabels || []}
                   value={p.label}
                   onChange={(val) => updatePhone(i, { label: val })}
                   onUpdateOptions={updatePhoneLabels}
-                  placeholder="Select label..."
-                  className="w-28"
+                  placeholder={t("contacts.form.selectLabel")}
+                  className={TYPE_SELECT_WIDTH}
                 />
               </div>
             ) : (
               <div />
             )}
-            <button
-              type="button"
+            <CardRemoveButton
               onClick={() => upd(phones.filter((_, j) => j !== i))}
-              className="p-1 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
-              aria-label={`Remove phone number ${i + 1}`}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+              label={t("contacts.form.removePhoneNumber", { index: i + 1 })}
+            />
           </div>
 
           {reqNumber && (
             <span className={LABEL}>
-              Phone Number <span className="text-red-500">*</span>
+              {t("contacts.form.phoneNumber")} <span className="text-destructive">*</span>
             </span>
           )}
           <div className="flex gap-2">
@@ -115,16 +123,18 @@ export default function PhoneTab({
                 className={INPUT}
                 value={p.countryCode || defaultCode}
                 onChange={(e) => updatePhone(i, { countryCode: e.target.value })}
-                placeholder="+92"
-                aria-label={`Country code ${i + 1}`}
+                onBlur={() => handlePhoneBlur(i)}
+                placeholder={t("contacts.form.countryCodePlaceholder")}
+                aria-label={`${t("contacts.form.countryCode")} ${i + 1}`}
               />
             </div>
             <input
               className={INPUT}
               value={p.number}
               onChange={(e) => updatePhone(i, { number: e.target.value })}
-              placeholder="300 0000000"
-              aria-label={`Phone number ${i + 1}`}
+              onBlur={() => handlePhoneBlur(i)}
+              placeholder={t("contacts.form.phoneNumberPlaceholder")}
+              aria-label={`${t("contacts.form.phoneNumber")} ${i + 1}`}
             />
           </div>
         </motion.div>
@@ -135,24 +145,24 @@ export default function PhoneTab({
         onClick={() =>
           upd([
             ...phones,
-            { label: phoneLabels[0] || "Mobile", number: "", countryCode: defaultCode, whatsapp: false }
+            { label: phoneLabels[0] || uiStrings.mobileLabel, number: "", countryCode: defaultCode }
           ])
         }
         className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
       >
         <Plus className="w-4 h-4" />
-        <span>Add phone number</span>
+        <span>{t("contacts.form.addPhoneNumber")}</span>
       </button>
 
       {sortedCustomFields.map((field) => {
         const label = field.label as string;
         const reqField = field.required as boolean | undefined;
         return (
-          <Field key={field.id} label={label} required={reqField}>
+          <Field key={field.key} label={label} required={reqField}>
             <CustomFieldInput
               field={field as unknown as CustomFieldConfig}
-              value={data[field.id]}
-              onChange={(val) => updField(field.id, val)}
+              value={data[field.key]}
+              onChange={(val) => updField(field.key, val)}
             />
           </Field>
         );

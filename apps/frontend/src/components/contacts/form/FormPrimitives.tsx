@@ -1,10 +1,61 @@
-import React, { useState, useRef, useEffect } from "react";
-import { AlertCircle, X, LucideIcon, Upload, MapPin, BrainCircuit, FileText } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { AlertCircle, X, LucideIcon, Upload, MapPin, BrainCircuit, FileText, Camera, Star, ChevronDown, Check, Trash2 } from "lucide-react";
+import { DatePicker } from "../../ui/DatePicker";
+import { Popover, PopoverTrigger, PopoverContent } from "../../ui/popover";
+import { optimizeImage, FieldDefinition } from "@mms/shared";
+import { useContactConfig } from "../../../lib/ContactConfigContext";
+import { cn } from "../../../lib/utils";
+import AvatarCropper from "../AvatarCropper";
+import FormSelect from "../../ui/FormSelect";
+import useTranslation from "@/hooks/useTranslation";
 
 // ── Shared style constants ─────────────────────────────────────────────────────
-export const INPUT = "w-full px-3.5 py-2.5 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
+export const INPUT = "w-full px-3.5 py-2.5 min-h-[44px] rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
 export const SELECT = INPUT + " cursor-pointer";
 export const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block";
+
+// Collection (repeatable) card chrome — one source of truth so every tab matches.
+export const COLLECTION_CARD = "rounded-xl border border-border bg-muted/20 p-3 space-y-3";
+// Body fields render full-width single-column so every text box is the same width.
+export const COLLECTION_BODY = "space-y-3";
+// Consistent width for the card-header "type" dropdown across tabs.
+export const TYPE_SELECT_WIDTH = "w-32";
+
+// Shared destructive affordance (config-overridable, no hardcoded Tailwind colour scattered around)
+const REMOVE_BTN = "text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10";
+
+/**
+ * Uppercase caption used beside a card's type dropdown (e.g. "Type").
+ */
+export function CardTypeLabel({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{children}</span>
+  );
+}
+
+interface CardRemoveButtonProps {
+  onClick: () => void;
+  label: string;
+}
+
+/**
+ * Consistent 44×44 remove button for repeatable collection cards.
+ */
+export function CardRemoveButton({ onClick, label }: CardRemoveButtonProps): React.JSX.Element {
+  const { uiStrings } = useContactConfig();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${uiStrings?.deleteActionClass || REMOVE_BTN}`}
+      aria-label={label}
+    >
+      <Trash2 className="w-4 h-4" />
+    </button>
+  );
+}
+
+export { default as FormSelect, type FormSelectOption } from "../../ui/FormSelect";
 
 interface EditableSelectProps {
   options: string[];
@@ -23,21 +74,10 @@ export function EditableSelect({
   placeholder = "Select...",
   className = "w-28",
 }: EditableSelectProps): React.JSX.Element {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [customVal, setCustomVal] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    if (open) {
-      document.addEventListener("mousedown", handleOutsideClick);
-    }
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [open]);
+  const [highlight, setHighlight] = useState(-1);
 
   const handleAdd = () => {
     const text = customVal.trim();
@@ -58,71 +98,122 @@ export function EditableSelect({
     }
   };
 
-  return (
-    <div ref={containerRef} className={`relative inline-block text-left ${className}`}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-lg border border-border bg-background text-foreground hover:bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-left"
-      >
-        <span className="truncate">{value || placeholder}</span>
-        <span className="ml-2 text-muted-foreground/60 text-[10px]">▼</span>
-      </button>
+  const select = (opt: string) => {
+    onChange(opt);
+    setOpen(false);
+  };
 
-      {open && (
-        <div className="absolute left-0 mt-1 w-44 rounded-xl border border-border bg-card shadow-xl z-50 overflow-hidden divide-y divide-border/60">
-          <div className="max-h-40 overflow-y-auto py-1">
-            {options.map((opt) => (
+  const moveHighlight = (dir: 1 | -1) => {
+    if (options.length === 0) return;
+    setHighlight((h) => {
+      const start = h < 0 ? (dir === 1 ? -1 : 0) : h;
+      return (start + dir + options.length) % options.length;
+    });
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        setHighlight(o ? Math.max(0, options.indexOf(value)) : -1);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={placeholder}
+          className={cn(
+            "min-h-[44px] flex items-center justify-between gap-2 px-3.5 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground hover:bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all text-left",
+            className
+          )}
+        >
+          <span className="truncate">{value || placeholder}</span>
+          <ChevronDown className={`w-4 h-4 flex-shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        collisionPadding={8}
+        className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[13rem] max-h-[var(--radix-popover-content-available-height)] flex flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-xl divide-y divide-border/60"
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            moveHighlight(1);
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            moveHighlight(-1);
+          } else if (e.key === "Enter" && highlight >= 0 && (e.target as HTMLElement).tagName !== "INPUT") {
+            e.preventDefault();
+            select(options[highlight]);
+          }
+        }}
+      >
+        <div role="listbox" className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">
+          {options.map((opt, idx) => {
+            const isSel = value === opt;
+            const isHi = idx === highlight;
+            return (
               <div
                 key={opt}
-                onClick={() => {
-                  onChange(opt);
-                  setOpen(false);
-                }}
-                className={`flex items-center justify-between px-3 py-2 text-xs cursor-pointer transition-colors hover:bg-muted/70 ${
-                  value === opt ? "bg-primary/5 text-primary font-bold" : "text-foreground"
+                role="option"
+                aria-selected={isSel}
+                onMouseEnter={() => setHighlight(idx)}
+                onClick={() => select(opt)}
+                className={`flex items-center justify-between gap-2 px-3 py-2 text-sm cursor-pointer transition-colors ${
+                  isSel
+                    ? "bg-primary/5 text-primary font-semibold"
+                    : isHi
+                      ? "bg-muted/70 text-foreground"
+                      : "text-foreground"
                 }`}
               >
-                <span className="truncate">{opt}</span>
+                <span className="flex items-center gap-2 truncate">
+                  <Check className={`w-3.5 h-3.5 flex-shrink-0 ${isSel ? "opacity-100" : "opacity-0"}`} />
+                  <span className="truncate">{opt}</span>
+                </span>
                 <button
                   type="button"
                   onClick={(e) => handleRemove(opt, e)}
-                  className="p-0.5 rounded hover:bg-red-50 text-muted-foreground/60 hover:text-red-500 transition-colors"
-                  title={`Remove option ${opt}`}
+                  className={`min-w-[28px] min-h-[28px] flex items-center justify-center rounded transition-colors ${REMOVE_BTN}`}
+                  title={t("contacts.form.removeOption", { option: opt })}
                 >
                   <X className="w-3 h-3" />
                 </button>
               </div>
-            ))}
-            {options.length === 0 && (
-              <div className="px-3 py-2 text-xs text-muted-foreground italic">No options</div>
-            )}
-          </div>
-          <div className="p-2 flex gap-1 bg-muted/20">
-            <input
-              type="text"
-              value={customVal}
-              onChange={(e) => setCustomVal(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleAdd();
-                }
-              }}
-              placeholder="Add new type..."
-              className="flex-1 min-w-0 px-2 py-1 text-[11px] rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/60"
-            />
-            <button
-              type="button"
-              onClick={handleAdd}
-              className="px-2 py-1 text-[10px] font-bold rounded bg-primary text-primary-foreground hover:bg-primary/95 flex-shrink-0"
-            >
-              Add
-            </button>
-          </div>
+            );
+          })}
+          {options.length === 0 && (
+            <div className="px-3 py-2 text-sm text-muted-foreground italic">{t("contacts.form.noOptions")}</div>
+          )}
         </div>
-      )}
-    </div>
+        <div className="p-2 flex gap-1.5 bg-muted/20 flex-shrink-0">
+          <input
+            type="text"
+            value={customVal}
+            onChange={(e) => setCustomVal(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.stopPropagation();
+                handleAdd();
+              }
+            }}
+            placeholder={t("contacts.form.addNewTypePlaceholder")}
+            className="flex-1 min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/60"
+          />
+          <button
+            type="button"
+            onClick={handleAdd}
+            className="px-2.5 py-1.5 inline-flex items-center justify-center text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0"
+          >
+            {t("common.add")}
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -143,7 +234,7 @@ export function Field({ label, required = false, hint = undefined, children }: F
     <div>
       <span className={LABEL}>
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-destructive ml-0.5">*</span>}
       </span>
       {children}
       {hint && <p className="text-[10px] text-muted-foreground mt-1">{hint}</p>}
@@ -181,7 +272,7 @@ interface RequiredBannerProps {
  */
 export function RequiredBanner({ message }: RequiredBannerProps): React.JSX.Element {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-600 font-semibold dark:bg-red-950/20 dark:border-red-900/50 dark:text-red-400">
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive font-semibold">
       <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
       <span>{message}</span>
     </div>
@@ -201,6 +292,7 @@ interface TagsInputProps {
  * @returns React element.
  */
 function TagsInput({ selected = [], predefined = [], onChange }: TagsInputProps): React.JSX.Element {
+  const { t } = useTranslation();
   const [inputVal, setInputVal] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -242,8 +334,8 @@ function TagsInput({ selected = [], predefined = [], onChange }: TagsInputProps)
               <button
                 type="button"
                 onClick={() => toggle(tag)}
-                className="hover:text-primary/60 transition-colors"
-                aria-label={`Remove tag ${tag}`}
+                className="hover:text-primary/60 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2"
+                aria-label={t("contacts.form.removeTag", { tag })}
               >
                 <X className="w-3 h-3" />
               </button>
@@ -260,7 +352,7 @@ function TagsInput({ selected = [], predefined = [], onChange }: TagsInputProps)
               key={tag}
               type="button"
               onClick={() => toggle(tag)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border border-border bg-muted/50 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-all"
+              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-full text-xs font-medium border border-border bg-muted/50 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-all"
             >
               + {tag}
             </button>
@@ -279,15 +371,15 @@ function TagsInput({ selected = [], predefined = [], onChange }: TagsInputProps)
           onBlur={() => {
             if (inputVal.trim()) addCustom(inputVal);
           }}
-          placeholder="Type a tag and press Enter…"
+          placeholder={t("contacts.form.typeTagPlaceholder")}
         />
         {inputVal.trim() && (
           <button
             type="button"
             onClick={() => addCustom(inputVal)}
-            className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors flex-shrink-0"
+            className="px-3 min-h-[44px] rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors flex-shrink-0"
           >
-            Add
+            {t("common.add")}
           </button>
         )}
       </div>
@@ -295,16 +387,10 @@ function TagsInput({ selected = [], predefined = [], onChange }: TagsInputProps)
   );
 }
 
-export interface CustomFieldConfig {
-  id: string;
-  type: string;
-  placeholder?: string;
-  mask?: string;
-  options?: string | string[];
-}
+export type CustomFieldConfig = FieldDefinition;
 
 interface CustomFieldInputProps {
-  field: CustomFieldConfig;
+  field: FieldDefinition;
   value: unknown;
   onChange: (val: unknown) => void;
 }
@@ -315,6 +401,9 @@ interface CustomFieldInputProps {
  * @returns React element.
  */
 export function CustomFieldInput({ field, value, onChange }: CustomFieldInputProps): React.JSX.Element {
+  const { uiStrings } = useContactConfig();
+  const { t } = useTranslation();
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const displayValue = value ?? "";
 
   const getOptionsArray = (opts: string | string[] | undefined): string[] => {
@@ -344,18 +433,12 @@ export function CustomFieldInput({ field, value, onChange }: CustomFieldInputPro
 
   if (field.type === "select") {
     return (
-      <select
-        className={INPUT}
+      <FormSelect
         value={String(displayValue)}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="">— Select —</option>
-        {getOptionsArray(field.options).map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
+        onChange={(val) => onChange(val)}
+        options={getOptionsArray(field.options)}
+        placeholder={t("contacts.form.selectOption")}
+      />
     );
   }
 
@@ -366,34 +449,93 @@ export function CustomFieldInput({ field, value, onChange }: CustomFieldInputPro
         <button
           type="button"
           onClick={() => onChange(!isChecked)}
-          aria-label={`Toggle option ${field.id}`}
-          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-            isChecked ? "bg-primary border-primary" : "border-border bg-background"
-          }`}
+          aria-label={t("contacts.form.toggleOption", { field: field.key })}
+          className={`w-11 h-11 flex-shrink-0 flex items-center justify-center transition-all bg-transparent`}
         >
-          {isChecked && <span className="text-primary-foreground text-[10px] font-bold">✓</span>}
+          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+            isChecked ? "bg-primary border-primary" : "border-border bg-background"
+          }`}>
+            {isChecked && <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />}
+          </div>
         </button>
-        <span className="text-sm text-muted-foreground">{isChecked ? "Yes" : "No"}</span>
+        <span className="text-sm text-muted-foreground">{isChecked ? t("common.yes") : t("common.no")}</span>
       </div>
     );
   }
 
   if (field.type === "file") {
-    const file = value as { name: string; url: string; size?: number } | null;
-    const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const f = e.target.files?.[0];
+    const isAvatar = field.key === "avatar" || field.label.toLowerCase().includes("photo") || field.label.toLowerCase().includes("avatar") || field.label.toLowerCase().includes("image");
+    const fileUrl = typeof value === "string" ? value : (value as { url?: string })?.url || null;
+    const file = typeof value === "string" ? { name: "avatar.webp", url: value } : (value as { name: string; url: string; size?: number } | null);
+
+    const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      let f = e.target.files?.[0];
       if (!f) return;
+
+      if (f.type.startsWith("image/")) {
+        f = await optimizeImage(f);
+      }
+
       const reader = new FileReader();
       reader.onload = (ev) => {
-        onChange({
-          name: f.name,
-          url: ev.target?.result,
-          size: f.size,
-          type: f.type
-        });
+        if (typeof ev.target?.result === "string" && isAvatar) {
+          setCropSrc(ev.target.result);
+        } else {
+          onChange({
+            name: f.name,
+            url: ev.target?.result,
+            size: f.size,
+            type: f.type
+          });
+        }
       };
       reader.readAsDataURL(f);
     };
+
+    if (isAvatar) {
+      const initials = "C";
+      return (
+        <div className="flex items-center gap-4">
+          {cropSrc && (
+            <AvatarCropper
+              src={cropSrc}
+              onCrop={(url: string) => {
+                onChange(url);
+                setCropSrc(null);
+              }}
+              onCancel={() => setCropSrc(null)}
+              uiStrings={uiStrings}
+            />
+          )}
+          <div className="relative flex-shrink-0">
+            <div className="w-16 h-16 rounded-full bg-primary/10 overflow-hidden flex items-center justify-center border-2 border-border">
+              {fileUrl ? (
+                <img src={fileUrl} alt={field.label} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl font-bold text-primary">{initials}</span>
+              )}
+            </div>
+            <label className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer shadow-md hover:bg-primary/90 transition-colors">
+              <Camera className="w-3 h-3" />
+              <input type="file" accept="image/*" className="hidden" onChange={handleFile} />
+            </label>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            <p className="font-semibold text-foreground mb-0.5">{field.label}</p>
+            <p>{t("contacts.form.uploadAvatarInstructions")}</p>
+            {fileUrl && (
+              <button
+                type="button"
+                onClick={() => onChange(null)}
+                className="text-destructive hover:text-destructive/90 mt-1 font-medium min-h-[44px]"
+              >
+                {t("contacts.form.removePhoto")}
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-2">
@@ -403,14 +545,14 @@ export function CustomFieldInput({ field, value, onChange }: CustomFieldInputPro
               <FileText className="w-4 h-4 text-primary flex-shrink-0" />
               <span className="text-xs font-semibold truncate">{file.name}</span>
             </div>
-            <button onClick={() => onChange(null)} className="p-1 hover:text-red-500 transition-colors" type="button">
+            <button onClick={() => onChange(null)} className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" type="button">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
           <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-border rounded-xl hover:border-primary/40 hover:bg-primary/5 cursor-pointer transition-all">
             <Upload className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs font-bold text-muted-foreground">Click to upload document</span>
+            <span className="text-xs font-bold text-muted-foreground">{t("contacts.form.clickToUploadDocument")}</span>
             <input type="file" className="hidden" onChange={handleFile} />
           </label>
         )}
@@ -427,7 +569,7 @@ export function CustomFieldInput({ field, value, onChange }: CustomFieldInputPro
             className={INPUT}
             type="number"
             step="any"
-            placeholder="Latitude"
+            placeholder={t("contacts.form.latitude")}
             value={loc.lat}
             onChange={(e) => onChange({ ...loc, lat: parseFloat(e.target.value) })}
           />
@@ -435,14 +577,14 @@ export function CustomFieldInput({ field, value, onChange }: CustomFieldInputPro
             className={INPUT}
             type="number"
             step="any"
-            placeholder="Longitude"
+            placeholder={t("contacts.form.longitude")}
             value={loc.lng}
             onChange={(e) => onChange({ ...loc, lng: parseFloat(e.target.value) })}
           />
         </div>
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-[10px] text-primary font-bold">
           <MapPin className="w-3 h-3" />
-          <span>Location set to {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</span>
+          <span>{t("contacts.form.locationSetTo", { lat: loc.lat.toFixed(4), lng: loc.lng.toFixed(4) })}</span>
         </div>
       </div>
     );
@@ -452,17 +594,54 @@ export function CustomFieldInput({ field, value, onChange }: CustomFieldInputPro
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest bg-primary/5 px-2 py-1 rounded w-fit">
-          <BrainCircuit className="w-3 h-3" /> 2026 AI Insights
+          <BrainCircuit className="w-3 h-3" /> {t("contacts.form.aiInsights")}
         </div>
         <div className="p-3 rounded-xl bg-muted/40 border border-border text-[11px] text-muted-foreground italic leading-relaxed">
-          {String(displayValue) || "AI summary will appear here after more contact activities are logged."}
+          {String(displayValue) || t("contacts.form.aiSummaryPlaceholder")}
         </div>
       </div>
     );
   }
 
-  // Fallback to text, number, date inputs
-  const inputType = field.type === "number" ? "number" : field.type === "date" ? "date" : "text";
+  if (field.key === "rating") {
+    const currentRating = Number(displayValue || 0);
+    return (
+      <div className="flex items-center gap-1.5 pt-1">
+        {Array.from({ length: 5 }).map((_, idx) => {
+          const starValue = idx + 1;
+          return (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => onChange(starValue)}
+              className={`w-11 h-11 flex items-center justify-center transition-all hover:scale-125 focus:outline-none ${
+                starValue <= currentRating ? "text-primary" : "text-muted-foreground/30"
+              }`}
+            >
+              <Star className={`w-5 h-5 ${starValue <= currentRating ? "fill-primary" : "fill-transparent"}`} />
+            </button>
+          );
+        })}
+        {currentRating > 0 && (
+          <span className="text-xs text-muted-foreground ml-2 font-medium">
+            {currentRating} {t("contacts.form.outOf5Stars")}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  if (field.type === "date") {
+    return (
+      <DatePicker
+        value={String(displayValue)}
+        onChange={(val) => onChange(val)}
+      />
+    );
+  }
+
+  // Fallback to text, number inputs
+  const inputType = field.type === "number" ? "number" : "text";
   return (
     <input
       className={INPUT}

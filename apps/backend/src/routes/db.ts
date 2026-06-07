@@ -10,6 +10,20 @@ import {
   SyncPayload
 } from '../services/dbSyncService.js';
 import type { User } from '../services/authService.js';
+import { canBulkSync, canWriteCollection, canWriteObject } from '../services/rbacService.js';
+import {
+  applyTitleCaseToContact,
+  isServerOnlyObjectKey,
+  mergeBrandingSettings,
+  type BrandingSettings,
+} from '@mms/shared';
+import { getRequestTenant } from '../utils/tenantContext.js';
+import { syncWorkspaceFromBranding } from '../services/workspaceService.js';
+import {
+  recordAudit,
+  AUDITED_COLLECTIONS,
+  AUDITED_OBJECTS,
+} from '../services/auditService.js';
 
 // Input validation schema for Bulk Sync Upload
 const syncSchema: FastifySchema = {
@@ -120,8 +134,21 @@ export default async function dbRoutes(
 
   // Bulk sync upload: Save all data
   fastify.post<{ Body: SyncPayload }>('/sync', { schema: syncSchema }, async (request, reply) => {
+    const user = request.user as User;
+    if (!canBulkSync(user)) {
+      return reply.status(403).send({
+        type: 'forbidden',
+        message: 'Only administrators can perform bulk database sync'
+      });
+    }
     try {
-      await synchronizeData(request.body);
+      const payload = request.body;
+      if (payload.collections && payload.collections.contacts) {
+        payload.collections.contacts = payload.collections.contacts.map((item) =>
+          applyTitleCaseToContact(item as Record<string, unknown>)
+        );
+      }
+      await synchronizeData(payload);
       return reply.send({ success: true });
     } catch (error) {
       return reply.status(500).send({
@@ -173,8 +200,15 @@ export default async function dbRoutes(
     '/collections/:name',
     { schema: collectionSaveSchema },
     async (request, reply) => {
+      const user = request.user as User;
+      const { name } = request.params;
+      if (!canWriteCollection(user, name)) {
+        return reply.status(403).send({
+          type: 'forbidden',
+          message: `You do not have permission to write collection "${name}"`
+        });
+      }
       try {
-        const { name } = request.params;
         const body = request.body;
 
         // Parse collection array type-safely without utilizing 'any'
@@ -195,7 +229,21 @@ export default async function dbRoutes(
           });
         }
 
+        if (name === 'contacts') {
+          data = data.map((item) => applyTitleCaseToContact(item as Record<string, unknown>));
+        }
+
         await persistCollection(name, data);
+        if (AUDITED_COLLECTIONS.has(name)) {
+          await recordAudit({
+            userId: user.id,
+            userEmail: user.email,
+            action: 'collection.write',
+            entityType: 'collection',
+            entityId: name,
+            summary: `Wrote ${data.length} row(s)`,
+          });
+        }
         return reply.send({ success: true });
       } catch (error) {
         return reply.status(500).send({
@@ -210,6 +258,12 @@ export default async function dbRoutes(
   fastify.get<{ Params: { key: string } }>('/objects/:key', { schema: objectParamsSchema }, async (request, reply) => {
     try {
       const { key } = request.params;
+      if (isServerOnlyObjectKey(key)) {
+        return reply.status(404).send({
+          type: 'not_found',
+          message: `Object with key "${key}" not found`,
+        });
+      }
       const data = await fetchObject(key);
       if (data === null) {
         return reply.status(404).send({
@@ -228,11 +282,46 @@ export default async function dbRoutes(
 
   // Save/Overwrite a specific object (KV)
   fastify.post<{ Params: { key: string }; Body: unknown }>('/objects/:key', { schema: objectParamsSchema }, async (request, reply) => {
+    const user = request.user as User;
+    const { key } = request.params;
+    if (isServerOnlyObjectKey(key)) {
+      return reply.status(403).send({
+        type: 'forbidden',
+        message: `Object key "${key}" cannot be modified through this endpoint`,
+      });
+    }
+    if (!canWriteObject(user, key)) {
+      return reply.status(403).send({
+        type: 'forbidden',
+        message: `You do not have permission to write object "${key}"`
+      });
+    }
     try {
-      const { key } = request.params;
-      const data = request.body;
+      const raw = request.body;
+      const data =
+        key === 'branding'
+          ? mergeBrandingSettings(raw as Partial<BrandingSettings>)
+          : raw;
 
       await persistObject(key, data);
+
+      if (AUDITED_OBJECTS.has(key)) {
+        await recordAudit({
+          userId: user.id,
+          userEmail: user.email,
+          action: 'object.write',
+          entityType: 'object',
+          entityId: key,
+        });
+      }
+
+      if (key === 'branding') {
+        const tenant = getRequestTenant();
+        if (tenant) {
+          await syncWorkspaceFromBranding(tenant, data as BrandingSettings);
+        }
+      }
+
       return reply.send({ success: true });
     } catch (error) {
       return reply.status(500).send({

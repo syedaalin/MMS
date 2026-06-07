@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { UserCheck, Users, AlertTriangle, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { ROUTES } from "@/lib/routes";
 import { ATTENDANCE_RECORDS, ATTENDANCE_STATUSES } from "../../lib/attendanceData";
 import { SESSIONS_DATA } from "../../lib/sessionsData";
 import { getCollection } from "../../lib/db";
@@ -124,7 +125,7 @@ export default function TodayAttendanceWidget({ title }: { title?: string }) {
             <span className="text-[11px] text-muted-foreground px-1.5 py-0.5 rounded-full bg-muted font-medium">{displayDate}</span>
           )}
         </div>
-        <Link to="/attendance" className="flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
+        <Link to={ROUTES.attendance} className="flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
           View All <ArrowRight className="w-3 h-3" />
         </Link>
       </header>
@@ -134,7 +135,7 @@ export default function TodayAttendanceWidget({ title }: { title?: string }) {
           <div className="text-center py-6">
             <Users className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
             <p className="text-sm font-semibold text-foreground">No attendance recorded today</p>
-            <Link to="/attendance" className="text-xs text-primary font-semibold hover:underline mt-1 inline-block">Mark Attendance →</Link>
+            <Link to={ROUTES.attendance} className="text-xs text-primary font-semibold hover:underline mt-1 inline-block">Mark Attendance →</Link>
           </div>
         ) : (
           <>

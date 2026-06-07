@@ -1,14 +1,16 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Mail, Plus, Trash2 } from "lucide-react";
-import { DEFAULT_TAB_FIELD_CONFIG } from "../../../lib/contactFields";
-import { INPUT, SELECT, LABEL, Field, FormEmptyState, RequiredBanner, CustomFieldInput, CustomFieldConfig, EditableSelect } from "./FormPrimitives";
+import { Mail, Plus } from "lucide-react";
+
+import { Field, FormEmptyState, RequiredBanner, CustomFieldInput, EditableSelect, COLLECTION_CARD, COLLECTION_BODY, CardTypeLabel, CardRemoveButton, TYPE_SELECT_WIDTH } from "./FormPrimitives";
 import { useSortedFields } from "../../../hooks/useSortedFields";
 import { useContactConfig } from "../../../lib/ContactConfigContext";
+import useTranslation from "@/hooks/useTranslation";
 
 interface ContactEmail {
   label: string;
   address: string;
+  [key: string]: unknown;
 }
 
 interface ContactFormData {
@@ -28,7 +30,7 @@ interface EmailTabProps {
 }
 
 /**
- * EmailTab component for managing contact email addresses.
+ * EmailTab component for managing contact email addresses dynamically.
  * @param props Component properties.
  * @returns React element.
  */
@@ -36,35 +38,40 @@ export default function EmailTab({
   data,
   onChange,
   required = false,
-  tabFieldCfg,
-  customFields
 }: EmailTabProps): React.JSX.Element {
-  const sortedCustomFields = useSortedFields("emails").filter((f) => f.isCustom && f.showInForm !== false);
-  const { emailLabels, updateEmailLabels } = useContactConfig();
-  const emails = data.emails && data.emails.length > 0 ? data.emails : [{ label: "Personal", address: "" }];
+  const { emailLabels, updateEmailLabels, uiStrings } = useContactConfig();
+  const { t } = useTranslation();
+  const enabledFields = useSortedFields("emails").filter((f) => f.enabled);
+
+  const createNewEmail = (): ContactEmail => {
+    const item: Record<string, unknown> = {};
+    enabledFields.forEach((f) => {
+      if (f.key === "label") {
+        item[f.key] = emailLabels[0] || uiStrings.personalLabel;
+      } else {
+        item[f.key] = f.defaultValue !== undefined ? f.defaultValue : "";
+      }
+    });
+    return item as ContactEmail;
+  };
+
+  const emails = data.emails && data.emails.length > 0 ? data.emails : [createNewEmail()];
 
   const upd = (list: ContactEmail[]): void => {
     onChange({ ...data, emails: list });
   };
 
-  const updField = (id: string, value: unknown): void => {
-    onChange({ ...data, [id]: value });
-  };
-
-  const en = tabFieldCfg?.enabled ?? DEFAULT_TAB_FIELD_CONFIG.emails.enabled;
-  const req = tabFieldCfg?.required ?? DEFAULT_TAB_FIELD_CONFIG.emails.required;
-  const showLabel = en.includes("label");
-  const showAddress = en.includes("address");
-  const reqAddress = req.includes("address");
-
   const updateEmail = (i: number, patch: Partial<ContactEmail>): void => {
     upd(emails.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   };
 
+  const showLabelField = enabledFields.find((f) => f.key === "label");
+  const bodyFields = enabledFields.filter((f) => f.key !== "label");
+
   return (
     <div className="space-y-3">
-      {required && emails.length === 0 && <RequiredBanner message="At least one email address is required" />}
-      {emails.length === 0 && <FormEmptyState icon={Mail} text="No email addresses yet. Add one below." />}
+      {required && emails.length === 0 && <RequiredBanner message={t("contacts.form.atLeastOneEmailRequired")} />}
+      {emails.length === 0 && <FormEmptyState icon={Mail} text={t("contacts.form.noEmailAddressesYet")} />}
 
       {emails.map((e, i) => (
         <motion.div
@@ -72,74 +79,55 @@ export default function EmailTab({
           layout
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-border bg-muted/20 p-3 space-y-2.5"
+          className={COLLECTION_CARD}
         >
           <div className="flex items-center justify-between">
-            {showLabel ? (
+            {showLabelField ? (
               <div className="flex items-center gap-2">
-                <span className={LABEL + " !mb-0 text-[10px]"}>Type:</span>
+                <CardTypeLabel>{t("contacts.form.type")}</CardTypeLabel>
                 <EditableSelect
                   options={emailLabels || []}
-                  value={e.label}
+                  value={e.label || ""}
                   onChange={(val) => updateEmail(i, { label: val })}
                   onUpdateOptions={updateEmailLabels}
-                  placeholder="Select label..."
-                  className="w-28"
+                  placeholder={t("contacts.form.selectLabel")}
+                  className={TYPE_SELECT_WIDTH}
                 />
               </div>
             ) : (
               <div />
             )}
-            <button
-              type="button"
+            <CardRemoveButton
               onClick={() => upd(emails.filter((_, j) => j !== i))}
-              className="p-1 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
-              aria-label={`Remove email address ${i + 1}`}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+              label={t("contacts.form.removeEmailAddress", { index: i + 1 })}
+            />
           </div>
 
-          {showAddress && reqAddress && (
-            <span className={LABEL}>
-              Email Address <span className="text-red-500">*</span>
-            </span>
-          )}
-          {showAddress && (
-            <input
-              type="email"
-              className={INPUT}
-              value={e.address}
-              onChange={(ev) => updateEmail(i, { address: ev.target.value })}
-              placeholder="name@example.com"
-              aria-label={`Email address ${i + 1}`}
-            />
+          {bodyFields.length > 0 && (
+            <div className={COLLECTION_BODY}>
+              {bodyFields.map((field) => (
+                <Field key={field.key} label={field.label} required={field.required} hint={field.description}>
+                  <CustomFieldInput
+                    field={field}
+                    value={e[field.key]}
+                    onChange={(val) => updateEmail(i, { [field.key]: val })}
+                  />
+                </Field>
+              ))}
+            </div>
           )}
         </motion.div>
       ))}
 
       <button
         type="button"
-        onClick={() => upd([...emails, { label: emailLabels[0] || "Personal", address: "" }])}
-        className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
+        onClick={() => upd([...emails, createNewEmail()])}
+        className="flex items-center min-h-[44px] gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
       >
         <Plus className="w-4 h-4" />
-        <span>Add email</span>
+        <span>{t("contacts.form.addEmailAddress")}</span>
       </button>
-
-      {sortedCustomFields.map((field) => {
-        const label = field.label as string;
-        const reqField = field.required as boolean | undefined;
-        return (
-          <Field key={field.id} label={label} required={reqField}>
-            <CustomFieldInput
-              field={field as unknown as CustomFieldConfig}
-              value={data[field.id]}
-              onChange={(val) => updField(field.id, val)}
-            />
-          </Field>
-        );
-      })}
     </div>
   );
 }
+

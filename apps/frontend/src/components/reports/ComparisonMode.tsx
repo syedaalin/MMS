@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useBrandPalette } from "@/lib/BrandingPaletteContext";
 import { GitCompare, X } from "lucide-react";
 import { DatePicker } from "../ui/DatePicker";
 import { motion, AnimatePresence } from "framer-motion";
@@ -70,8 +71,8 @@ function getCompData(category: string, contacts: Contact[], targetA: string, tar
   if (category.toLowerCase() === "contacts") {
     return getContactCompData(
        contacts, 
-       (c) => (c.personaId || "general") === targetA, 
-       (c) => (c.personaId || "general") === targetB
+       (c) => (c.lifecycleStage || "Lead") === targetA, 
+       (c) => (c.lifecycleStage || "Lead") === targetB
     );
   }
 
@@ -122,26 +123,29 @@ interface ComparisonModeProps {
  * @returns React.JSX.Element
  */
 export default function ComparisonMode({ category, onClose }: ComparisonModeProps): React.JSX.Element {
+  const { primary, secondary } = useBrandPalette();
   const { fieldConfig } = useContactConfig();
   const contacts = useMemo<Contact[]>(() => getCollection("contacts", CONTACTS), []);
   const sessions = useMemo<Session[]>(() => getCollection("sessions", SESSIONS_DATA), []);
   const SESSIONS_OPTIONS = useMemo<{id: string, name: string}[]>(() => sessions.filter((s) => s.id !== "all").map(s => ({ id: s.id, name: s.name })), [sessions]);
 
-  const PERSONA_OPTIONS = useMemo(() => {
-    return (fieldConfig.personas || []).map(p => ({ id: p.id, name: p.label }));
+  const LIFECYCLE_OPTIONS = useMemo(() => {
+    const field = (fieldConfig.fields?.basic || []).find((f) => f.key === "lifecycleStage");
+    const opts = field?.options || ["Lead", "Active Student", "Alumnus", "Staff", "Donor", "Volunteer", "Parent"];
+    return opts.map(opt => ({ id: opt, name: opt }));
   }, [fieldConfig]);
 
   const isContacts = category.toLowerCase() === "contacts";
 
   const [mode, setMode] = useState<"sessions" | "daterange">("sessions");
-  const [valA, setValA] = useState<string>(isContacts ? "general" : "s1");
-  const [valB, setValB] = useState<string>(isContacts ? "student" : "s2");
+  const [valA, setValA] = useState<string>(isContacts ? "Lead" : "s1");
+  const [valB, setValB] = useState<string>(isContacts ? "Active Student" : "s2");
 
   // Sync targets when category changes
   useEffect(() => {
     if (category.toLowerCase() === "contacts") {
-      setValA("general");
-      setValB("student");
+      setValA("Lead");
+      setValB("Active Student");
     } else {
       setValA("s1");
       setValB("s2");
@@ -150,7 +154,7 @@ export default function ComparisonMode({ category, onClose }: ComparisonModeProp
   const [rangeA, setRangeA] = useState<DateRange>({ from: "2025-01-01", to: "2025-03-31" });
   const [rangeB, setRangeB] = useState<DateRange>({ from: "2026-01-01", to: "2026-03-31" });
 
-  const options = isContacts ? PERSONA_OPTIONS : SESSIONS_OPTIONS;
+  const options = isContacts ? LIFECYCLE_OPTIONS : SESSIONS_OPTIONS;
   const labelA = mode === "sessions" ? options.find((s) => s.id === valA)?.name : `${rangeA.from} → ${rangeA.to}`;
   const labelB = mode === "sessions" ? options.find((s) => s.id === valB)?.name : `${rangeB.from} → ${rangeB.to}`;
 
@@ -174,7 +178,7 @@ export default function ComparisonMode({ category, onClose }: ComparisonModeProp
         <div className="flex items-center gap-3">
           <div className="flex rounded-lg border border-border/50 overflow-hidden text-xs font-semibold">
             <button onClick={() => setMode("sessions")} className={`px-3 py-1.5 transition-colors ${mode === "sessions" ? "bg-primary text-primary-foreground" : "bg-card/50 backdrop-blur-md text-muted-foreground hover:text-foreground"}`} type="button">
-              {isContacts ? "Personas" : "Sessions"}
+              {isContacts ? "Stages" : "Sessions"}
             </button>
             <button onClick={() => setMode("daterange")} className={`px-3 py-1.5 transition-colors ${mode === "daterange" ? "bg-primary text-primary-foreground" : "bg-card/50 backdrop-blur-md text-muted-foreground hover:text-foreground"}`} type="button">Date Ranges</button>
           </div>
@@ -193,7 +197,7 @@ export default function ComparisonMode({ category, onClose }: ComparisonModeProp
               { label: "B", val: valB, set: setValB, color: "text-amber-600" }
             ].map(({ label, val, set, color }) => (
               <div key={label} className="flex flex-col gap-1">
-                <label className={`text-[11px] font-bold uppercase tracking-wide ${color}`}>{isContacts ? "Persona" : "Session"} {label}</label>
+                <label className={`text-[11px] font-bold uppercase tracking-wide ${color}`}>{isContacts ? "Stage" : "Session"} {label}</label>
                 <select value={val} onChange={(e) => set(e.target.value)} className="text-sm rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm px-2 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20">
                   {options.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
@@ -238,8 +242,8 @@ export default function ComparisonMode({ category, onClose }: ComparisonModeProp
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="a" name={labelA} fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="b" name={labelB} fill="#D4A853" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="a" name={labelA} fill={primary} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="b" name={labelB} fill={secondary} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

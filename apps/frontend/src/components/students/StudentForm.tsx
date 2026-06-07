@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Search, Save, Loader2, Plus, User, Mail, Phone, Calendar, Sparkles, Users, Lock, Camera, Upload } from "lucide-react";
+import { X, Search, Plus, User, Mail, Phone, Calendar, Sparkles, Users, Lock, Camera, Upload } from "lucide-react";
 import { CONTACTS } from "../../lib/contactsData";
 import { toTitleCase, optimizeImage, cn } from "../../lib/utils";
 import { getCollection, saveCollection, getObject } from "../../lib/db";
@@ -14,6 +14,8 @@ import {
 } from "@mms/shared";
 import { useContactConfig } from "../../lib/ContactConfigContext";
 import { DatePicker } from "../ui/DatePicker";
+import FormModal from "../ui/FormModal";
+import useTranslation from "@/hooks/useTranslation";
 
 const INPUT = "w-full px-3.5 py-2.5 rounded-lg border border-border text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all";
 const LABEL = "text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5 block";
@@ -314,13 +316,14 @@ export interface StudentFormProps {
 }
 
 export default function StudentForm({ student, students, onClose, onSave }: StudentFormProps): JSX.Element {
+  const { t } = useTranslation();
   const [contacts, setContacts] = useState<Contact[]>(() => getCollection("contacts", CONTACTS));
   const [data, setData] = useState<StudentFormData>(() => ({ ...EMPTY, ...student }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   // Read contact config — prefs drive defaults; isTabFieldEnabled gates field visibility
-  const { prefs, isTabFieldEnabled, genders } = useContactConfig();
+  const { prefs, isTabFieldEnabled, genders, uiStrings } = useContactConfig();
 
   const settings = useMemo(() => getObject<StudentsSettings>("students_settings", DEFAULT_STUDENTS_SETTINGS), []);
   const fields = settings.fields || DEFAULT_STUDENTS_SETTINGS.fields || {};
@@ -484,8 +487,8 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
       email: newContact.email || "",
       city: newContact.city || "",
       avatar: newContact.avatar || null,
-      phones: newContact.phone ? [{ label: "Mobile", number: newContact.phone, whatsapp: true }] : [],
-      emails: newContact.email ? [{ label: "Personal", address: newContact.email }] : [],
+      phones: newContact.phone ? [{ label: uiStrings.mobileLabel, number: newContact.phone }] : [],
+      emails: newContact.email ? [{ label: uiStrings.personalLabel, address: newContact.email }] : [],
       createdAt: new Date().toISOString().split("T")[0],
       updatedAt: new Date().toISOString().split("T")[0],
     };
@@ -618,32 +621,22 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.97, y: 12 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.97 }}
-          transition={{ duration: 0.25 }}
-          className="relative bg-card rounded-2xl border border-border shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col z-10"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-primary animate-pulse" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-foreground leading-tight">{student ? "Edit Student Details" : "Register New Student"}</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Select a contact to register as a student and link parents</p>
-              </div>
-            </div>
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+      <FormModal
+        open
+        onClose={onClose}
+        title={student ? "Edit Student Details" : "Register New Student"}
+        subtitle="Select a contact to register as a student and link parents"
+        icon={Sparkles}
+        size="xl"
+        tall
+        cancelLabel={t("common.cancel")}
+        saveLabel={saving ? "Saving…" : student ? "Update Student" : "Register Student"}
+        onSave={handleSave}
+        saving={saving}
+        saveDisabled={!data.contactId}
+        error={error || undefined}
+      >
+          <div className="space-y-6">
             {/* Card 1: Student Record Link */}
             <div className="p-4.5 rounded-xl border border-border bg-card/50 shadow-sm space-y-4">
               <div className="flex items-center gap-2 border-b border-border/60 pb-2.5">
@@ -873,26 +866,8 @@ export default function StudentForm({ student, students, onClose, onSave }: Stud
                 </div>
               )}
 
-            {error && (
-              <div className="p-3.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold">
-                {error}
-              </div>
-            )}
           </div>
-
-          <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-2.5 flex-shrink-0">
-            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors">Cancel</button>
-            <button
-              onClick={handleSave}
-              disabled={saving || !data.contactId}
-              className="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 transition-all shadow-md shadow-primary/15"
-            >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? "Saving…" : student ? "Update Student" : "Register Student"}
-            </button>
-          </div>
-        </motion.div>
-      </div>
+      </FormModal>
 
       <AnimatePresence>
         {showCreateModal && (

@@ -1,180 +1,147 @@
-import React from "react";
-import { X, Shield, AlertTriangle, CheckCircle2, Lock } from "lucide-react";
-import { motion } from "framer-motion";
-import { STATUS_COLORS, DEFAULT_ROLES, MODULES, ACTIONS, type SystemUser, type Action } from "../../lib/usersData";
+import React from 'react';
+import { Shield, AlertTriangle, CheckCircle2, Lock } from 'lucide-react';
+import {
+  filterRbacModulesForSettings,
+  resolveWorkspaceRole,
+  workspaceRoleDescription,
+  type PermissionAction,
+  type SystemUser,
+} from '@mms/shared';
+import useTranslation from '@/hooks/useTranslation';
+import useGlobalSettings from '@/hooks/useGlobalSettings';
+import { useWorkspaceRoles } from '@/hooks/useWorkspaceRoles';
+import { formatDate } from '@mms/shared';
+import Modal from '@/components/ui/Modal';
+import { UserRoleBadge, UserStatusBadge } from '@/components/users/userBadges';
+import { SettingsMetaBadge } from '@/components/settings/settingsShared';
 
 interface RowProps {
   label: string;
   value: React.ReactNode;
 }
 
-/**
- * Standard detail layout row with a label and value.
- *
- * @param props - Row parameters.
- * @returns The row element.
- */
-function Row({ label, value }: RowProps): JSX.Element {
+function Row({ label, value }: RowProps): React.JSX.Element {
   return (
-    <div className="flex items-start justify-between gap-4 py-2.5 border-b border-border last:border-0">
+    <div className="flex items-start justify-between gap-4 border-b border-border py-2.5 last:border-0">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-xs font-semibold text-foreground text-right">{value || "—"}</span>
+      <span className="text-right text-xs font-semibold text-foreground">{value || '—'}</span>
     </div>
   );
 }
 
-interface SectionProps {
+function Section({
+  icon: Icon,
+  title,
+  children,
+}: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   children: React.ReactNode;
-}
-
-/**
- * Styled subsection header and box card.
- *
- * @param props - Section properties.
- * @returns The section panel element.
- */
-function Section({ icon: Icon, title, children }: SectionProps): JSX.Element {
+}): React.JSX.Element {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/40 border-b border-border">
-        <Icon className="w-3.5 h-3.5 text-primary" />
-        <p className="text-xs font-bold text-foreground uppercase tracking-wide">{title}</p>
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
+        <Icon className="h-3.5 w-3.5 text-primary" aria-hidden />
+        <p className="text-xs font-bold uppercase tracking-wide text-foreground">{title}</p>
       </div>
       <div className="px-4">{children}</div>
     </div>
   );
 }
 
-/**
- * Helper to format timestamps into user-friendly localized date/time strings.
- *
- * @param ts - ISO date string or timestamp.
- * @returns Localized date string.
- */
-function fmtDate(ts: string): string {
-  if (!ts) return "Never";
-  return new Date(ts).toLocaleString("en-PK", { dateStyle: "medium", timeStyle: "short" });
-}
-
 export interface UserDetailModalProps {
   user: SystemUser | null;
   onClose: () => void;
-  role: string;
 }
 
-/**
- * UserDetailModal component displays a detailed view of a user's status, roles,
- * permissions, and security logs.
- *
- * @param props - UserDetailModal properties.
- * @returns The user details modal element.
- */
-export default function UserDetailModal({ user, onClose, role: viewerRole }: UserDetailModalProps): JSX.Element | null {
+export default function UserDetailModal({
+  user,
+  onClose,
+}: UserDetailModalProps): React.JSX.Element | null {
+  const { t } = useTranslation();
+  const globalSettings = useGlobalSettings();
+  const workspaceRoles = useWorkspaceRoles();
+  const visibleModules = filterRbacModulesForSettings(globalSettings.enabledModules);
+
   if (!user) return null;
 
-  const userRoles = DEFAULT_ROLES.filter((r) => user.roles?.includes(r.id));
+  const workspaceRole = resolveWorkspaceRole(user.role, workspaceRoles);
+  const effectivePerms: Record<string, PermissionAction[]> = workspaceRole?.permissions ?? {};
 
-  // Compute effective permissions (union of all roles)
-  const effectivePerms: Record<string, Action[]> = {};
-  MODULES.forEach((m) => {
-    const permsSet = new Set<Action>();
-    userRoles.forEach((r) => {
-      (r.permissions[m.id] || []).forEach((a) => permsSet.add(a));
-    });
-    effectivePerms[m.id] = [...permsSet];
-  });
-
-  const statusColor = STATUS_COLORS[user.status] || "";
+  const fmtDate = (ts: string): string => {
+    if (!ts) return t('users.never');
+    return formatDate(ts, globalSettings.dateFormat, false);
+  };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-8 overflow-y-auto"
-      onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        className="bg-background rounded-2xl border border-border shadow-xl w-full max-w-lg space-y-4 p-5 mb-10">
+    <Modal open onClose={onClose} title={user.name} subtitle={user.email} icon={Shield} size="md">
+      <div className="mb-4 flex items-center gap-2">
+        <UserStatusBadge status={user.status} />
+        <UserRoleBadge roleId={user.role} />
+      </div>
 
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <span className="text-lg font-bold text-primary">{user.avatarInitials}</span>
-          </div>
-          <div className="flex-1">
-            <p className="text-base font-bold text-foreground">{user.name}</p>
-            <p className="text-xs text-muted-foreground">{user.email}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold border ${statusColor} capitalize`}>{user.status}</span>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Basic info */}
-        <Section icon={Shield} title="Basic Info">
-          <Row label="Full Name"    value={user.name} />
-          <Row label="Email"        value={user.email} />
-          <Row label="Phone"        value={user.phone} />
-          <Row label="Member Since" value={user.createdDate} />
-          <Row label="Last Login"   value={fmtDate(user.lastLogin)} />
-          <Row label="Active Sessions" value={user.activeSessions} />
+      <div className="space-y-4">
+        <Section icon={Shield} title={t('users.detailBasic')}>
+          <Row label={t('users.fieldName')} value={user.name} />
+          <Row label={t('users.fieldEmail')} value={user.email} />
+          <Row label={t('users.fieldPhone')} value={user.phone} />
+          <Row label={t('users.detailMemberSince')} value={user.createdDate} />
+          <Row label={t('users.colLastLogin')} value={fmtDate(user.lastLogin)} />
+          <Row label={t('users.detailSessions')} value={user.activeSessions} />
         </Section>
 
-        {/* Roles */}
-        <Section icon={Shield} title="Assigned Roles">
-          <div className="py-3 flex flex-wrap gap-2">
-            {userRoles.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No roles assigned</p>
-            ) : userRoles.map((r) => (
-              <div key={r.id} className={`flex flex-col gap-0.5 px-3 py-1.5 rounded-xl border ${r.color}`}>
-                <p className="text-xs font-bold">{r.name}</p>
-                <p className="text-[10px]">{r.description}</p>
+        <Section icon={Shield} title={t('users.detailRole')}>
+          <div className="py-3">
+            {workspaceRole ? (
+              <div className="space-y-2">
+                <UserRoleBadge roleId={workspaceRole.id} />
+                <p className="text-xs text-muted-foreground">{workspaceRoleDescription(workspaceRole, t)}</p>
               </div>
-            ))}
+            ) : (
+              <p className="text-xs text-muted-foreground">{t('users.detailNoRole')}</p>
+            )}
           </div>
         </Section>
 
-        {/* Permissions summary */}
-        <Section icon={CheckCircle2} title="Effective Permissions">
-          <div className="py-3 space-y-1.5">
-            {MODULES.map((m) => {
-              const perms = effectivePerms[m.id] || [];
+        <Section icon={Lock} title={t('users.detailPermissions')}>
+          <div className="space-y-2 py-3">
+            {visibleModules.map((mod) => {
+              const perms = effectivePerms[mod.id] ?? [];
               if (perms.length === 0) return null;
               return (
-                <div key={m.id} className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-28 flex-shrink-0">{m.label}</span>
-                  <div className="flex gap-1 flex-wrap">
-                    {ACTIONS.map((a) => (
-                      <span key={a} className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full capitalize ${
-                        perms.includes(a) ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground/40"
-                      }`}>{a}</span>
-                    ))}
-                  </div>
+                <div key={mod.id} className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-semibold text-foreground">{t(mod.labelKey)}</span>
+                  {perms.map((action) => (
+                    <SettingsMetaBadge key={`${mod.id}-${action}`} variant="muted">
+                      {t(`users.permission.${action}`)}
+                    </SettingsMetaBadge>
+                  ))}
                 </div>
               );
             })}
+            {Object.keys(effectivePerms).length === 0 ? (
+              <p className="text-xs text-muted-foreground">{t('users.detailNoPermissions')}</p>
+            ) : null}
           </div>
         </Section>
 
-        {/* Security */}
-        <Section icon={Lock} title="Security">
-          <Row label="2FA Enabled" value={
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${user.twoFactorEnabled ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
-              {user.twoFactorEnabled ? "Enabled" : "Disabled"}
-            </span>
-          } />
-          <Row label="Failed Login Attempts" value={
-            <span className={user.failedLoginAttempts >= 3 ? "text-red-600 font-bold" : ""}>{user.failedLoginAttempts}</span>
-          } />
-          {user.failedLoginAttempts >= 5 && (
-            <div className="flex items-center gap-2 py-2 text-red-600 text-xs font-semibold">
-              <AlertTriangle className="w-3.5 h-3.5" /> Account locked due to repeated failed attempts
-            </div>
-          )}
+        <Section icon={AlertTriangle} title={t('users.detailSecurity')}>
+          <Row
+            label={t('users.col2fa')}
+            value={
+              user.twoFactorEnabled ? (
+                <span className="inline-flex items-center gap-1 text-primary">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {t('users.twoFactorOn')}
+                </span>
+              ) : (
+                t('users.twoFactorOff')
+              )
+            }
+          />
+          <Row label={t('users.detailFailedLogins')} value={user.failedLoginAttempts} />
         </Section>
-      </motion.div>
-    </motion.div>
+      </div>
+    </Modal>
   );
 }
